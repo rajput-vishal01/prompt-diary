@@ -13,6 +13,9 @@ import {
 } from "../lib/vault";
 import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
+import { AccountView } from "./AccountView";
+import { getAuth, signOut, type AuthState } from "../lib/api";
+import { syncNow } from "../lib/sync";
 
 type Filter = "all" | "pinned" | { folderId: string };
 
@@ -21,11 +24,15 @@ export function App() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Prompt | "new" | null>(null);
+  const [auth, setAuthState] = useState<AuthState | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   const reload = () => void getVault().then(setVaultState);
 
   useEffect(() => {
     reload();
+    void getAuth().then(setAuthState);
     // context-menu saves happen in the background worker; refresh live
     const onChange = (_: unknown, area: string) => {
       if (area === "local") reload();
@@ -74,6 +81,14 @@ export function App() {
     await navigator.clipboard.writeText(prompt.body);
     await bumpUseCount(prompt.id);
     reload();
+  };
+
+  const handleSync = async () => {
+    setSyncMsg("Syncing…");
+    const result = await syncNow();
+    setSyncMsg(result.synced ? "Synced ✓" : (result.error ?? "Sync failed"));
+    reload();
+    setTimeout(() => setSyncMsg(null), 2500);
   };
 
   const handleNewFolder = async () => {
@@ -176,11 +191,46 @@ export function App() {
         </div>
 
         <div className="footer">
-          <span className="status-dot" />
-          <span>Local vault · {vault.prompts.length} prompts</span>
+          <span className={`status-dot ${auth ? "online" : ""}`} />
+          <span>
+            {syncMsg ??
+              (auth
+                ? `${auth.email} · ${vault.prompts.length} prompts`
+                : `Local vault · ${vault.prompts.length} prompts`)}
+          </span>
           <span className="spacer" />
+          {auth ? (
+            <>
+              <button className="link-btn" onClick={() => void handleSync()}>
+                Sync
+              </button>
+              <button
+                className="link-btn"
+                onClick={() => {
+                  void signOut().then(() => setAuthState(null));
+                }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button className="link-btn" onClick={() => setShowAccount(true)}>
+              Sign in to sync
+            </button>
+          )}
         </div>
       </main>
+
+      {showAccount && (
+        <AccountView
+          onDone={(a) => {
+            setAuthState(a);
+            setShowAccount(false);
+            void handleSync();
+          }}
+          onClose={() => setShowAccount(false)}
+        />
+      )}
 
       {editing && (
         <PromptEditor
