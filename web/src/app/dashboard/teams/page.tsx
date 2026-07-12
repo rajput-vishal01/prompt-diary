@@ -125,11 +125,13 @@ export default function TeamsPage() {
             {teams.map((t) => (
               <button
                 key={t.id}
-                className={`btn ${selected?.id === t.id ? "border-accent text-white" : "text-dim"}`}
+                className={`btn ${selected?.id === t.id ? "border-accent bg-tint text-accent" : "text-dim"}`}
                 onClick={() => setSelected(t)}
               >
                 {t.name}
-                {t.role === "owner" && " 👑"}
+                {t.role === "owner" && (
+                  <span className="ml-1 text-xs opacity-70">(owner)</span>
+                )}
               </button>
             ))}
           </div>
@@ -146,7 +148,7 @@ export default function TeamsPage() {
                     <span className="text-xs capitalize text-dim">{m.role}</span>
                     {isOwner && m.userId !== session?.user.id && (
                       <button
-                        className="text-xs text-red-400 hover:underline"
+                        className="text-xs text-danger hover:underline"
                         onClick={() => void removeMember(m.userId)}
                       >
                         remove
@@ -154,7 +156,7 @@ export default function TeamsPage() {
                     )}
                     {!isOwner && m.userId === session?.user.id && (
                       <button
-                        className="text-xs text-red-400 hover:underline"
+                        className="text-xs text-danger hover:underline"
                         onClick={() => void removeMember(m.userId)}
                       >
                         leave
@@ -181,10 +183,10 @@ export default function TeamsPage() {
                     </button>
                   </div>
                 )}
-                {message && <p className="text-xs text-emerald-400">{message}</p>}
+                {message && <p className="text-xs text-accent">{message}</p>}
                 {isOwner && (
                   <button
-                    className="pt-2 text-xs text-red-400 hover:underline"
+                    className="pt-2 text-xs text-danger hover:underline"
                     onClick={() => void deleteTeam()}
                   >
                     Delete team
@@ -207,13 +209,15 @@ export default function TeamsPage() {
                         {p.title}
                       </span>
                       {copiedId === p.id && (
-                        <span className="text-xs text-emerald-400">Copied!</span>
+                        <span className="text-xs text-accent">Copied!</span>
                       )}
                       <button className="btn" onClick={() => copy(p)}>
                         Copy
                       </button>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-dim">{p.body}</p>
+                    <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
+                      {p.body}
+                    </p>
                     <p className="mt-2 text-xs text-dim">
                       by {p.authorName} · used {p.useCount}×
                     </p>

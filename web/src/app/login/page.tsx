@@ -40,8 +40,8 @@ export default function LoginPage() {
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"
       >
-        <Link href="/" className="block text-center text-2xl font-bold">
-          Prompt<span className="text-accent">Diary</span>
+        <Link href="/" className="block text-center font-display text-2xl italic">
+          Prompt <span className="text-accent">Diary</span>
         </Link>
         <h1 className="text-center text-sm text-dim">
           {mode === "signin"
@@ -75,12 +75,12 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg bg-accent py-2.5 font-semibold text-white hover:brightness-110 disabled:opacity-50"
+          className="w-full rounded-md bg-accent py-2.5 font-semibold text-white transition-colors hover:bg-accent-deep disabled:opacity-50"
         >
           {busy ? "…" : mode === "signin" ? "Sign in" : "Sign up"}
         </button>

@@ -34,9 +34,15 @@ export const auth = betterAuth({
   trustedOrigins: (request) => {
     const origin = request?.headers.get("origin") ?? "";
     // the extension's origin is chrome-extension://<generated-id>
-    return origin.startsWith("chrome-extension://")
-      ? [origin]
-      : [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"];
+    if (origin.startsWith("chrome-extension://")) return [origin];
+    // dev: trust any localhost port (next dev hops ports when 3000 is taken)
+    if (
+      process.env.NODE_ENV !== "production" &&
+      /^http:\/\/localhost:\d+$/.test(origin)
+    ) {
+      return [origin];
+    }
+    return [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"];
   },
 });
 

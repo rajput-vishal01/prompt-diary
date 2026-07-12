@@ -101,7 +101,7 @@ export default function SettingsPage() {
             }}
           />
         </div>
-        {message && <p className="text-sm text-emerald-400">{message}</p>}
+        {message && <p className="text-sm text-accent">{message}</p>}
       </div>
 
       <div className="card space-y-2">

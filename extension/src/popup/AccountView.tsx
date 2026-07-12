@@ -33,7 +33,7 @@ export function AccountView({ onDone, onClose }: Props) {
   return (
     <div className="editor">
       <h2>{mode === "signin" ? "Sign in" : "Create account"}</h2>
-      <p style={{ color: "var(--text-dim)", fontSize: 12 }}>
+      <p style={{ color: "var(--dim)", fontSize: 12 }}>
         Sync your prompts across devices and share with your team.
       </p>
       {mode === "signup" && (
@@ -57,7 +57,7 @@ export function AccountView({ onDone, onClose }: Props) {
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && void submit()}
       />
-      {error && <p style={{ color: "var(--red)", fontSize: 12 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
       <div style={{ flex: 1 }} />
       <div className="actions">
         <button

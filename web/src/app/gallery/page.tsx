@@ -86,10 +86,10 @@ export default function GalleryPage() {
             <div className="flex items-center gap-2">
               <h2 className="flex-1 truncate font-semibold">{p.title}</h2>
               {copiedId === p.id && (
-                <span className="text-xs text-emerald-400">Copied!</span>
+                <span className="text-xs text-accent">Copied!</span>
               )}
               {addedId === p.id && (
-                <span className="text-xs text-emerald-400">Added!</span>
+                <span className="text-xs text-accent">Added!</span>
               )}
               <button className="btn" onClick={() => copy(p)}>
                 Copy
@@ -100,7 +100,9 @@ export default function GalleryPage() {
                 </button>
               )}
             </div>
-            <p className="mt-1 line-clamp-3 text-sm text-dim">{p.body}</p>
+            <p className="mt-1 line-clamp-3 font-mono text-xs leading-relaxed text-dim">
+              {p.body}
+            </p>
             <div className="mt-3 flex items-center gap-2">
               {p.tags.map((t) => (
                 <span key={t} className="chip">

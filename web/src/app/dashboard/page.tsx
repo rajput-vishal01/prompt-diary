@@ -106,38 +106,48 @@ export default function PromptsPage() {
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-raised">
         {filtered.length === 0 && (
-          <p className="py-16 text-center text-dim">
+          <p className="py-16 text-center text-sm text-dim">
             No prompts yet. Save one from the extension or click “New prompt”.
           </p>
         )}
         {filtered.map((p) => {
           const folder = folders.find((f) => f.id === p.folderId);
           return (
-            <div key={p.id} className="card">
-              <div className="flex items-center gap-2">
-                {p.pinned && <span className="text-accent">★</span>}
-                <h2 className="flex-1 truncate font-semibold">{p.title}</h2>
+            <div key={p.id} className="group px-4 py-3 transition-colors hover:bg-hover">
+              <div className="flex items-baseline gap-2">
+                {p.pinned && <span className="text-xs text-accent">★</span>}
+                <h2 className="flex-1 truncate text-sm font-semibold">{p.title}</h2>
                 {copiedId === p.id && (
-                  <span className="text-xs font-semibold text-emerald-400">
-                    Copied!
-                  </span>
+                  <span className="text-xs font-bold text-accent">Copied</span>
                 )}
-                <button className="btn" onClick={() => copy(p)}>
-                  Copy
-                </button>
-                <button className="btn" onClick={() => setEditing(p)}>
-                  Edit
-                </button>
+                <span className="flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                  <button className="btn px-2 py-0.5 text-xs" onClick={() => copy(p)}>
+                    Copy
+                  </button>
+                  <button className="btn px-2 py-0.5 text-xs" onClick={() => setEditing(p)}>
+                    Edit
+                  </button>
+                </span>
               </div>
-              <p className="mt-1 line-clamp-2 text-sm text-dim">{p.body}</p>
-              <div className="mt-3 flex items-center gap-2">
+              <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
+                {p.body}
+              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <span
+                  className={`vis-badge ${
+                    p.visibility === "public"
+                      ? "text-accent"
+                      : p.visibility === "team"
+                        ? "text-amber"
+                        : "text-dim"
+                  }`}
+                >
+                  {p.visibility}
+                </span>
                 {folder && (
-                  <span
-                    className="rounded-full border px-2.5 py-0.5 text-xs"
-                    style={{ borderColor: folder.color, color: folder.color }}
-                  >
+                  <span className="text-xs font-semibold" style={{ color: folder.color }}>
                     {folder.name}
                   </span>
                 )}
@@ -146,19 +156,8 @@ export default function PromptsPage() {
                     {t}
                   </span>
                 ))}
-                <span
-                  className={`rounded-full border border-line px-2.5 py-0.5 text-xs capitalize ${
-                    p.visibility === "public"
-                      ? "text-emerald-400"
-                      : p.visibility === "team"
-                        ? "text-amber-400"
-                        : "text-dim"
-                  }`}
-                >
-                  {p.visibility}
-                </span>
-                <span className="ml-auto text-xs text-dim">
-                  used {p.useCount}×
+                <span className="ml-auto text-xs tabular-nums text-dim">
+                  {p.useCount > 0 ? `${p.useCount}×` : ""}
                 </span>
               </div>
             </div>
@@ -243,7 +242,7 @@ function PromptModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6">
       <div className="w-full max-w-xl space-y-3 rounded-xl border border-line bg-raised p-6">
         <h2 className="text-lg font-bold">
           {prompt ? "Edit prompt" : "New prompt"}
@@ -256,7 +255,7 @@ function PromptModal({
           autoFocus
         />
         <textarea
-          className="input h-40 resize-none"
+          className="input h-40 resize-none font-mono text-xs leading-relaxed"
           placeholder="Your prompt…"
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -312,10 +311,10 @@ function PromptModal({
           />
           Pin to top
         </label>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           {prompt && (
-            <button className="btn mr-auto text-red-400" onClick={() => void remove()}>
+            <button className="btn mr-auto text-danger" onClick={() => void remove()}>
               Delete
             </button>
           )}

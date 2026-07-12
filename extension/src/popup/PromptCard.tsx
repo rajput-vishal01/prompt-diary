@@ -21,16 +21,17 @@ export function PromptCard({ prompt, folders, onCopy, onEdit, onTogglePin }: Pro
   };
 
   return (
-    <div className="card" onClick={copy} title="Click to copy">
-      <div className="card-head">
+    <div className="row" onClick={copy} title="Click to copy">
+      <div className="row-head">
         {prompt.pinned && <span className="pin">★</span>}
-        <span className="card-title">{prompt.title}</span>
-        {copied && <span className="copied">Copied!</span>}
+        <span className="row-title">{prompt.title}</span>
+        {copied && <span className="copied">Copied</span>}
       </div>
-      <div className="card-body">{prompt.body}</div>
-      <div className="card-foot">
+      <div className="row-body">{prompt.body}</div>
+      <div className="row-foot">
+        <span className={`vis ${prompt.visibility}`}>{prompt.visibility}</span>
         {folder && (
-          <span className="tag" style={{ background: "transparent", border: `1px solid ${folder.color}`, color: folder.color }}>
+          <span className="folder-chip" style={{ color: folder.color }}>
             {folder.name}
           </span>
         )}
@@ -39,26 +40,30 @@ export function PromptCard({ prompt, folders, onCopy, onEdit, onTogglePin }: Pro
             {t}
           </span>
         ))}
-        <span className={`vis ${prompt.visibility}`}>{prompt.visibility}</span>
         <span className="spacer" />
-        <button
-          className="btn small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onTogglePin();
-          }}
-        >
-          {prompt.pinned ? "Unpin" : "Pin"}
-        </button>
-        <button
-          className="btn small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-        >
-          Edit
-        </button>
+        {prompt.useCount > 0 && (
+          <span className="use-count">{prompt.useCount}×</span>
+        )}
+        <span className="row-actions">
+          <button
+            className="btn small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin();
+            }}
+          >
+            {prompt.pinned ? "Unpin" : "Pin"}
+          </button>
+          <button
+            className="btn small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            Edit
+          </button>
+        </span>
       </div>
     </div>
   );
