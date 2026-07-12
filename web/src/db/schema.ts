@@ -1,6 +1,5 @@
 import {
   boolean,
-  check,
   index,
   integer,
   pgEnum,
@@ -10,7 +9,6 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 
 // ============ Better Auth tables ============
 
@@ -145,13 +143,12 @@ export const prompts = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
+  // "team visibility requires team_id" is enforced in the API layer, not as a
+  // DB check: the FK's on-delete-set-null on team_id would violate a check
+  // whenever a team (or its owner) is deleted.
   (t) => [
     index("prompts_user_idx").on(t.userId),
     index("prompts_team_idx").on(t.teamId),
     index("prompts_visibility_idx").on(t.visibility),
-    check(
-      "team_visibility_requires_team",
-      sql`${t.visibility} != 'team' OR ${t.teamId} IS NOT NULL`,
-    ),
   ],
 );

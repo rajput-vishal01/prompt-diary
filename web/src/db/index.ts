@@ -2,7 +2,12 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ??
+  (process.env.NODE_ENV === "production"
+    ? undefined
+    : // local docker fallback so `bun test` works without env plumbing
+      "postgres://promptdiary:promptdiary@localhost:5433/promptdiary");
 if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }

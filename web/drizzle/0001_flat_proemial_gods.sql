@@ -1,0 +1,1 @@
+ALTER TABLE "prompts" DROP CONSTRAINT "team_visibility_requires_team";

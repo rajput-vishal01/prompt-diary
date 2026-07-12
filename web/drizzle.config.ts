@@ -6,6 +6,6 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     // eslint-disable-next-line no-restricted-syntax
-    url: process.env.DATABASE_URL ?? "postgres://promptdiary:promptdiary@localhost:5432/promptdiary",
+    url: process.env.DATABASE_URL ?? "postgres://promptdiary:promptdiary@localhost:5433/promptdiary",
   },
 });
