@@ -3,7 +3,14 @@ import { eq } from "drizzle-orm";
 import { PromptUpdateSchema } from "shared";
 import { db } from "@/db";
 import { prompts } from "@/db/schema";
-import { forbidden, guard, jsonErr, jsonOk, notFound } from "@/lib/api";
+import {
+  forbidden,
+  guard,
+  jsonErr,
+  jsonOk,
+  needsVerification,
+  notFound,
+} from "@/lib/api";
 import { canAccessPrompt, isTeamMember } from "@/lib/permissions";
 
 type Params = { params: Promise<{ id: string }> };
@@ -45,6 +52,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!(await isTeamMember(g.user.id, nextTeamId))) {
       return jsonErr("Not a member of that team", 403);
     }
+  }
+  if (
+    nextVisibility === "public" &&
+    row.visibility !== "public" &&
+    !g.user.emailVerified
+  ) {
+    return needsVerification();
   }
 
   const [updated] = await db

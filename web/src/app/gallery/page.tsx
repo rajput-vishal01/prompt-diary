@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
+import { Sidebar } from "@/components/Sidebar";
 
 interface GalleryPrompt {
   id: string;
@@ -52,21 +53,23 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Public Gallery</h1>
-          <p className="text-sm text-dim">
-            Open-source prompts shared by the community.
-          </p>
+    <div className="flex min-h-screen">
+      {/* logged-in users arrive from the dashboard — keep them in its shell */}
+      <Sidebar />
+      <div className="mx-auto w-full max-w-4xl p-8">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Public Gallery</h1>
+            <p className="text-sm text-dim">
+              Open-source prompts shared by the community.
+            </p>
+          </div>
+          {!session && (
+            <Link href="/login" className="btn-primary">
+              Sign in
+            </Link>
+          )}
         </div>
-        <Link
-          href={session ? "/dashboard" : "/login"}
-          className="btn-primary"
-        >
-          {session ? "My dashboard" : "Sign in"}
-        </Link>
-      </div>
 
       <input
         className="input mb-4"
@@ -115,6 +118,7 @@ export default function GalleryPage() {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

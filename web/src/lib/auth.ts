@@ -19,6 +19,19 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    autoSignIn: true, // registering IS signing in — no double form fill
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      // ponytail: dev logs the link; wire a real provider (Resend/SES) for prod.
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[verify-email] ${user.email} -> ${url}`);
+        return;
+      }
+      // TODO(prod): send via Resend once RESEND_API_KEY is configured
+      console.warn(`[verify-email] no mail provider configured for ${user.email}`);
+    },
   },
   ...(googleEnabled && {
     socialProviders: {

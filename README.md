@@ -13,9 +13,10 @@ Postgres).
 - **Save from anywhere** — highlight text on ChatGPT, Claude, or any page → right-click → *Save to Prompt Diary*
 - **Vault popup** — folders, tags, search, pin, one-click copy
 - **Offline-first** — extension works fully without an account; local vault in `chrome.storage.local`
-- **Accounts + sync** — email/password (Google OAuth ready), last-write-wins sync across devices
+- **Accounts + sync** — email/password with auto sign-in on registration (Google OAuth ready), last-write-wins sync across devices
 - **Visibility per prompt** — `private` (closed), `team` (shared with a team), `public` (open source)
-- **Teams** — create teams, invite by email, shared team prompt library
+- **Email verification gates** — only verified accounts can publish public prompts, create teams, or accept team invites (in dev the verification link is printed to the server console; wire Resend/SES for prod)
+- **Teams** — invite by email; the invitee sees the invite on their Teams page and must accept before joining. Shared team prompt library per team
 - **Public gallery** — browse and search community prompts, add them to your own diary
 - **Backup** — JSON export/import from the dashboard
 

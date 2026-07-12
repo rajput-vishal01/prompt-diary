@@ -2,15 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { err, ok } from "shared";
 import { auth } from "./auth";
 
-export type AuthedUser = { id: string; email: string; name: string };
+export type AuthedUser = {
+  id: string;
+  email: string;
+  name: string;
+  emailVerified: boolean;
+};
 
 /** Resolve the current user from cookie session (dashboard) or bearer token (extension). */
 export async function getUser(req: NextRequest): Promise<AuthedUser | null> {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return null;
-  const { id, email, name } = session.user;
-  return { id, email, name };
+  const { id, email, name, emailVerified } = session.user;
+  return { id, email, name, emailVerified };
 }
+
+export const needsVerification = () =>
+  jsonErr("Verify your email address first", 403);
 
 export function jsonOk<T>(data: T, status = 200) {
   return NextResponse.json(ok(data), { status });

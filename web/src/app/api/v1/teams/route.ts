@@ -2,26 +2,13 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { TeamCreateSchema } from "shared";
 import { db } from "@/db";
-import { teamInvites, teamMembers, teams } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { teamMembers, teams } from "@/db/schema";
+import { guard, jsonErr, jsonOk, needsVerification } from "@/lib/api";
 
-// GET /api/v1/teams — my teams (also auto-accepts pending email invites)
+// GET /api/v1/teams — teams I'm a member of
 export async function GET(req: NextRequest) {
   const g = await guard(req);
   if ("response" in g) return g.response;
-
-  // auto-accept: any pending invites for my email become memberships
-  const pending = await db
-    .select()
-    .from(teamInvites)
-    .where(eq(teamInvites.email, g.user.email));
-  for (const invite of pending) {
-    await db
-      .insert(teamMembers)
-      .values({ teamId: invite.teamId, userId: g.user.id, role: "member" })
-      .onConflictDoNothing();
-    await db.delete(teamInvites).where(eq(teamInvites.id, invite.id));
-  }
 
   const rows = await db
     .select({
@@ -38,10 +25,11 @@ export async function GET(req: NextRequest) {
   return jsonOk(rows);
 }
 
-// POST /api/v1/teams — create team, creator becomes owner
+// POST /api/v1/teams — create team (verified users only), creator becomes owner
 export async function POST(req: NextRequest) {
   const g = await guard(req);
   if ("response" in g) return g.response;
+  if (!g.user.emailVerified) return needsVerification();
 
   const parsed = TeamCreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonErr(parsed.error.message, 400);

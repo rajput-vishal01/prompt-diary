@@ -36,8 +36,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   return jsonOk({ members, invites });
 }
 
-// POST { email } — invite (owner only). Existing users join immediately,
-// unknown emails become pending invites accepted on their next login.
+// POST { email } — invite (owner only). Nobody is added directly:
+// the invitee sees the invite in their Teams page and must accept it.
 export async function POST(req: NextRequest, { params }: Params) {
   const g = await guard(req);
   if ("response" in g) return g.response;
@@ -49,13 +49,18 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!parsed.success) return jsonErr(parsed.error.message, 400);
   const email = parsed.data.email.toLowerCase();
 
+  if (email === g.user.email.toLowerCase()) {
+    return jsonErr("You are already in this team", 400);
+  }
   const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
   if (existing) {
-    await db
-      .insert(teamMembers)
-      .values({ teamId, userId: existing.id, role: "member" })
-      .onConflictDoNothing();
-    return jsonOk({ status: "added" }, 201);
+    const member = await db.query.teamMembers.findFirst({
+      where: and(
+        eq(teamMembers.teamId, teamId),
+        eq(teamMembers.userId, existing.id),
+      ),
+    });
+    if (member) return jsonErr("Already a member of this team", 400);
   }
 
   await db

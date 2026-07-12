@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { PromptCreateSchema } from "shared";
 import { db } from "@/db";
 import { prompts } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { guard, jsonErr, jsonOk, needsVerification } from "@/lib/api";
 import { isTeamMember } from "@/lib/permissions";
 
 // GET /api/v1/prompts?folderId=&q=  — list my prompts
@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
     if (!(await isTeamMember(g.user.id, input.teamId))) {
       return jsonErr("Not a member of that team", 403);
     }
+  }
+  if (input.visibility === "public" && !g.user.emailVerified) {
+    return needsVerification();
   }
 
   const [row] = await db

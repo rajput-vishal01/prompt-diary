@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { signOut, useSession } from "@/lib/auth-client";
-
-const NAV = [
-  { href: "/dashboard", label: "My Prompts" },
-  { href: "/dashboard/teams", label: "Teams" },
-  { href: "/gallery", label: "Public Gallery" },
-  { href: "/dashboard/settings", label: "Settings" },
-];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { authClient, useSession } from "@/lib/auth-client";
+import { Sidebar } from "@/components/Sidebar";
 
 export default function DashboardLayout({
   children,
@@ -19,7 +12,7 @@ export default function DashboardLayout({
 }) {
   const { data: session, isPending } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
+  const [verifySent, setVerifySent] = useState(false);
 
   useEffect(() => {
     if (!isPending && !session) router.replace("/login");
@@ -33,38 +26,39 @@ export default function DashboardLayout({
     );
   }
 
+  const resendVerification = async () => {
+    await authClient.sendVerificationEmail({
+      email: session.user.email,
+      callbackURL: "/dashboard",
+    });
+    setVerifySent(true);
+  };
+
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-56 flex-col border-r border-line bg-raised p-4">
-        <Link href="/" className="mb-6 px-2 font-display text-lg italic">
-          Prompt <span className="text-accent">Diary</span>
-        </Link>
-        <nav className="flex flex-col gap-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-lg px-3 py-2 text-sm ${
-                pathname === item.href
-                  ? "bg-tint font-semibold text-accent"
-                  : "text-dim hover:bg-hover hover:text-ink"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-auto space-y-2 px-2">
-          <p className="truncate text-xs text-dim">{session.user.email}</p>
-          <button
-            className="text-sm text-accent hover:underline"
-            onClick={() => void signOut().then(() => router.push("/"))}
-          >
-            Sign out
-          </button>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">
+        {!session.user.emailVerified && (
+          <div className="flex items-center gap-3 border-b border-line bg-tint px-8 py-2.5 text-sm">
+            <span className="text-ink">
+              Verify your email to publish public prompts and join teams.
+            </span>
+            {verifySent ? (
+              <span className="font-semibold text-accent">
+                Verification link sent — check your inbox.
+              </span>
+            ) : (
+              <button
+                className="font-semibold text-accent hover:underline"
+                onClick={() => void resendVerification()}
+              >
+                Resend link
+              </button>
+            )}
+          </div>
+        )}
+        <div className="p-8">{children}</div>
+      </main>
     </div>
   );
 }

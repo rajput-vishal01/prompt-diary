@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
     });
     if (existing && existing.userId !== userId) continue; // not yours: skip
 
-    // team visibility must be backed by a real membership
+    // team visibility must be backed by a real membership;
+    // public requires a verified email — otherwise fall back to private
     let visibility = p.visibility ?? "private";
     let teamId = p.teamId ?? null;
     if (visibility === "team") {
@@ -65,6 +66,9 @@ export async function POST(req: NextRequest) {
       }
     } else {
       teamId = null;
+    }
+    if (visibility === "public" && !g.user.emailVerified) {
+      visibility = "private";
     }
 
     const clientUpdatedAt = p.updatedAt ? new Date(p.updatedAt) : new Date();
