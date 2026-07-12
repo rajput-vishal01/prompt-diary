@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: prompt-diary-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: promptdiary
+      POSTGRES_PASSWORD: promptdiary
+      POSTGRES_DB: promptdiary
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promptdiary"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
