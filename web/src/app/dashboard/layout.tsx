@@ -26,9 +26,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    // h-screen + overflow-hidden: the app chrome never scrolls; pages scroll
+    // their own content (the prompt list scrolls, not the whole dashboard)
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );
 }

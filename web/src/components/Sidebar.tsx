@@ -9,7 +9,6 @@ const NAV = [
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/gallery", label: "Public Gallery" },
   { href: "/dashboard/profile", label: "Profile" },
-  { href: "/dashboard/settings", label: "Settings" },
 ];
 
 export function Sidebar() {

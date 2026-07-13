@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import type { Folder, Prompt, Visibility } from "shared";
 import { VISIBILITIES } from "shared";
 import { api } from "@/lib/client-api";
+
+gsap.registerPlugin(useGSAP);
 
 interface TeamRow {
   id: string;
@@ -13,6 +17,7 @@ interface TeamRow {
 
 export default function PromptsPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [query, setQuery] = useState("");
@@ -20,14 +25,33 @@ export default function PromptsPage() {
   const [visFilter, setVisFilter] = useState("");
   const [editing, setEditing] = useState<Prompt | "new" | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const reload = () => {
-    void api<Prompt[]>("/api/v1/prompts").then(setPrompts).catch(() => {});
+  const reloadPrompts = () =>
+    api<Prompt[]>("/api/v1/prompts")
+      .then(setPrompts)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+
+  useEffect(() => {
+    void reloadPrompts();
     void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
     void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
-  };
+  }, []);
 
-  useEffect(reload, []);
+  // stagger the ledger rows in once, after the first load
+  useGSAP(
+    () => {
+      if (isLoading || prompts.length === 0) return;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      gsap.fromTo(
+        ".ledger-row",
+        { opacity: 0, y: 8 },
+        { opacity: 1, y: 0, duration: 0.3, stagger: 0.03, ease: "power2.out" },
+      );
+    },
+    { scope: listRef, dependencies: [isLoading] },
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,24 +71,35 @@ export default function PromptsPage() {
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 1200);
+    // optimistic bump — no refetch, the list must not flash
+    setPrompts((prev) =>
+      prev.map((x) => (x.id === p.id ? { ...x, useCount: x.useCount + 1 } : x)),
+    );
     void api(`/api/v1/prompts/${p.id}`, {
       method: "PATCH",
       body: { useCount: p.useCount + 1 },
-    }).then(reload);
+    }).catch(() => {});
   };
 
   const newFolder = async () => {
     const name = window.prompt("Folder name");
     if (name?.trim()) {
       await api("/api/v1/folders", { method: "POST", body: { name: name.trim() } });
-      reload();
+      void api<Folder[]>("/api/v1/folders").then(setFolders);
     }
   };
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Prompts</h1>
+    <div className="mx-auto flex h-full max-w-4xl flex-col">
+      <div className="mb-6 flex items-baseline justify-between">
+        <h1 className="text-2xl font-bold">
+          My Prompts
+          {!isLoading && (
+            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
+              {prompts.length} {prompts.length === 1 ? "entry" : "entries"}
+            </span>
+          )}
+        </h1>
         <button className="btn-primary" onClick={() => setEditing("new")}>
           + New prompt
         </button>
@@ -106,63 +141,87 @@ export default function PromptsPage() {
         </button>
       </div>
 
-      <div className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-raised">
-        {filtered.length === 0 && (
+      {/* only this list scrolls — never the page chrome */}
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 divide-y divide-line overflow-y-auto rounded-[10px] border border-line bg-raised"
+      >
+        {isLoading &&
+          Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="px-4 py-3">
+              <div className="skeleton h-4 w-2/5" />
+              <div className="skeleton mt-2 h-3 w-4/5" />
+              <div className="skeleton mt-2 h-3 w-1/4" />
+            </div>
+          ))}
+        {!isLoading && filtered.length === 0 && (
           <p className="py-16 text-center text-sm text-dim">
-            No prompts yet. Save one from the extension or click “New prompt”.
+            {prompts.length === 0
+              ? "No prompts yet. Save one from the extension or click “New prompt”."
+              : "Nothing matches your filters."}
           </p>
         )}
-        {filtered.map((p) => {
-          const folder = folders.find((f) => f.id === p.folderId);
-          return (
-            <div key={p.id} className="group px-4 py-3 transition-colors hover:bg-hover">
-              <div className="flex items-baseline gap-2">
-                {p.pinned && <span className="text-xs text-accent">★</span>}
-                <h2 className="flex-1 truncate text-sm font-semibold">{p.title}</h2>
-                {copiedId === p.id && (
-                  <span className="text-xs font-bold text-accent">Copied</span>
-                )}
-                <span className="flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                  <button className="btn px-2 py-0.5 text-xs" onClick={() => copy(p)}>
-                    Copy
-                  </button>
-                  <button className="btn px-2 py-0.5 text-xs" onClick={() => setEditing(p)}>
-                    Edit
-                  </button>
-                </span>
-              </div>
-              <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
-                {p.body}
-              </p>
-              <div className="mt-2 flex items-center gap-3">
-                <span
-                  className={`vis-badge ${
-                    p.visibility === "public"
-                      ? "text-accent"
-                      : p.visibility === "team"
-                        ? "text-amber"
-                        : "text-dim"
-                  }`}
-                >
-                  {p.visibility}
-                </span>
-                {folder && (
-                  <span className="text-xs font-semibold" style={{ color: folder.color }}>
-                    {folder.name}
+        {!isLoading &&
+          filtered.map((p) => {
+            const folder = folders.find((f) => f.id === p.folderId);
+            return (
+              <div
+                key={p.id}
+                className="ledger-row group px-4 py-3 transition-colors hover:bg-hover"
+              >
+                <div className="flex items-baseline gap-2">
+                  {p.pinned && <span className="text-xs text-accent">★</span>}
+                  <h2 className="flex-1 truncate text-sm font-semibold">{p.title}</h2>
+                  {copiedId === p.id && (
+                    <span className="text-xs font-bold text-accent">Copied</span>
+                  )}
+                  <span className="flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                    <button className="btn px-2 py-0.5 text-xs" onClick={() => copy(p)}>
+                      Copy
+                    </button>
+                    <button
+                      className="btn px-2 py-0.5 text-xs"
+                      onClick={() => setEditing(p)}
+                    >
+                      Edit
+                    </button>
                   </span>
-                )}
-                {p.tags.map((t) => (
-                  <span key={t} className="chip">
-                    {t}
+                </div>
+                <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
+                  {p.body}
+                </p>
+                <div className="mt-2 flex items-center gap-3">
+                  <span
+                    className={`vis-badge ${
+                      p.visibility === "public"
+                        ? "text-accent"
+                        : p.visibility === "team"
+                          ? "text-amber"
+                          : "text-dim"
+                    }`}
+                  >
+                    {p.visibility}
                   </span>
-                ))}
-                <span className="ml-auto text-xs tabular-nums text-dim">
-                  {p.useCount > 0 ? `${p.useCount}×` : ""}
-                </span>
+                  {folder && (
+                    <span
+                      className="text-xs font-semibold"
+                      style={{ color: folder.color }}
+                    >
+                      {folder.name}
+                    </span>
+                  )}
+                  {p.tags.map((t) => (
+                    <span key={t} className="chip">
+                      {t}
+                    </span>
+                  ))}
+                  <span className="ml-auto text-xs tabular-nums text-dim">
+                    {p.useCount > 0 ? `${p.useCount}×` : ""}
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       {editing && (
@@ -173,7 +232,7 @@ export default function PromptsPage() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            reload();
+            void reloadPrompts();
           }}
         />
       )}
