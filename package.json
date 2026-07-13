@@ -8,7 +8,11 @@
   ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
-    "build": "bun run --filter '*' build",
+    "build": "bun run build:web && bun run build:extension",
+    "build:web": "cd web && bun run build",
+    "build:extension": "cd extension && bun run build",
+    "package:extension": "bun run build:extension && powershell -Command \"Compress-Archive -Path extension/dist/* -DestinationPath prompt-diary-extension.zip -Force\"",
+    "test": "cd web && bun test",
     "db:up": "docker compose up -d",
     "db:migrate": "cd web && bun run db:migrate",
     "dev:web": "cd web && bun run dev",

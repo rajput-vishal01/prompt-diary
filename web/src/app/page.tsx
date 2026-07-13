@@ -205,7 +205,12 @@ export default function Home() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6 text-xs text-dim">
           <span className="font-display italic">Prompt Diary</span>
-          <span>Local-first. Open at heart.</span>
+          <span className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-ink">
+              Privacy
+            </Link>
+            <span>Local-first. Open at heart.</span>
+          </span>
         </div>
       </footer>
     </div>

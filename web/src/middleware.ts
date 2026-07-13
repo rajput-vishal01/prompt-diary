@@ -9,7 +9,22 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 
+function hasSessionCookie(request: NextRequest): boolean {
+  // better-auth cookie is __Secure- prefixed on https (prod)
+  return (
+    !!request.cookies.get("better-auth.session_token") ||
+    !!request.cookies.get("__Secure-better-auth.session_token")
+  );
+}
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // signed-in users skip the marketing/login pages entirely
+  if ((pathname === "/" || pathname === "/login") && hasSessionCookie(request)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   const origin = request.headers.get("origin") ?? "";
   const isExtension = origin.startsWith("chrome-extension://");
 
@@ -31,5 +46,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/", "/login", "/api/:path*"],
 };

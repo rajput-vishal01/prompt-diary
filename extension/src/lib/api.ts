@@ -1,8 +1,10 @@
 import type { ApiResponse } from "shared";
 
-// Default API host; override by setting { apiUrl } in chrome.storage.local
-// (e.g. your deployed Vercel URL).
-const DEFAULT_API_URL = "http://localhost:3000";
+// Default API host — set VITE_API_URL at build time for the store build
+// (see README "Deploying"). Can still be overridden per-install by setting
+// { apiUrl } in chrome.storage.local.
+const DEFAULT_API_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3000";
 
 export interface AuthState {
   token: string;

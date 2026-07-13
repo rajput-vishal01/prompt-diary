@@ -15,7 +15,8 @@ export default defineManifest({
     type: "module",
   },
   permissions: ["storage", "contextMenus", "clipboardWrite", "identity"],
-  host_permissions: ["http://localhost:3000/*"],
+  // VITE_API_URL=https://your-app.vercel.app bun run build  → store build
+  host_permissions: [`${process.env.VITE_API_URL ?? "http://localhost:3000"}/*`],
   icons: {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

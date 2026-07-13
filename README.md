@@ -55,8 +55,22 @@ sync*). Same account everywhere.
 
 ### Deploying
 
-- **Web**: deploy `web/` to Vercel. Set `DATABASE_URL` (Neon connection string), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (your prod URL), and optionally Google OAuth credentials. Run `bunx drizzle-kit migrate` against Neon.
-- **Extension**: point it at prod by setting `{ "apiUrl": "https://your-app.vercel.app" }` in its storage (and add the URL to `host_permissions` in `extension/manifest.config.ts`), rebuild, and submit `extension/dist` to the Chrome Web Store.
+**Deployed URL**: _<add your Vercel URL here after deploying — you'll need it below>_
+
+1. **Web → Vercel**: import the repo, set root directory to `web/`. Env vars
+   (from `.env.example`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`,
+   `BETTER_AUTH_URL` (the deployed URL itself), `GMAIL_USER`,
+   `GMAIL_APP_PASSWORD`, and optionally `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
+2. **Migrate Neon**: `cd web && DATABASE_URL=<neon-url> bunx drizzle-kit migrate`
+3. **Google OAuth** (if used): in Google Cloud Console add the authorized
+   redirect URI `https://<deployed-url>/api/auth/callback/google`.
+4. **Extension store build**:
+   ```bash
+   VITE_API_URL=https://<deployed-url> bun run package:extension
+   ```
+   This bakes the prod URL into the API client + `host_permissions` and
+   produces `prompt-diary-extension.zip` at the repo root — upload that zip
+   to the Chrome Web Store Developer Dashboard.
 
 ## Security model
 
