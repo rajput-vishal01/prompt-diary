@@ -8,6 +8,7 @@ const NAV = [
   { href: "/dashboard", label: "My Prompts" },
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/gallery", label: "Public Gallery" },
+  { href: "/dashboard/profile", label: "Profile" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

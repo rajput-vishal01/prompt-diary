@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
 
 export default function DashboardLayout({
@@ -12,7 +12,6 @@ export default function DashboardLayout({
 }) {
   const { data: session, isPending } = useSession();
   const router = useRouter();
-  const [verifySent, setVerifySent] = useState(false);
 
   useEffect(() => {
     if (!isPending && !session) router.replace("/login");
@@ -26,39 +25,10 @@ export default function DashboardLayout({
     );
   }
 
-  const resendVerification = async () => {
-    await authClient.sendVerificationEmail({
-      email: session.user.email,
-      callbackURL: "/dashboard",
-    });
-    setVerifySent(true);
-  };
-
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        {!session.user.emailVerified && (
-          <div className="flex items-center gap-3 border-b border-line bg-tint px-8 py-2.5 text-sm">
-            <span className="text-ink">
-              Verify your email to publish public prompts and join teams.
-            </span>
-            {verifySent ? (
-              <span className="font-semibold text-accent">
-                Verification link sent — check your inbox.
-              </span>
-            ) : (
-              <button
-                className="font-semibold text-accent hover:underline"
-                onClick={() => void resendVerification()}
-              >
-                Resend link
-              </button>
-            )}
-          </div>
-        )}
-        <div className="p-8">{children}</div>
-      </main>
+      <main className="flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );
 }

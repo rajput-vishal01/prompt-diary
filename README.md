@@ -37,9 +37,9 @@ Prereqs: [Bun](https://bun.sh), Docker, Chrome.
 ```bash
 bun install
 
-# 1. database
+# 1. database + env (ONE .env at the repo root feeds everything)
 docker compose up -d                # postgres on localhost:5433
-cp .env.example web/.env.local      # fill in BETTER_AUTH_SECRET
+cp .env.example .env                # fill in BETTER_AUTH_SECRET (+ GMAIL_* for emails)
 cd web && bun run db:migrate
 
 # 2. web (dashboard + API) — http://localhost:3000

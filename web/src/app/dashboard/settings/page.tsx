@@ -2,11 +2,8 @@
 
 import type { Folder, Prompt } from "shared";
 import { api } from "@/lib/client-api";
-import { useSession } from "@/lib/auth-client";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
-
   const exportJson = async () => {
     const [prompts, folders] = await Promise.all([
       api<Prompt[]>("/api/v1/prompts"),
@@ -27,18 +24,6 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
-
-      <div className="card space-y-2">
-        <h2 className="font-semibold">Account</h2>
-        <p className="text-sm text-dim">
-          {session?.user.name} · {session?.user.email}
-          {session?.user.emailVerified ? (
-            <span className="ml-2 font-semibold text-accent">verified</span>
-          ) : (
-            <span className="ml-2 font-semibold text-amber">unverified</span>
-          )}
-        </p>
-      </div>
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Backup</h2>
