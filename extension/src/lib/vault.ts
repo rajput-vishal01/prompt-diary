@@ -55,6 +55,7 @@ export async function addPrompt(input: NewPrompt): Promise<Prompt> {
     teamId: input.teamId ?? null,
     useCount: 0,
     pinned: false,
+    sourceId: null,
     createdAt: now(),
     updatedAt: now(),
   };

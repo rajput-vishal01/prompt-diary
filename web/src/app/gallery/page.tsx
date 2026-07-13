@@ -21,7 +21,7 @@ export default function GalleryPage() {
   const [prompts, setPrompts] = useState<GalleryPrompt[]>([]);
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [addedId, setAddedId] = useState<string | null>(null);
+  const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -32,6 +32,18 @@ export default function GalleryPage() {
     return () => clearTimeout(t);
   }, [query]);
 
+  // which gallery prompts are already in my diary (by sourceId)
+  useEffect(() => {
+    if (!session) return;
+    void api<{ sourceId: string | null }[]>("/api/v1/prompts")
+      .then((mine) =>
+        setOwnedSourceIds(
+          new Set(mine.map((p) => p.sourceId).filter((s): s is string => !!s)),
+        ),
+      )
+      .catch(() => {});
+  }, [session]);
+
   const copy = (p: GalleryPrompt) => {
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
@@ -39,17 +51,21 @@ export default function GalleryPage() {
   };
 
   const addToDiary = async (p: GalleryPrompt) => {
-    await api("/api/v1/prompts", {
-      method: "POST",
-      body: {
-        title: p.title,
-        body: p.body,
-        tags: p.tags,
-        visibility: "private",
-      },
-    });
-    setAddedId(p.id);
-    setTimeout(() => setAddedId(null), 1500);
+    try {
+      await api("/api/v1/prompts", {
+        method: "POST",
+        body: {
+          title: p.title,
+          body: p.body,
+          tags: p.tags,
+          visibility: "private",
+          sourceId: p.id,
+        },
+      });
+    } catch {
+      // 409 = already there; fall through and mark it owned either way
+    }
+    setOwnedSourceIds((prev) => new Set(prev).add(p.id));
   };
 
   return (
@@ -91,17 +107,19 @@ export default function GalleryPage() {
               {copiedId === p.id && (
                 <span className="text-xs text-accent">Copied!</span>
               )}
-              {addedId === p.id && (
-                <span className="text-xs text-accent">Added!</span>
-              )}
               <button className="btn" onClick={() => copy(p)}>
                 Copy
               </button>
-              {session && (
-                <button className="btn" onClick={() => void addToDiary(p)}>
-                  + Add to my diary
-                </button>
-              )}
+              {session &&
+                (ownedSourceIds.has(p.id) ? (
+                  <span className="text-xs font-semibold text-accent">
+                    In your diary
+                  </span>
+                ) : (
+                  <button className="btn" onClick={() => void addToDiary(p)}>
+                    + Add to my diary
+                  </button>
+                ))}
             </div>
             <p className="mt-1 line-clamp-3 font-mono text-xs leading-relaxed text-dim">
               {p.body}

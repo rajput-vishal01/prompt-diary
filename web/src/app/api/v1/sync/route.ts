@@ -88,18 +88,22 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(prompts.id, p.id));
     } else {
-      await db.insert(prompts).values({
-        id: p.id,
-        userId,
-        folderId: p.folderId ?? null,
-        title: p.title,
-        body: p.body,
-        tags: p.tags ?? [],
-        visibility,
-        teamId,
-        pinned: p.pinned ?? false,
-        updatedAt: clientUpdatedAt,
-      });
+      await db
+        .insert(prompts)
+        .values({
+          id: p.id,
+          userId,
+          folderId: p.folderId ?? null,
+          title: p.title,
+          body: p.body,
+          tags: p.tags ?? [],
+          visibility,
+          teamId,
+          pinned: p.pinned ?? false,
+          sourceId: p.sourceId ?? null,
+          updatedAt: clientUpdatedAt,
+        })
+        .onConflictDoNothing(); // (user, sourceId) already present from another path
     }
   }
 

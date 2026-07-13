@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { canSendMail, sendMail, verificationEmailHtml } from "./mailer";
 
 const googleEnabled =
   !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
@@ -24,13 +25,20 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => {
-      // ponytail: dev logs the link; wire a real provider (Resend/SES) for prod.
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[verify-email] ${user.email} -> ${url}`);
+      if (canSendMail) {
+        await sendMail({
+          to: user.email,
+          subject: "Verify your Prompt Diary email",
+          html: verificationEmailHtml(user.name, url),
+        });
         return;
       }
-      // TODO(prod): send via Resend once RESEND_API_KEY is configured
-      console.warn(`[verify-email] no mail provider configured for ${user.email}`);
+      // no GMAIL_USER/GMAIL_APP_PASSWORD configured — log the link in dev
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[verify-email] ${user.email} -> ${url}`);
+      } else {
+        console.warn(`[verify-email] mail not configured, cannot email ${user.email}`);
+      }
     },
   },
   ...(googleEnabled && {

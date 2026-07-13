@@ -50,6 +50,40 @@ export async function POST(req: NextRequest) {
     return needsVerification();
   }
 
+  // "add to my diary" from the gallery: dedupe on (user, sourceId).
+  // Re-adding after the user deleted their copy restores it instead.
+  if (input.sourceId) {
+    const source = await db.query.prompts.findFirst({
+      where: eq(prompts.id, input.sourceId),
+    });
+    if (!source || source.deleted || source.visibility !== "public") {
+      return jsonErr("Source prompt is not public", 400);
+    }
+    const existing = await db.query.prompts.findFirst({
+      where: and(
+        eq(prompts.userId, g.user.id),
+        eq(prompts.sourceId, input.sourceId),
+      ),
+    });
+    if (existing && !existing.deleted) {
+      return jsonErr("Already in your diary", 409);
+    }
+    if (existing) {
+      const [restored] = await db
+        .update(prompts)
+        .set({
+          title: input.title,
+          body: input.body,
+          tags: input.tags ?? [],
+          deleted: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(prompts.id, existing.id))
+        .returning();
+      return jsonOk(restored, 201);
+    }
+  }
+
   const [row] = await db
     .insert(prompts)
     .values({
@@ -62,6 +96,7 @@ export async function POST(req: NextRequest) {
       visibility: input.visibility ?? "private",
       teamId: input.visibility === "team" ? (input.teamId ?? null) : null,
       pinned: input.pinned ?? false,
+      sourceId: input.sourceId ?? null,
     })
     .returning();
 

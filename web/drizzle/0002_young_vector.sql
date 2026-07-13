@@ -1,0 +1,2 @@
+ALTER TABLE "prompts" ADD COLUMN "source_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "prompts_user_source_idx" ON "prompts" USING btree ("user_id","source_id") WHERE "prompts"."source_id" IS NOT NULL;

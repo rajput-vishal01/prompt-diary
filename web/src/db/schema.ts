@@ -9,6 +9,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ============ Better Auth tables ============
 
@@ -140,6 +141,8 @@ export const prompts = pgTable(
     useCount: integer("use_count").notNull().default(0),
     pinned: boolean("pinned").notNull().default(false),
     deleted: boolean("deleted").notNull().default(false),
+    // gallery prompt this was copied from — dedupes "add to my diary"
+    sourceId: text("source_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -150,5 +153,8 @@ export const prompts = pgTable(
     index("prompts_user_idx").on(t.userId),
     index("prompts_team_idx").on(t.teamId),
     index("prompts_visibility_idx").on(t.visibility),
+    uniqueIndex("prompts_user_source_idx")
+      .on(t.userId, t.sourceId)
+      .where(sql`${t.sourceId} IS NOT NULL`),
   ],
 );

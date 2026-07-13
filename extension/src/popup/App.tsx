@@ -32,7 +32,12 @@ export function App() {
 
   useEffect(() => {
     reload();
-    void getAuth().then(setAuthState);
+    // auto-sync on popup open so prompts added on the web (dashboard,
+    // gallery "add to my diary") show up without a manual Sync click
+    void getAuth().then((a) => {
+      setAuthState(a);
+      if (a) void syncNow().then(reload);
+    });
     // context-menu saves happen in the background worker; refresh live
     const onChange = (_: unknown, area: string) => {
       if (area === "local") reload();

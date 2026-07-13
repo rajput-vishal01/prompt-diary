@@ -36,6 +36,7 @@ export const PromptSchema = z.object({
   teamId: z.string().nullable(),
   useCount: z.number().int().nonnegative().default(0),
   pinned: z.boolean().default(false),
+  sourceId: z.string().nullable().default(null), // gallery prompt this was copied from
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -69,6 +70,7 @@ export const PromptCreateSchema = PromptSchema.pick({
   visibility: VisibilitySchema.optional(),
   teamId: z.string().nullable().optional(),
   pinned: z.boolean().optional(),
+  sourceId: z.string().nullable().optional(),
   updatedAt: z.string().optional(), // for LWW sync
 });
 export type PromptCreate = z.infer<typeof PromptCreateSchema>;

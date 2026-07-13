@@ -30,6 +30,7 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
           visibility: p.visibility,
           teamId: p.teamId,
           pinned: p.pinned,
+          sourceId: p.sourceId,
           updatedAt: p.updatedAt,
         })),
         folders: vault.folders.map((f) => ({
