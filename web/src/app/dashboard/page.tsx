@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { Folder, Prompt, Visibility } from "shared";
 import { VISIBILITIES } from "shared";
 import { api } from "@/lib/client-api";
+import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
 
@@ -15,36 +17,55 @@ interface TeamRow {
   role: "owner" | "member";
 }
 
-// rail tabs: "all" | "pinned" | <folderId>
-const ALL = "all";
-const PINNED = "pinned";
-
 export default function PromptsPage() {
+  return (
+    <Suspense>
+      <PromptsPageInner />
+    </Suspense>
+  );
+}
+
+function PromptsPageInner() {
+  const searchParams = useSearchParams();
+  const folderTab = searchParams.get("folder"); // folder id or null
+  const pinnedTab = searchParams.get("tab") === "pinned";
+
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<string>(ALL);
   const [visFilter, setVisFilter] = useState("");
   const [editing, setEditing] = useState<Prompt | "new" | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const reloadPrompts = () =>
-    api<Prompt[]>("/api/v1/prompts")
-      .then(setPrompts)
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+  const reloadPrompts = useCallback(
+    () =>
+      api<Prompt[]>("/api/v1/prompts")
+        .then(setPrompts)
+        .catch(() => {})
+        .finally(() => setIsLoading(false)),
+    [],
+  );
 
-  const reloadFolders = () =>
-    api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
+  const reloadFolders = useCallback(
+    () => api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {}),
+    [],
+  );
 
   useEffect(() => {
     void reloadPrompts();
     void reloadFolders();
     void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
-  }, []);
+    // sidebar creates/renames/deletes folders — stay in sync
+    const onFoldersChanged = () => {
+      void reloadFolders();
+      void reloadPrompts();
+    };
+    window.addEventListener(FOLDERS_CHANGED_EVENT, onFoldersChanged);
+    return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, onFoldersChanged);
+  }, [reloadPrompts, reloadFolders]);
 
   useGSAP(
     () => {
@@ -59,13 +80,13 @@ export default function PromptsPage() {
     { scope: listRef, dependencies: [isLoading] },
   );
 
-  const activeFolder = folders.find((f) => f.id === tab) ?? null;
+  const activeFolder = folders.find((f) => f.id === folderTab) ?? null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return prompts.filter((p) => {
-      if (tab === PINNED && !p.pinned) return false;
-      if (tab !== ALL && tab !== PINNED && p.folderId !== tab) return false;
+      if (pinnedTab && !p.pinned) return false;
+      if (folderTab && p.folderId !== folderTab) return false;
       if (visFilter && p.visibility !== visFilter) return false;
       if (!q) return true;
       return (
@@ -74,9 +95,10 @@ export default function PromptsPage() {
         p.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [prompts, query, tab, visFilter]);
+  }, [prompts, query, pinnedTab, folderTab, visFilter]);
 
-  const copy = (p: Prompt) => {
+  const copy = (p: Prompt, e: React.MouseEvent) => {
+    e.stopPropagation();
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 1200);
@@ -89,198 +111,122 @@ export default function PromptsPage() {
     }).catch(() => {});
   };
 
-  const newFolder = async () => {
-    const name = window.prompt("Folder name");
-    if (name?.trim()) {
-      const folder = await api<Folder>("/api/v1/folders", {
-        method: "POST",
-        body: { name: name.trim() },
-      });
-      await reloadFolders();
-      setTab(folder.id); // jump straight into the new folder
-    }
-  };
-
-  const renameFolder = async (f: Folder) => {
-    const name = window.prompt("Rename folder", f.name);
-    if (name?.trim() && name.trim() !== f.name) {
-      await api(`/api/v1/folders/${f.id}`, {
-        method: "PATCH",
-        body: { name: name.trim() },
-      });
-      void reloadFolders();
-    }
-  };
-
-  const deleteFolder = async (f: Folder) => {
-    if (!window.confirm(`Delete folder "${f.name}"? Prompts inside are kept.`)) return;
-    await api(`/api/v1/folders/${f.id}`, { method: "DELETE" });
-    if (tab === f.id) setTab(ALL);
-    void reloadFolders();
-    void reloadPrompts();
-  };
-
   return (
-    <div className="mx-auto flex h-full max-w-5xl gap-5">
-      {/* folder rail — discord-style, one tab per folder */}
-      <aside className="flex w-14 shrink-0 flex-col items-center gap-2 overflow-y-auto py-1">
-        <RailButton
-          label="All prompts"
-          active={tab === ALL}
-          onClick={() => setTab(ALL)}
-        >
-          <span className="font-display italic">Pd</span>
-        </RailButton>
-        <RailButton
-          label="Pinned"
-          active={tab === PINNED}
-          onClick={() => setTab(PINNED)}
-        >
-          ★
-        </RailButton>
-        <div className="my-1 h-px w-8 bg-line" />
-        {folders.map((f) => (
-          <RailButton
-            key={f.id}
-            label={`${f.name} — double-click to rename, right-click to delete`}
-            active={tab === f.id}
-            color={f.color}
-            onClick={() => setTab(f.id)}
-            onDoubleClick={() => void renameFolder(f)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              void deleteFolder(f);
-            }}
-          >
-            {f.name.charAt(0).toUpperCase()}
-          </RailButton>
-        ))}
-        <button
-          className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-line text-dim transition-colors hover:border-accent hover:text-accent"
-          title="New folder"
-          onClick={() => void newFolder()}
-        >
-          +
-        </button>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="mb-6 flex items-baseline justify-between">
-          <h1 className="text-2xl font-bold">
-            {tab === ALL ? "My Prompts" : tab === PINNED ? "Pinned" : activeFolder?.name}
-            {!isLoading && (
-              <span className="ml-2 text-sm font-normal tabular-nums text-dim">
-                {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-              </span>
-            )}
-          </h1>
-          <button className="btn-primary" onClick={() => setEditing("new")}>
-            + New prompt{activeFolder ? ` in ${activeFolder.name}` : ""}
-          </button>
-        </div>
-
-        <div className="mb-4 flex gap-2">
-          <input
-            className="input flex-1"
-            placeholder="Search prompts, tags…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <select
-            className="input w-36"
-            value={visFilter}
-            onChange={(e) => setVisFilter(e.target.value)}
-          >
-            <option value="">All visibility</option>
-            {VISIBILITIES.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* only this list scrolls — never the page chrome */}
-        <div
-          ref={listRef}
-          className="min-h-0 flex-1 divide-y divide-line overflow-y-auto rounded-[10px] border border-line bg-raised"
-        >
-          {isLoading &&
-            Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className="px-4 py-3">
-                <div className="skeleton h-4 w-2/5" />
-                <div className="skeleton mt-2 h-3 w-4/5" />
-                <div className="skeleton mt-2 h-3 w-1/4" />
-              </div>
-            ))}
-          {!isLoading && filtered.length === 0 && (
-            <p className="py-16 text-center text-sm text-dim">
-              {prompts.length === 0
-                ? "No prompts yet. Save one from the extension or click “New prompt”."
-                : tab !== ALL && tab !== PINNED
-                  ? "This folder is empty — “New prompt” adds straight into it."
-                  : "Nothing matches your filters."}
-            </p>
+    <div className="mx-auto flex h-full max-w-4xl flex-col">
+      <div className="mb-6 flex items-baseline justify-between">
+        <h1 className="text-2xl font-bold">
+          {pinnedTab ? "Pinned" : (activeFolder?.name ?? "My Prompts")}
+          {!isLoading && (
+            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
+              {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+            </span>
           )}
-          {!isLoading &&
-            filtered.map((p) => {
-              const folder = folders.find((f) => f.id === p.folderId);
-              return (
-                <div
-                  key={p.id}
-                  className="ledger-row group px-4 py-3 transition-colors hover:bg-hover"
-                >
-                  <div className="flex items-baseline gap-2">
-                    {p.pinned && <span className="text-xs text-accent">★</span>}
-                    <h2 className="flex-1 truncate text-sm font-semibold">{p.title}</h2>
+        </h1>
+        <button className="btn-primary" onClick={() => setEditing("new")}>
+          + New prompt{activeFolder ? ` in ${activeFolder.name}` : ""}
+        </button>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        <input
+          className="input flex-1"
+          placeholder="Search prompts, tags…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select
+          className="input w-36"
+          value={visFilter}
+          onChange={(e) => setVisFilter(e.target.value)}
+        >
+          <option value="">All visibility</option>
+          {VISIBILITIES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* heading-first ledger: click a row to open the before/after view */}
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 divide-y divide-line overflow-y-auto rounded-[10px] border border-line bg-raised"
+      >
+        {isLoading &&
+          Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className="px-4 py-3">
+              <div className="skeleton h-4 w-2/5" />
+            </div>
+          ))}
+        {!isLoading && filtered.length === 0 && (
+          <p className="py-16 text-center text-sm text-dim">
+            {prompts.length === 0
+              ? "No prompts yet. Save one from the extension or click “New prompt”."
+              : folderTab
+                ? "This folder is empty — “New prompt” adds straight into it."
+                : "Nothing matches your filters."}
+          </p>
+        )}
+        {!isLoading &&
+          filtered.map((p) => {
+            const folder = folders.find((f) => f.id === p.folderId);
+            return (
+              <button
+                key={p.id}
+                className="ledger-row group block w-full cursor-pointer px-4 py-3 text-left transition-colors hover:bg-hover"
+                onClick={() => setEditing(p)}
+                title="Open"
+              >
+                <span className="flex items-center gap-2.5">
+                  {p.pinned && <span className="text-xs text-accent">★</span>}
+                  <span className="truncate text-sm font-semibold">{p.title}</span>
+                  <span
+                    className={`vis-badge shrink-0 ${
+                      p.visibility === "public" ? "text-accent" : "text-dim"
+                    }`}
+                  >
+                    {p.visibility}
+                  </span>
+                  {p.teamId && (
+                    <span className="vis-badge shrink-0 text-amber">team</span>
+                  )}
+                  {folder && !folderTab && (
+                    <span
+                      className="shrink-0 text-xs font-semibold"
+                      style={{ color: folder.color }}
+                    >
+                      {folder.name}
+                    </span>
+                  )}
+                  {p.tags.slice(0, 3).map((t) => (
+                    <span key={t} className="chip shrink-0">
+                      {t}
+                    </span>
+                  ))}
+                  <span className="ml-auto flex shrink-0 items-center gap-2">
                     {copiedId === p.id && (
                       <span className="text-xs font-bold text-accent">Copied</span>
                     )}
-                    <span className="flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                      <button className="btn px-2 py-0.5 text-xs" onClick={() => copy(p)}>
-                        Copy
-                      </button>
-                      <button
-                        className="btn px-2 py-0.5 text-xs"
-                        onClick={() => setEditing(p)}
-                      >
-                        Edit
-                      </button>
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
-                    {p.body}
-                  </p>
-                  <div className="mt-2 flex items-center gap-3">
                     <span
-                      className={`vis-badge ${
-                        p.visibility === "public" ? "text-accent" : "text-dim"
-                      }`}
+                      className="btn px-2 py-0.5 text-xs opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => copy(p, e)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") copy(p, e as unknown as React.MouseEvent);
+                      }}
                     >
-                      {p.visibility}
+                      Copy
                     </span>
-                    {p.teamId && <span className="vis-badge text-amber">team</span>}
-                    {folder && tab === ALL && (
-                      <span
-                        className="text-xs font-semibold"
-                        style={{ color: folder.color }}
-                      >
-                        {folder.name}
-                      </span>
-                    )}
-                    {p.tags.map((t) => (
-                      <span key={t} className="chip">
-                        {t}
-                      </span>
-                    ))}
-                    <span className="ml-auto text-xs tabular-nums text-dim">
+                    <span className="text-xs tabular-nums text-dim">
                       {p.useCount > 0 ? `${p.useCount}×` : ""}
                     </span>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
       </div>
 
       {editing && (
@@ -288,7 +234,7 @@ export default function PromptsPage() {
           prompt={editing === "new" ? null : editing}
           folders={folders}
           teams={teams}
-          defaultFolderId={tab !== ALL && tab !== PINNED ? tab : null}
+          defaultFolderId={folderTab}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -297,37 +243,6 @@ export default function PromptsPage() {
         />
       )}
     </div>
-  );
-}
-
-function RailButton({
-  label,
-  active,
-  color,
-  children,
-  ...handlers
-}: {
-  label: string;
-  active: boolean;
-  color?: string;
-  children: React.ReactNode;
-  onClick: () => void;
-  onDoubleClick?: () => void;
-  onContextMenu?: (e: React.MouseEvent) => void;
-}) {
-  return (
-    <button
-      title={label}
-      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all ${
-        active
-          ? "bg-tint text-accent ring-2 ring-accent"
-          : "border border-line bg-raised text-dim hover:border-accent hover:text-ink"
-      }`}
-      style={color && !active ? { color } : undefined}
-      {...handlers}
-    >
-      {children}
-    </button>
   );
 }
 

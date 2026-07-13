@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
@@ -71,7 +71,9 @@ export default function GalleryPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* logged-in users arrive from the dashboard — keep them in its shell */}
-      <Sidebar />
+      <Suspense>
+        <Sidebar />
+      </Suspense>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl p-8">
         <div className="mb-6 flex items-center justify-between">

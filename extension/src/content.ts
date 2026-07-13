@@ -197,11 +197,13 @@ function dockComposerButton() {
   composerBtn.style.top = `${Math.max(8, rect.top - 30)}px`;
 }
 
-if (finder) {
-  // SPAs mount the chatbox late and move it around — cheap re-dock loop
-  setInterval(dockComposerButton, 600);
-  window.addEventListener("resize", dockComposerButton);
-}
+// SPAs mount the chatbox late, move it around, and stream messages in —
+// one cheap tick handles composer re-docking and new-message buttons
+setInterval(() => {
+  if (finder) dockComposerButton();
+  injectMessageButtons();
+}, 600);
+if (finder) window.addEventListener("resize", dockComposerButton);
 
 composerBtn.addEventListener("mousedown", (e) => {
   e.preventDefault();
@@ -214,3 +216,72 @@ composerBtn.addEventListener("mousedown", (e) => {
   }
   savePrompt(text);
 });
+
+// ---------- 3. per-message save button ----------
+// docked at the END of every finished assistant/user message, next to the
+// site's own copy button. Injected into page DOM (inline styles only).
+
+const MESSAGE_SELECTORS: Array<{ host: RegExp; selector: string }> = [
+  {
+    host: /chatgpt\.com|chat\.openai\.com/,
+    selector: "[data-message-author-role]", // both your prompts and gpt's replies
+  },
+  {
+    host: /claude\.ai/,
+    selector: "div.font-claude-message, div[data-testid='user-message']",
+  },
+  {
+    host: /gemini\.google\.com/,
+    selector: "message-content",
+  },
+];
+
+const messageSelector = MESSAGE_SELECTORS.find((m) =>
+  m.host.test(location.hostname),
+)?.selector;
+
+const PD_MARKER = "pdSaveInjected";
+
+function makeMessageButton(target: HTMLElement): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Pd · Save";
+  btn.title = "Save this message to Prompt Diary";
+  Object.assign(btn.style, {
+    display: "inline-flex",
+    alignItems: "center",
+    marginTop: "6px",
+    padding: "3px 9px",
+    font: "600 11px/1.4 system-ui, sans-serif",
+    color: "#1c6b4a",
+    background: "transparent",
+    border: "1px solid rgba(28, 107, 74, 0.35)",
+    borderRadius: "6px",
+    cursor: "pointer",
+    opacity: "0.7",
+  } satisfies Partial<CSSStyleDeclaration>);
+  btn.addEventListener("mouseenter", () => (btn.style.opacity = "1"));
+  btn.addEventListener("mouseleave", () => (btn.style.opacity = "0.7"));
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // innerText skips display:none nodes — hide our button so it's not saved
+    btn.style.display = "none";
+    const text = target.innerText;
+    btn.style.display = "inline-flex";
+    savePrompt(text);
+  });
+  return btn;
+}
+
+function injectMessageButtons() {
+  if (!messageSelector) return;
+  for (const el of document.querySelectorAll<HTMLElement>(messageSelector)) {
+    if (el.dataset[PD_MARKER]) continue;
+    // skip messages still streaming in (claude flags these)
+    if (el.closest("[data-is-streaming='true']")) continue;
+    if ((el.innerText ?? "").trim().length < MIN_SELECTION) continue;
+    el.dataset[PD_MARKER] = "1";
+    el.appendChild(makeMessageButton(el));
+  }
+}

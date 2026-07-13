@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
@@ -29,7 +29,9 @@ export default function DashboardLayout({
     // h-screen + overflow-hidden: the app chrome never scrolls; pages scroll
     // their own content (the prompt list scrolls, not the whole dashboard)
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Suspense>
+        <Sidebar />
+      </Suspense>
       <main className="min-h-0 flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );
