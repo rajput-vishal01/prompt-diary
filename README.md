@@ -57,10 +57,15 @@ sync*). Same account everywhere.
 
 **Deployed URL**: _<add your Vercel URL here after deploying — you'll need it below>_
 
-1. **Web → Vercel**: import the repo, set root directory to `web/`. Env vars
-   (from `.env.example`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`,
-   `BETTER_AUTH_URL` (the deployed URL itself), `GMAIL_USER`,
-   `GMAIL_APP_PASSWORD`, and optionally `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
+1. **Web → Vercel**: import the repo and — **critical** — set
+   *Settings → Build and Deployment → Root Directory* to `web`. Without it,
+   Vercel builds the whole monorepo and serves the chrome extension's static
+   build as the website (you'll see `chrome.storage ... undefined` errors).
+   `web/vercel.json` pins the framework to Next.js and the install to Bun
+   (npm can't resolve `workspace:*` deps). Env vars (from `.env.example`):
+   `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (the
+   deployed URL itself), `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and optionally
+   `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
 2. **Migrate Neon**: `cd web && DATABASE_URL=<neon-url> bunx drizzle-kit migrate`
 3. **Google OAuth** (if used): in Google Cloud Console add the authorized
    redirect URI `https://<deployed-url>/api/auth/callback/google`.
