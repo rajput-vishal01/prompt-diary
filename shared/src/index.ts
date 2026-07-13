@@ -6,8 +6,7 @@ export const VISIBILITIES = ["private", "team", "public"] as const;
 export const VisibilitySchema = z.enum(VISIBILITIES);
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
-export const TEAM_ROLES = ["owner", "member"] as const;
-export const TeamRoleSchema = z.enum(TEAM_ROLES);
+export const TeamRoleSchema = z.enum(["owner", "member"]);
 export type TeamRole = z.infer<typeof TeamRoleSchema>;
 
 // ---------- core entities ----------
@@ -49,14 +48,6 @@ export const TeamSchema = z.object({
   createdAt: z.string(),
 });
 export type Team = z.infer<typeof TeamSchema>;
-
-export const TeamMemberSchema = z.object({
-  teamId: z.string(),
-  userId: z.string(),
-  role: TeamRoleSchema,
-  createdAt: z.string(),
-});
-export type TeamMember = z.infer<typeof TeamMemberSchema>;
 
 // ---------- API inputs (what clients send) ----------
 

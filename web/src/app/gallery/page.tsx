@@ -69,10 +69,11 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* logged-in users arrive from the dashboard — keep them in its shell */}
       <Sidebar />
-      <div className="mx-auto w-full max-w-4xl p-8">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-4xl p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Public Gallery</h1>
@@ -137,6 +138,7 @@ export default function GalleryPage() {
           </div>
         ))}
       </div>
+        </div>
       </div>
     </div>
   );
