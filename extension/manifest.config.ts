@@ -14,6 +14,21 @@ export default defineManifest({
     service_worker: "src/background.ts",
     type: "module",
   },
+  content_scripts: [
+    {
+      // one-click save surfaces on AI chat sites (selection bubble + composer button)
+      matches: [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*",
+        "https://poe.com/*",
+      ],
+      js: ["src/content.ts"],
+      run_at: "document_idle",
+    },
+  ],
   permissions: ["storage", "contextMenus", "clipboardWrite", "identity"],
   // VITE_API_URL=https://your-app.vercel.app bun run build  → store build
   host_permissions: [`${process.env.VITE_API_URL ?? "http://localhost:3000"}/*`],
