@@ -14,7 +14,7 @@ import {
 import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
 import { AccountView } from "./AccountView";
-import { getAuth, signOut, type AuthState } from "../lib/api";
+import { getAuth, getTeams, signOut, type AuthState, type TeamRow } from "../lib/api";
 import { syncNow } from "../lib/sync";
 
 type Filter = "all" | "pinned" | { folderId: string };
@@ -25,6 +25,7 @@ export function App() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Prompt | "new" | null>(null);
   const [auth, setAuthState] = useState<AuthState | null>(null);
+  const [teams, setTeams] = useState<TeamRow[]>([]);
   const [showAccount, setShowAccount] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
@@ -36,7 +37,10 @@ export function App() {
     // gallery "add to my diary") show up without a manual Sync click
     void getAuth().then((a) => {
       setAuthState(a);
-      if (a) void syncNow().then(reload);
+      if (a) {
+        void syncNow().then(reload);
+        void getTeams().then(setTeams).catch(() => {});
+      }
     });
     // context-menu saves happen in the background worker; refresh live
     const onChange = (_: unknown, area: string) => {
@@ -241,6 +245,7 @@ export function App() {
         <PromptEditor
           prompt={editing === "new" ? null : editing}
           folders={vault.folders}
+          teams={teams}
           onSave={(input, existing) => void handleSave(input, existing)}
           onDelete={(id) => void handleDelete(id)}
           onClose={() => setEditing(null)}

@@ -29,6 +29,7 @@ interface TeamPrompt {
   title: string;
   body: string;
   tags: string[];
+  visibility: "private" | "public";
   useCount: number;
   authorName: string;
 }
@@ -268,9 +269,16 @@ function TeamDetail({
               <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
                 {p.body}
               </p>
-              <p className="mt-2 text-xs text-dim">
-                by {p.authorName}
-                {p.useCount > 0 && <span className="tabular-nums"> · {p.useCount}×</span>}
+              <p className="mt-2 flex items-center gap-3 text-xs text-dim">
+                {p.visibility === "public" && (
+                  <span className="vis-badge text-accent">public</span>
+                )}
+                <span>
+                  by {p.authorName}
+                  {p.useCount > 0 && (
+                    <span className="tabular-nums"> · {p.useCount}×</span>
+                  )}
+                </span>
               </p>
             </div>
           ))}

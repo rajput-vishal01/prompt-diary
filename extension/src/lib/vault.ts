@@ -24,7 +24,12 @@ const emptyVault = (): Vault => ({
 
 export async function getVault(): Promise<Vault> {
   const res = await chrome.storage.local.get(VAULT_KEY);
-  return { ...emptyVault(), ...(res[VAULT_KEY] ?? {}) };
+  const vault: Vault = { ...emptyVault(), ...(res[VAULT_KEY] ?? {}) };
+  // legacy: visibility "team" is now private + teamId (sharing is independent)
+  vault.prompts = vault.prompts.map((p) =>
+    (p.visibility as string) === "team" ? { ...p, visibility: "private" } : p,
+  );
+  return vault;
 }
 
 export async function setVault(vault: Vault): Promise<void> {

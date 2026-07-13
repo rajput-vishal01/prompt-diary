@@ -47,11 +47,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const nextTeamId =
     input.teamId !== undefined ? input.teamId : row.teamId;
 
-  if (nextVisibility === "team") {
-    if (!nextTeamId) return jsonErr("teamId required for team visibility", 400);
-    if (!(await isTeamMember(g.user.id, nextTeamId))) {
-      return jsonErr("Not a member of that team", 403);
-    }
+  if (
+    nextTeamId &&
+    nextTeamId !== row.teamId &&
+    !(await isTeamMember(g.user.id, nextTeamId))
+  ) {
+    return jsonErr("Not a member of that team", 403);
   }
   if (
     nextVisibility === "public" &&
@@ -71,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.pinned !== undefined && { pinned: input.pinned }),
       ...(input.useCount !== undefined && { useCount: input.useCount }),
       visibility: nextVisibility,
-      teamId: nextVisibility === "team" ? nextTeamId : null,
+      teamId: nextTeamId,
       updatedAt: new Date(),
     })
     .where(eq(prompts.id, id))

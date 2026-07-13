@@ -193,15 +193,12 @@ export default function PromptsPage() {
                 <div className="mt-2 flex items-center gap-3">
                   <span
                     className={`vis-badge ${
-                      p.visibility === "public"
-                        ? "text-accent"
-                        : p.visibility === "team"
-                          ? "text-amber"
-                          : "text-dim"
+                      p.visibility === "public" ? "text-accent" : "text-dim"
                     }`}
                   >
                     {p.visibility}
                   </span>
+                  {p.teamId && <span className="vis-badge text-amber">team</span>}
                   {folder && (
                     <span
                       className="text-xs font-semibold"
@@ -276,7 +273,7 @@ function PromptModal({
         .slice(0, 20),
       folderId: folderId || null,
       visibility,
-      teamId: visibility === "team" ? teamId || null : null,
+      teamId: teamId || null, // independent of visibility — can be public AND team-shared
       pinned,
     };
     try {
@@ -344,23 +341,20 @@ function PromptModal({
             onChange={(e) => setVisibility(e.target.value as Visibility)}
           >
             <option value="private">Private (closed)</option>
-            <option value="team">Team</option>
             <option value="public">Public (open source)</option>
           </select>
-          {visibility === "team" && (
-            <select
-              className="input"
-              value={teamId ?? ""}
-              onChange={(e) => setTeamId(e.target.value)}
-            >
-              <option value="">Pick team…</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            className="input"
+            value={teamId ?? ""}
+            onChange={(e) => setTeamId(e.target.value)}
+          >
+            <option value="">No team</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                Share: {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <label className="flex items-center gap-2 text-sm text-dim">
           <input
@@ -382,7 +376,7 @@ function PromptModal({
           </button>
           <button
             className="btn-primary"
-            disabled={!title.trim() || !body.trim() || (visibility === "team" && !teamId)}
+            disabled={!title.trim() || !body.trim()}
             onClick={() => void save()}
           >
             Save

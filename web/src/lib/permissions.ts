@@ -18,7 +18,8 @@ export async function isTeamMember(
 }
 
 /**
- * read:  owner | public | team member
+ * read:  owner | public | member of the prompt's team (teamId is independent
+ *        of visibility — a public prompt can also sit in a team library)
  * write: owner only
  */
 export async function canAccessPrompt(
@@ -31,7 +32,7 @@ export async function canAccessPrompt(
 
   if (isOwner) return true;
   if (prompt.visibility === "public") return true;
-  if (prompt.visibility === "team" && prompt.teamId && userId) {
+  if (prompt.teamId && userId) {
     return isTeamMember(userId, prompt.teamId);
   }
   return false;

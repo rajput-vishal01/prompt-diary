@@ -83,6 +83,16 @@ async function authRequest(
   return auth;
 }
 
+export interface TeamRow {
+  id: string;
+  name: string;
+  role: "owner" | "member";
+}
+
+export function getTeams(): Promise<TeamRow[]> {
+  return api<TeamRow[]>("/api/v1/teams");
+}
+
 export function signIn(email: string, password: string): Promise<AuthState> {
   return authRequest("/api/auth/sign-in/email", { email, password });
 }

@@ -30,6 +30,7 @@ export function PromptCard({ prompt, folders, onCopy, onEdit, onTogglePin }: Pro
       <div className="row-body">{prompt.body}</div>
       <div className="row-foot">
         <span className={`vis ${prompt.visibility}`}>{prompt.visibility}</span>
+        {prompt.teamId && <span className="vis team">team</span>}
         {folder && (
           <span className="folder-chip" style={{ color: folder.color }}>
             {folder.name}

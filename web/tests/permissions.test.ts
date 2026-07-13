@@ -4,9 +4,10 @@ import { db } from "@/db";
 import { prompts, teamMembers, teams, user } from "@/db/schema";
 import { canAccessPrompt, type PromptRow } from "@/lib/permissions";
 
-// Permission matrix gate — every cell of
-// (owner | team-member | stranger | anon) x (private | team | public) x (read | write)
-// Runs against the local docker postgres (web/.env.local).
+// Permission matrix gate. Visibility (private|public) and team sharing
+// (teamId) are independent axes — the matrix covers all four combos across
+// (owner | team-member | stranger | anon) x (read | write).
+// Runs against the local docker postgres.
 
 const uid = (s: string) => `test-perm-${s}-${crypto.randomUUID()}`;
 
@@ -15,9 +16,10 @@ const bob = uid("bob"); // team member
 const carol = uid("carol"); // stranger
 const teamId = uid("team");
 
-let privatePrompt: PromptRow;
-let teamPrompt: PromptRow;
-let publicPrompt: PromptRow;
+let privatePrompt: PromptRow; // private, no team
+let teamPrompt: PromptRow; // private + team-shared
+let publicPrompt: PromptRow; // public, no team
+let publicTeamPrompt: PromptRow; // public + team-shared (the new combo)
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -31,28 +33,37 @@ beforeAll(async () => {
     { teamId, userId: bob, role: "member" },
   ]);
 
-  const mk = (visibility: "private" | "team" | "public") =>
+  const mk = (
+    key: string,
+    visibility: "private" | "public",
+    team: string | null,
+  ) =>
     ({
-      id: uid(`prompt-${visibility}`),
+      id: uid(`prompt-${key}`),
       userId: alice,
-      title: `${visibility} prompt`,
+      title: `${key} prompt`,
       body: "body",
       visibility,
-      teamId: visibility === "team" ? teamId : null,
+      teamId: team,
     }) as const;
 
   const rows = await db
     .insert(prompts)
-    .values([mk("private"), mk("team"), mk("public")])
+    .values([
+      mk("private", "private", null),
+      mk("team", "private", teamId),
+      mk("public", "public", null),
+      mk("publicteam", "public", teamId),
+    ])
     .returning();
 
-  privatePrompt = rows.find((r) => r.visibility === "private")!;
-  teamPrompt = rows.find((r) => r.visibility === "team")!;
-  publicPrompt = rows.find((r) => r.visibility === "public")!;
+  privatePrompt = rows.find((r) => r.title.startsWith("private"))!;
+  teamPrompt = rows.find((r) => r.title.startsWith("team"))!;
+  publicPrompt = rows.find((r) => r.title.startsWith("public "))!;
+  publicTeamPrompt = rows.find((r) => r.title.startsWith("publicteam"))!;
 });
 
 afterAll(async () => {
-  // cascades clean up team_members and prompts via FKs
   await db.delete(teams).where(eq(teams.id, teamId));
   for (const id of [alice, bob, carol]) {
     await db.delete(user).where(eq(user.id, id));
@@ -60,47 +71,42 @@ afterAll(async () => {
 });
 
 describe("read access", () => {
-  test("private: owner only", async () => {
+  test("private, no team: owner only", async () => {
     expect(await canAccessPrompt(alice, privatePrompt, "read")).toBe(true);
     expect(await canAccessPrompt(bob, privatePrompt, "read")).toBe(false);
     expect(await canAccessPrompt(carol, privatePrompt, "read")).toBe(false);
     expect(await canAccessPrompt(null, privatePrompt, "read")).toBe(false);
   });
 
-  test("team: owner + members", async () => {
+  test("private + team: owner and members", async () => {
     expect(await canAccessPrompt(alice, teamPrompt, "read")).toBe(true);
     expect(await canAccessPrompt(bob, teamPrompt, "read")).toBe(true);
     expect(await canAccessPrompt(carol, teamPrompt, "read")).toBe(false);
     expect(await canAccessPrompt(null, teamPrompt, "read")).toBe(false);
   });
 
-  test("public: everyone", async () => {
+  test("public, no team: everyone", async () => {
     expect(await canAccessPrompt(alice, publicPrompt, "read")).toBe(true);
     expect(await canAccessPrompt(bob, publicPrompt, "read")).toBe(true);
     expect(await canAccessPrompt(carol, publicPrompt, "read")).toBe(true);
     expect(await canAccessPrompt(null, publicPrompt, "read")).toBe(true);
   });
+
+  test("public + team: everyone (both audiences at once)", async () => {
+    expect(await canAccessPrompt(alice, publicTeamPrompt, "read")).toBe(true);
+    expect(await canAccessPrompt(bob, publicTeamPrompt, "read")).toBe(true);
+    expect(await canAccessPrompt(carol, publicTeamPrompt, "read")).toBe(true);
+    expect(await canAccessPrompt(null, publicTeamPrompt, "read")).toBe(true);
+  });
 });
 
-describe("write access — owner only, regardless of visibility", () => {
-  test("private", async () => {
-    expect(await canAccessPrompt(alice, privatePrompt, "write")).toBe(true);
-    expect(await canAccessPrompt(bob, privatePrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(carol, privatePrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(null, privatePrompt, "write")).toBe(false);
-  });
-
-  test("team — members can read but NOT write", async () => {
-    expect(await canAccessPrompt(alice, teamPrompt, "write")).toBe(true);
-    expect(await canAccessPrompt(bob, teamPrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(carol, teamPrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(null, teamPrompt, "write")).toBe(false);
-  });
-
-  test("public — world can read but NOT write", async () => {
-    expect(await canAccessPrompt(alice, publicPrompt, "write")).toBe(true);
-    expect(await canAccessPrompt(bob, publicPrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(carol, publicPrompt, "write")).toBe(false);
-    expect(await canAccessPrompt(null, publicPrompt, "write")).toBe(false);
+describe("write access — owner only, regardless of visibility or team", () => {
+  test("all four combos", async () => {
+    for (const p of [privatePrompt, teamPrompt, publicPrompt, publicTeamPrompt]) {
+      expect(await canAccessPrompt(alice, p, "write")).toBe(true);
+      expect(await canAccessPrompt(bob, p, "write")).toBe(false);
+      expect(await canAccessPrompt(carol, p, "write")).toBe(false);
+      expect(await canAccessPrompt(null, p, "write")).toBe(false);
+    }
   });
 });

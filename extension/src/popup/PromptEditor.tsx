@@ -1,17 +1,25 @@
 import { useState } from "react";
 import type { Folder, Prompt, Visibility } from "shared";
-import { VISIBILITIES } from "shared";
 import type { NewPrompt } from "../lib/vault";
+import type { TeamRow } from "../lib/api";
 
 interface Props {
   prompt: Prompt | null; // null = creating
   folders: Folder[];
+  teams: TeamRow[]; // empty when signed out
   onSave: (input: NewPrompt, existing: Prompt | null) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
 
-export function PromptEditor({ prompt, folders, onSave, onDelete, onClose }: Props) {
+export function PromptEditor({
+  prompt,
+  folders,
+  teams,
+  onSave,
+  onDelete,
+  onClose,
+}: Props) {
   const [title, setTitle] = useState(prompt?.title ?? "");
   const [body, setBody] = useState(prompt?.body ?? "");
   const [tags, setTags] = useState(prompt?.tags.join(", ") ?? "");
@@ -19,6 +27,7 @@ export function PromptEditor({ prompt, folders, onSave, onDelete, onClose }: Pro
   const [visibility, setVisibility] = useState<Visibility>(
     prompt?.visibility ?? "private",
   );
+  const [teamId, setTeamId] = useState(prompt?.teamId ?? "");
 
   const canSave = title.trim().length > 0 && body.trim().length > 0;
 
@@ -35,6 +44,7 @@ export function PromptEditor({ prompt, folders, onSave, onDelete, onClose }: Pro
           .slice(0, 20),
         folderId: folderId || null,
         visibility,
+        teamId: teamId || null, // independent — a prompt can be public AND team-shared
       },
       prompt,
     );
@@ -77,13 +87,23 @@ export function PromptEditor({ prompt, folders, onSave, onDelete, onClose }: Pro
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as Visibility)}
           >
-            {VISIBILITIES.map((v) => (
-              <option key={v} value={v}>
-                {v === "private" ? "Private (closed)" : v === "public" ? "Public (open)" : "Team"}
-              </option>
-            ))}
+            <option value="private">Private (closed)</option>
+            <option value="public">Public (open)</option>
           </select>
         </div>
+        {teams.length > 0 && (
+          <div>
+            <div className="field-label">Team</div>
+            <select value={teamId ?? ""} onChange={(e) => setTeamId(e.target.value)}>
+              <option value="">No team</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       <div className="actions">
         {prompt && (

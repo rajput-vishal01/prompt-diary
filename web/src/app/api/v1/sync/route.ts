@@ -55,16 +55,11 @@ export async function POST(req: NextRequest) {
     });
     if (existing && existing.userId !== userId) continue; // not yours: skip
 
-    // team visibility must be backed by a real membership;
+    // team sharing must be backed by a real membership;
     // public requires a verified email — otherwise fall back to private
     let visibility = p.visibility ?? "private";
     let teamId = p.teamId ?? null;
-    if (visibility === "team") {
-      if (!teamId || !(await isTeamMember(userId, teamId))) {
-        visibility = "private";
-        teamId = null;
-      }
-    } else {
+    if (teamId && !(await isTeamMember(userId, teamId))) {
       teamId = null;
     }
     if (visibility === "public" && !g.user.emailVerified) {

@@ -36,10 +36,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
   if (!(await isTeamOwner(g.user.id, id))) return forbidden();
 
-  // demote team prompts to private so nothing dangles semi-shared
+  // unshare the team's prompts; their own visibility (private/public) stays
   await db
     .update(prompts)
-    .set({ visibility: "private", teamId: null, updatedAt: new Date() })
+    .set({ teamId: null, updatedAt: new Date() })
     .where(eq(prompts.teamId, id));
   await db.delete(teams).where(eq(teams.id, id));
   return jsonOk({ deleted: true });

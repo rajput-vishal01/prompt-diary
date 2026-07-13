@@ -22,6 +22,13 @@
       "when": 1783921103821,
       "tag": "0002_young_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783935909818,
+      "tag": "0003_decouple_team_sharing_from_visibility",
+      "breakpoints": true
     }
   ]
 }

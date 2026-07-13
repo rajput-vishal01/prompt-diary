@@ -15,12 +15,15 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { id: teamId } = await params;
   if (!(await isTeamMember(g.user.id, teamId))) return forbidden();
 
+  // team sharing is independent of visibility: anything with this teamId
+  // belongs in the library, public or private
   const rows = await db
     .select({
       id: prompts.id,
       title: prompts.title,
       body: prompts.body,
       tags: prompts.tags,
+      visibility: prompts.visibility,
       useCount: prompts.useCount,
       createdAt: prompts.createdAt,
       updatedAt: prompts.updatedAt,
@@ -28,13 +31,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     })
     .from(prompts)
     .innerJoin(user, eq(prompts.userId, user.id))
-    .where(
-      and(
-        eq(prompts.teamId, teamId),
-        eq(prompts.visibility, "team"),
-        eq(prompts.deleted, false),
-      ),
-    )
+    .where(and(eq(prompts.teamId, teamId), eq(prompts.deleted, false)))
     .orderBy(desc(prompts.updatedAt));
 
   return jsonOk(rows);

@@ -2,7 +2,10 @@ import { z } from "zod";
 
 // ---------- enums ----------
 
-export const VISIBILITIES = ["private", "team", "public"] as const;
+// visibility says who can see it in the world; team sharing is independent —
+// a prompt with teamId set is ALSO visible to that team's members, whatever
+// its visibility. (legacy value "team" is normalized to private + teamId)
+export const VISIBILITIES = ["private", "public"] as const;
 export const VisibilitySchema = z.enum(VISIBILITIES);
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
@@ -31,7 +34,7 @@ export const PromptSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(50_000),
   tags: z.array(z.string().min(1).max(50)).max(20).default([]),
-  visibility: VisibilitySchema.default("private"),
+  visibility: VisibilitySchema.catch("private").default("private"),
   teamId: z.string().nullable(),
   useCount: z.number().int().nonnegative().default(0),
   pinned: z.boolean().default(false),
@@ -58,7 +61,8 @@ export const PromptCreateSchema = PromptSchema.pick({
   id: z.string().uuid().optional(), // client-generated for offline-first sync
   folderId: z.string().nullable().optional(),
   tags: PromptSchema.shape.tags.optional(),
-  visibility: VisibilitySchema.optional(),
+  // .catch: old clients may still send "team" — treat as private (teamId carries the sharing)
+  visibility: VisibilitySchema.optional().catch("private"),
   teamId: z.string().nullable().optional(),
   pinned: z.boolean().optional(),
   sourceId: z.string().nullable().optional(),

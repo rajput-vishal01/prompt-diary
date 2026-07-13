@@ -40,11 +40,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return jsonErr(parsed.error.message, 400);
   const input = parsed.data;
 
-  if (input.visibility === "team") {
-    if (!input.teamId) return jsonErr("teamId required for team visibility", 400);
-    if (!(await isTeamMember(g.user.id, input.teamId))) {
-      return jsonErr("Not a member of that team", 403);
-    }
+  if (input.teamId && !(await isTeamMember(g.user.id, input.teamId))) {
+    return jsonErr("Not a member of that team", 403);
   }
   if (input.visibility === "public" && !g.user.emailVerified) {
     return needsVerification();
@@ -94,7 +91,7 @@ export async function POST(req: NextRequest) {
       body: input.body,
       tags: input.tags ?? [],
       visibility: input.visibility ?? "private",
-      teamId: input.visibility === "team" ? (input.teamId ?? null) : null,
+      teamId: input.teamId ?? null,
       pinned: input.pinned ?? false,
       sourceId: input.sourceId ?? null,
     })
