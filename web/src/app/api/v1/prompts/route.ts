@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
       teamId: input.teamId ?? null,
       pinned: input.pinned ?? false,
       sourceId: input.sourceId ?? null,
+      outputBefore: input.outputBefore ?? null,
+      outputAfter: input.outputAfter ?? null,
     })
     .returning();
 

@@ -143,6 +143,10 @@ export const prompts = pgTable(
     deleted: boolean("deleted").notNull().default(false),
     // gallery prompt this was copied from — dedupes "add to my diary"
     sourceId: text("source_id"),
+    // sample outputs: what the model produced before/after this prompt —
+    // the before/after panes in the detail view
+    outputBefore: text("output_before"),
+    outputAfter: text("output_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

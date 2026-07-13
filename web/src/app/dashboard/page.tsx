@@ -355,6 +355,8 @@ function PromptDetail({
   );
   const [teamId, setTeamId] = useState(prompt?.teamId ?? "");
   const [pinned, setPinned] = useState(prompt?.pinned ?? false);
+  const [outputBefore, setOutputBefore] = useState(prompt?.outputBefore ?? "");
+  const [outputAfter, setOutputAfter] = useState(prompt?.outputAfter ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const save = async () => {
@@ -371,6 +373,8 @@ function PromptDetail({
       visibility,
       teamId: teamId || null,
       pinned,
+      outputBefore: outputBefore.trim() || null,
+      outputAfter: outputAfter.trim() || null,
     };
     try {
       if (prompt) {
@@ -391,31 +395,82 @@ function PromptDetail({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6">
-      <div className="w-full max-w-xl space-y-3 rounded-xl border border-line bg-raised p-6">
-        <h2 className="text-lg font-bold">{prompt ? "Edit prompt" : "New prompt"}</h2>
-        <input
-          className="input"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          autoFocus
-        />
-        <textarea
-          className="input h-40 resize-none font-mono text-xs leading-relaxed"
-          placeholder="Your prompt…"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-        <input
-          className="input"
-          placeholder="Tags (comma separated)"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <div className="flex gap-3">
+    // full-page takeover: outputs are the star, the prompt is the instrument
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6">
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <button className="btn" onClick={onClose}>
+            ← Back
+          </button>
+          <input
+            className="input flex-1 text-base font-semibold"
+            placeholder="Prompt title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus={!prompt}
+          />
+          {prompt && (
+            <button className="btn text-danger" onClick={() => void remove()}>
+              Delete
+            </button>
+          )}
+          <button
+            className="btn-primary px-5"
+            disabled={!title.trim() || !body.trim()}
+            onClick={() => void save()}
+          >
+            Save
+          </button>
+        </div>
+
+        {/* the proof: what the model did before vs after this prompt */}
+        <div className="grid min-h-0 flex-[1.2] grid-cols-2 gap-4">
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
+            <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
+              BEFORE — output without this prompt
+            </div>
+            <textarea
+              className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
+              placeholder="Paste a sample of what the model gave you before…"
+              value={outputBefore}
+              onChange={(e) => setOutputBefore(e.target.value)}
+            />
+          </div>
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-accent/40 bg-raised">
+            <div className="border-b border-line bg-tint px-3 py-2 text-xs font-semibold text-accent">
+              AFTER — output with this prompt
+            </div>
+            <textarea
+              className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
+              placeholder="…and the improved output it produced."
+              value={outputAfter}
+              onChange={(e) => setOutputAfter(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* the prompt itself */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
+          <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
+            THE PROMPT
+          </div>
+          <textarea
+            className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
+            placeholder="Your prompt…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            className="input max-w-56"
+            placeholder="Tags (comma separated)"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
           <select
-            className="input"
+            className="input max-w-44"
             value={folderId ?? ""}
             onChange={(e) => setFolderId(e.target.value)}
           >
@@ -427,7 +482,7 @@ function PromptDetail({
             ))}
           </select>
           <select
-            className="input"
+            className="input max-w-44"
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as Visibility)}
           >
@@ -435,7 +490,7 @@ function PromptDetail({
             <option value="public">Public (open source)</option>
           </select>
           <select
-            className="input"
+            className="input max-w-44"
             value={teamId ?? ""}
             onChange={(e) => setTeamId(e.target.value)}
           >
@@ -446,32 +501,15 @@ function PromptDetail({
               </option>
             ))}
           </select>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-dim">
-          <input
-            type="checkbox"
-            checked={pinned}
-            onChange={(e) => setPinned(e.target.checked)}
-          />
-          Pin to top
-        </label>
-        {error && <p className="text-sm text-danger">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          {prompt && (
-            <button className="btn mr-auto text-danger" onClick={() => void remove()}>
-              Delete
-            </button>
-          )}
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn-primary"
-            disabled={!title.trim() || !body.trim()}
-            onClick={() => void save()}
-          >
-            Save
-          </button>
+          <label className="flex items-center gap-2 text-sm text-dim">
+            <input
+              type="checkbox"
+              checked={pinned}
+              onChange={(e) => setPinned(e.target.checked)}
+            />
+            Pin
+          </label>
+          {error && <p className="text-sm text-danger">{error}</p>}
         </div>
       </div>
     </div>

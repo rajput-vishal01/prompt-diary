@@ -31,6 +31,8 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
           teamId: p.teamId,
           pinned: p.pinned,
           sourceId: p.sourceId,
+          outputBefore: p.outputBefore,
+          outputAfter: p.outputAfter,
           updatedAt: p.updatedAt,
         })),
         folders: vault.folders.map((f) => ({

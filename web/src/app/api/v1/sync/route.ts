@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
           visibility,
           teamId,
           pinned: p.pinned ?? existing.pinned,
+          outputBefore: p.outputBefore ?? existing.outputBefore,
+          outputAfter: p.outputAfter ?? existing.outputAfter,
           updatedAt: clientUpdatedAt,
         })
         .where(eq(prompts.id, p.id));
@@ -108,6 +110,8 @@ export async function POST(req: NextRequest) {
           teamId,
           pinned: p.pinned ?? false,
           sourceId: p.sourceId ?? null,
+          outputBefore: p.outputBefore ?? null,
+          outputAfter: p.outputAfter ?? null,
           updatedAt: clientUpdatedAt,
         })
         .onConflictDoNothing(); // (user, sourceId) already present from another path

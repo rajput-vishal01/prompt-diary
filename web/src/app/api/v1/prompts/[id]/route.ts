@@ -72,7 +72,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     input.folderId !== undefined ||
     input.pinned !== undefined ||
     input.visibility !== undefined ||
-    input.teamId !== undefined;
+    input.teamId !== undefined ||
+    input.outputBefore !== undefined ||
+    input.outputAfter !== undefined;
 
   const [updated] = await db
     .update(prompts)
@@ -82,6 +84,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.tags !== undefined && { tags: input.tags }),
       ...(input.folderId !== undefined && { folderId: input.folderId }),
       ...(input.pinned !== undefined && { pinned: input.pinned }),
+      ...(input.outputBefore !== undefined && { outputBefore: input.outputBefore }),
+      ...(input.outputAfter !== undefined && { outputAfter: input.outputAfter }),
       ...(input.useCount !== undefined && { useCount: input.useCount }),
       ...(contentChanged && {
         visibility: nextVisibility,

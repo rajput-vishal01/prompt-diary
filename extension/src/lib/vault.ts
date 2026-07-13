@@ -61,6 +61,8 @@ export async function addPrompt(input: NewPrompt): Promise<Prompt> {
     useCount: 0,
     pinned: false,
     sourceId: null,
+    outputBefore: null,
+    outputAfter: null,
     createdAt: now(),
     updatedAt: now(),
   };
