@@ -19,6 +19,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return jsonErr(parsed.error.message, 400);
   const push = parsed.data;
 
+  // memoize membership checks — a vault full of prompts sharing one team
+  // must not trigger one DB query per prompt
+  const membershipCache = new Map<string, boolean>();
+  const isMemberCached = async (teamId: string) => {
+    let cached = membershipCache.get(teamId);
+    if (cached === undefined) {
+      cached = await isTeamMember(userId, teamId);
+      membershipCache.set(teamId, cached);
+    }
+    return cached;
+  };
+
   // ---- folders ----
   for (const f of push.folders) {
     const existing = await db.query.folders.findFirst({
@@ -59,7 +71,7 @@ export async function POST(req: NextRequest) {
     // public requires a verified email — otherwise fall back to private
     let visibility = p.visibility ?? "private";
     let teamId = p.teamId ?? null;
-    if (teamId && !(await isTeamMember(userId, teamId))) {
+    if (teamId && !(await isMemberCached(teamId))) {
       teamId = null;
     }
     if (visibility === "public" && !g.user.emailVerified) {

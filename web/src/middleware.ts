@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  // without this the extension can't READ the session token header on
+  // sign-in — cross-origin responses hide non-safelisted headers
+  "Access-Control-Expose-Headers": "set-auth-token",
   "Access-Control-Max-Age": "86400",
 };
 

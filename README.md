@@ -67,6 +67,9 @@ sync*). Same account everywhere.
    deployed URL itself), `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and optionally
    `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
 2. **Migrate Neon**: `cd web && DATABASE_URL=<neon-url> bunx drizzle-kit migrate`
+   — and on Vercel use Neon's **pooled** connection string (host contains
+   `-pooler`): serverless functions open many short-lived connections, and
+   the pooler makes them fast and keeps Neon's connection limit safe.
 3. **Google OAuth** (if used): in Google Cloud Console add the authorized
    redirect URI `https://<deployed-url>/api/auth/callback/google`.
 4. **Extension store build**:

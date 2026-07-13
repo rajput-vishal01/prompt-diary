@@ -216,7 +216,10 @@ export function App() {
               <button
                 className="link-btn"
                 onClick={() => {
-                  void signOut().then(() => setAuthState(null));
+                  void signOut().then(() => {
+                    setAuthState(null);
+                    setTeams([]); // stale team list must not linger in the editor
+                  });
                 }}
               >
                 Sign out

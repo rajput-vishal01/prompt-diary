@@ -62,6 +62,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return needsVerification();
   }
 
+  // a useCount-only patch (the Copy button) must NOT bump updatedAt —
+  // otherwise copying on one device makes LWW sync discard real edits
+  // made on another device
+  const contentChanged =
+    input.title !== undefined ||
+    input.body !== undefined ||
+    input.tags !== undefined ||
+    input.folderId !== undefined ||
+    input.pinned !== undefined ||
+    input.visibility !== undefined ||
+    input.teamId !== undefined;
+
   const [updated] = await db
     .update(prompts)
     .set({
@@ -71,9 +83,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.folderId !== undefined && { folderId: input.folderId }),
       ...(input.pinned !== undefined && { pinned: input.pinned }),
       ...(input.useCount !== undefined && { useCount: input.useCount }),
-      visibility: nextVisibility,
-      teamId: nextTeamId,
-      updatedAt: new Date(),
+      ...(contentChanged && {
+        visibility: nextVisibility,
+        teamId: nextTeamId,
+        updatedAt: new Date(),
+      }),
     })
     .where(eq(prompts.id, id))
     .returning();

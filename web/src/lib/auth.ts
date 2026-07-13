@@ -49,6 +49,15 @@ export const auth = betterAuth({
       },
     },
   }),
+  session: {
+    // cache the session in a signed cookie for 5 min — without this EVERY
+    // api call does a session lookup in the DB (a full Neon roundtrip in
+    // prod), which is the single biggest source of perceived slowness
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
   // bearer(): lets the chrome extension authenticate with
   // "Authorization: Bearer <token>" instead of cookies
   plugins: [bearer()],
