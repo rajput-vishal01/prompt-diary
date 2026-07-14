@@ -25,13 +25,16 @@ Dark mode: not shipped; single committed light theme is the identity.
 - **UI sans**: IBM Plex Sans (dashboard, via next/font) / system-ui (extension popup).
 - **Prompt bodies**: IBM Plex Mono (dashboard) / ui-monospace (extension). Always. Prompts are artifacts.
 - **Display**: Newsreader (serif) — wordmark and landing headline ONLY. Never in UI labels/buttons.
-- Fixed rem scale, ratio ~1.2: 12 / 13 / 14 / 16 / 20 / 24 / 34.
-- Tabular numerals for counts.
+- **Instrument density** (P0): 13px UI type, 32px control height (`h-8`),
+  11px metadata/badges, heading tracking -0.015em. The app reads as a tool,
+  not a website.
+- Tabular numerals for counts. `kbd` chips for every shortcut shown in UI.
 
 ## Shape & Depth
 
 - Radius: 6px controls, 10px panels. No pills except badges.
-- Borders over shadows. One shadow tier for overlays only.
+- Three elevation tiers: flat bg → `.panel`/`.card` (hairline + whisper
+  shadow) → floating (palette/toasts, real shadow). Never arbitrary shadows.
 - Ledger rows: hairline `divide-y`, generous horizontal padding, hover = `hover` bg.
 
 ## Components
