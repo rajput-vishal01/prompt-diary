@@ -190,6 +190,48 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      <div className="card space-y-3">
+        <h2 className="font-semibold">Keyboard shortcuts</h2>
+        <div className="grid gap-1.5 text-[13px]">
+          <p className="flex justify-between">
+            <span className="text-dim">Command palette</span>
+            <span><span className="kbd">⌘</span> <span className="kbd">K</span></span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-dim">Focus search</span>
+            <span className="kbd">/</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-dim">Save & close editor</span>
+            <span><span className="kbd">⌘</span> <span className="kbd">↵</span></span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-dim">Back / close</span>
+            <span className="kbd">esc</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-dim">Open extension popup</span>
+            <span><span className="kbd">Alt</span> <span className="kbd">P</span></span>
+          </p>
+        </div>
+        <div className="border-t border-line pt-2 text-[12px] leading-relaxed text-dim">
+          To change the extension hotkey, Chrome requires you to do it in the
+          browser itself (extensions can't rebind their own keys):{" "}
+          <button
+            className="font-mono font-semibold text-accent hover:underline"
+            onClick={() => {
+              void navigator.clipboard.writeText("chrome://extensions/shortcuts");
+            }}
+            title="Click to copy"
+          >
+            chrome://extensions/shortcuts
+          </button>{" "}
+          — click to copy, paste it in the address bar. Or click the{" "}
+          <span className="font-semibold text-ink">⌨</span> in the extension
+          popup's footer to jump straight there.
+        </div>
+      </div>
+
       <div className="card space-y-2">
         <h2 className="font-semibold">Chrome extension</h2>
         <p className="text-sm text-dim">

@@ -39,12 +39,18 @@ export function App() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const [recents, setRecents] = useState<string[]>([]);
+  const [hotkey, setHotkey] = useState<string>("");
 
   const reload = () => void getVault().then(setVaultState);
 
   useEffect(() => {
     reload();
     void getRecents().then(setRecents);
+    // show the ACTUAL current binding (users can rebind it in chrome)
+    chrome.commands.getAll((cmds) => {
+      const open = cmds.find((c) => c.name === "_execute_action");
+      setHotkey(open?.shortcut || "not set");
+    });
     // auto-sync on popup open so prompts added on the web (dashboard,
     // gallery "add to my diary") show up without a manual Sync click
     void getAuth().then(async (a) => {
@@ -270,6 +276,15 @@ export function App() {
                 : `Local vault · ${vault.prompts.length} prompts`)}
           </span>
           <span className="spacer" />
+          <button
+            className="link-btn"
+            title="Change the keyboard shortcut (opens Chrome's shortcut settings)"
+            onClick={() => {
+              void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+            }}
+          >
+            ⌨ {hotkey}
+          </button>
           {auth ? (
             <>
               <button className="link-btn" onClick={() => void handleSync()}>
