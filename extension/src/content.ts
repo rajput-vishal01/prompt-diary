@@ -227,8 +227,11 @@ const MESSAGE_SELECTORS: Array<{ host: RegExp; selector: string }> = [
     selector: "[data-message-author-role]", // both your prompts and gpt's replies
   },
   {
+    // claude redesigns often — anchor on data-is-streaming (stable for years,
+    // present on every completed assistant turn) with class fallbacks
     host: /claude\.ai/,
-    selector: "div.font-claude-message, div[data-testid='user-message']",
+    selector:
+      "div[data-is-streaming='false'], div.font-claude-message, div.font-claude-response, div[data-testid='user-message']",
   },
   {
     host: /gemini\.google\.com/,
@@ -277,7 +280,9 @@ function makeMessageButton(target: HTMLElement): HTMLButtonElement {
 function injectMessageButtons() {
   if (!messageSelector) return;
   for (const el of document.querySelectorAll<HTMLElement>(messageSelector)) {
-    if (el.dataset[PD_MARKER]) continue;
+    // closest() includes self — also prevents nested double-injection when
+    // both a wrapper and an inner container match the selector list
+    if (el.closest("[data-pd-save-injected='1']")) continue;
     // skip messages still streaming in (claude flags these)
     if (el.closest("[data-is-streaming='true']")) continue;
     if ((el.innerText ?? "").trim().length < MIN_SELECTION) continue;
