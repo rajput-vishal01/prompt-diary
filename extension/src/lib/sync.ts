@@ -35,6 +35,7 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
           outputAfter: p.outputAfter,
           imageBefore: p.imageBefore,
           imageAfter: p.imageAfter,
+          sourceConvo: p.sourceConvo,
           updatedAt: p.updatedAt,
         })),
         folders: vault.folders.map((f) => ({

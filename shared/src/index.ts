@@ -50,6 +50,7 @@ export const PromptSchema = z.object({
   outputAfter: z.string().max(50_000).nullable().default(null),
   imageBefore: ImageUrlSchema.nullable().default(null),
   imageAfter: ImageUrlSchema.nullable().default(null),
+  sourceConvo: z.string().max(300).nullable().default(null), // chat-conversation fingerprint
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -81,6 +82,7 @@ export const PromptCreateSchema = PromptSchema.pick({
   outputAfter: z.string().max(50_000).nullable().optional(),
   imageBefore: ImageUrlSchema.nullable().optional(),
   imageAfter: ImageUrlSchema.nullable().optional(),
+  sourceConvo: z.string().max(300).nullable().optional(),
   updatedAt: z.string().optional(), // for LWW sync
 });
 export type PromptCreate = z.infer<typeof PromptCreateSchema>;
@@ -103,6 +105,52 @@ export const TeamInviteSchema = z.object({
   email: z.string().email(),
 });
 export type TeamInvite = z.infer<typeof TeamInviteSchema>;
+
+// ---------- v2: projects & threads ----------
+
+export const ProjectSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string().min(1).max(100),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#1c6b4a"),
+  teamId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
+export const ProjectCreateSchema = ProjectSchema.pick({ name: true }).extend({
+  color: ProjectSchema.shape.color.optional(),
+  teamId: z.string().nullable().optional(),
+});
+export type ProjectCreate = z.infer<typeof ProjectCreateSchema>;
+
+export const ThreadSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  projectId: z.string().nullable(),
+  title: z.string().min(1).max(200),
+  finalOutput: z.string().max(50_000).nullable().default(null),
+  finalImage: ImageUrlSchema.nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Thread = z.infer<typeof ThreadSchema>;
+
+export const ThreadCreateSchema = ThreadSchema.pick({ title: true }).extend({
+  projectId: z.string().nullable().optional(),
+  promptIds: z.array(z.string()).max(50).optional(), // initial steps, in order
+});
+export type ThreadCreate = z.infer<typeof ThreadCreateSchema>;
+
+export const ThreadUpdateSchema = z.object({
+  title: ThreadSchema.shape.title.optional(),
+  projectId: z.string().nullable().optional(),
+  finalOutput: z.string().max(50_000).nullable().optional(),
+  finalImage: ImageUrlSchema.nullable().optional(),
+  promptIds: z.array(z.string()).max(50).optional(), // full reorder/replace
+});
+export type ThreadUpdate = z.infer<typeof ThreadUpdateSchema>;
 
 // ---------- sync ----------
 

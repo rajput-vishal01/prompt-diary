@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
           outputAfter: p.outputAfter ?? null,
           imageBefore: p.imageBefore ?? null,
           imageAfter: p.imageAfter ?? null,
+          sourceConvo: p.sourceConvo ?? null,
           updatedAt: clientUpdatedAt,
         })
         .onConflictDoNothing(); // (user, sourceId) already present from another path

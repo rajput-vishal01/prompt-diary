@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       outputAfter: input.outputAfter ?? null,
       imageBefore: input.imageBefore ?? null,
       imageAfter: input.imageAfter ?? null,
+      sourceConvo: input.sourceConvo ?? null,
     })
     .returning();
 

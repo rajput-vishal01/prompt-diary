@@ -45,6 +45,7 @@ export interface NewPrompt {
   tags?: string[];
   visibility?: Visibility;
   teamId?: string | null;
+  sourceConvo?: string | null;
 }
 
 export interface AddResult {
@@ -73,6 +74,7 @@ export async function addPrompt(input: NewPrompt): Promise<AddResult> {
     outputAfter: null,
     imageBefore: null,
     imageAfter: null,
+    sourceConvo: input.sourceConvo ?? null,
     createdAt: now(),
     updatedAt: now(),
   };

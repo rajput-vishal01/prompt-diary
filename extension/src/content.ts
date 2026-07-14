@@ -88,13 +88,17 @@ function showToast(text: string) {
   toastTimer = window.setTimeout(() => (toast.style.display = "none"), 1600);
 }
 
+// conversation fingerprint: origin + path identifies one chat session
+// (chatgpt.com/c/<id>, claude.ai/chat/<id>…) — powers backward thread assembly
+const sourceConvo = () => `${location.origin}${location.pathname}`.slice(0, 300);
+
 function savePrompt(body: string) {
   const text = body.trim();
   if (!text) return;
   const title =
     text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX).trimEnd()}…` : text;
   chrome.runtime.sendMessage(
-    { type: "save-prompt", title, body: text },
+    { type: "save-prompt", title, body: text, sourceConvo: sourceConvo() },
     (res?: { ok?: boolean; duplicate?: boolean }) => {
       showToast(
         !res?.ok
@@ -302,7 +306,12 @@ function makeMessageButton(target: HTMLElement): HTMLButtonElement {
     btn.style.display = "inline-flex";
     btn.textContent = "Saving…";
     chrome.runtime.sendMessage(
-      { type: "save-prompt", title: text.slice(0, TITLE_MAX), body: text.trim() },
+      {
+        type: "save-prompt",
+        title: text.slice(0, TITLE_MAX),
+        body: text.trim(),
+        sourceConvo: sourceConvo(),
+      },
       (res?: { ok?: boolean; duplicate?: boolean }) => {
         if (chrome.runtime.lastError) {
           console.warn("[prompt-diary]", chrome.runtime.lastError.message);

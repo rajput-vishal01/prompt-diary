@@ -49,7 +49,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // one-click saves from the content script (selection bubble / composer / messages)
 chrome.runtime.onMessage.addListener(
   (
-    msg: { type?: string; title?: string; body?: string },
+    msg: { type?: string; title?: string; body?: string; sourceConvo?: string },
     sender,
     sendResponse,
   ) => {
@@ -58,6 +58,7 @@ chrome.runtime.onMessage.addListener(
       title: msg.title ?? msg.body.slice(0, TITLE_MAX),
       body: msg.body,
       tags: siteTag(sender.tab?.url ?? sender.url),
+      sourceConvo: msg.sourceConvo ?? null,
     })
       .then((r) => {
         flashBadge(r.duplicate ? "=" : "+1");

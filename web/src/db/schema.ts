@@ -108,6 +108,61 @@ export const teamInvites = pgTable(
   (t) => [uniqueIndex("team_invites_team_email_idx").on(t.teamId, t.email)],
 );
 
+// ---- v2: projects shelve threads; threads chain saved prompts ----
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("#1c6b4a"),
+    teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("projects_user_idx").on(t.userId)],
+);
+
+export const threads = pgTable(
+  "threads",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    projectId: text("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    finalOutput: text("final_output"),
+    finalImage: text("final_image"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("threads_user_idx").on(t.userId),
+    index("threads_project_idx").on(t.projectId),
+  ],
+);
+
+export const threadSteps = pgTable(
+  "thread_steps",
+  {
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    promptId: text("prompt_id")
+      .notNull()
+      .references(() => prompts.id, { onDelete: "cascade" }),
+    order: integer("order").notNull(),
+    note: text("note"),
+  },
+  (t) => [primaryKey({ columns: [t.threadId, t.promptId] })],
+);
+
 export const folders = pgTable(
   "folders",
   {
@@ -150,6 +205,9 @@ export const prompts = pgTable(
     // cloudinary screenshot URLs — panes can hold text, an image, or both
     imageBefore: text("image_before"),
     imageAfter: text("image_after"),
+    // conversation fingerprint stamped by the extension — powers backward
+    // thread assembly ("5 saves from this chat → chain into a thread?")
+    sourceConvo: text("source_convo"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
