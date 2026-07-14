@@ -300,7 +300,26 @@ function makeMessageButton(target: HTMLElement): HTMLButtonElement {
     btn.style.display = "none";
     const text = target.innerText;
     btn.style.display = "inline-flex";
-    savePrompt(text);
+    btn.textContent = "Saving…";
+    chrome.runtime.sendMessage(
+      { type: "save-prompt", title: text.slice(0, TITLE_MAX), body: text.trim() },
+      (res?: { ok?: boolean; duplicate?: boolean }) => {
+        if (chrome.runtime.lastError) {
+          console.warn("[prompt-diary]", chrome.runtime.lastError.message);
+        }
+        // feedback ON the button — bottom toasts get missed
+        btn.textContent = !res?.ok
+          ? "Failed — reload extension"
+          : res.duplicate
+            ? "Already saved ="
+            : "Saved ✓";
+        btn.style.opacity = "1";
+        setTimeout(() => {
+          btn.textContent = "Pd · Save";
+          btn.style.opacity = "0.7";
+        }, 2000);
+      },
+    );
   });
   return btn;
 }
