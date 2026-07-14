@@ -8,11 +8,16 @@ import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
 
 const NAV = [
-  { href: "/dashboard/projects", label: "Projects" },
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/gallery", label: "Public Gallery" },
   { href: "/dashboard/profile", label: "Profile" },
 ];
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  color: string;
+}
 
 // dashboard listens for this to refetch after sidebar folder mutations
 export const FOLDERS_CHANGED_EVENT = "pd-folders-changed";
@@ -25,6 +30,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const reloadFolders = useCallback(
@@ -32,9 +38,24 @@ export function Sidebar() {
     [],
   );
 
+  const reloadProjects = useCallback(
+    () => api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {}),
+    [],
+  );
+
   useEffect(() => {
-    if (session) void reloadFolders();
-  }, [session, reloadFolders]);
+    if (session) {
+      void reloadFolders();
+      void reloadProjects();
+    }
+  }, [session, reloadFolders, reloadProjects]);
+
+  // projects page mutates projects too — stay in sync
+  useEffect(() => {
+    const onChanged = () => void reloadProjects();
+    window.addEventListener(FOLDERS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, onChanged);
+  }, [reloadProjects]);
 
   if (!session) return null;
 
@@ -150,6 +171,50 @@ export function Sidebar() {
             onClick={() => void newFolder()}
           >
             + New folder
+          </button>
+        </div>
+
+        {/* Projects with their channels — mirrors the My Prompts pattern */}
+        <Link
+          href="/dashboard/projects"
+          className={`rounded-lg px-3 py-2 text-sm ${
+            pathname === "/dashboard/projects" && !searchParams.get("p")
+              ? "bg-tint font-semibold text-accent"
+              : "text-dim hover:bg-hover hover:text-ink"
+          }`}
+        >
+          Projects
+        </Link>
+        <div className="mb-1 ml-3 flex flex-col gap-0.5 border-l border-line pl-2">
+          {projects.map((p) => (
+            <Link
+              key={p.id}
+              href={`/dashboard/projects?p=${p.id}`}
+              className={channel(
+                pathname === "/dashboard/projects" && searchParams.get("p") === p.id,
+              )}
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: p.color }}
+              />
+              <span className="truncate">{p.name}</span>
+            </Link>
+          ))}
+          <button
+            className="flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-dim transition-colors hover:bg-hover hover:text-accent"
+            onClick={async () => {
+              const name = window.prompt("Project name");
+              if (!name?.trim()) return;
+              await api("/api/v1/projects", {
+                method: "POST",
+                body: { name: name.trim() },
+              });
+              await reloadProjects();
+              emitFoldersChanged();
+            }}
+          >
+            + New project
           </button>
         </div>
 

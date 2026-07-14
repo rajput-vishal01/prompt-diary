@@ -150,6 +150,13 @@ export function createThread(title: string): Promise<ThreadRef> {
   return api<ThreadRef>("/api/v1/threads", { method: "POST", body: { title } });
 }
 
+export function createProject(name: string): Promise<{ id: string; name: string }> {
+  return api<{ id: string; name: string }>("/api/v1/projects", {
+    method: "POST",
+    body: { name },
+  });
+}
+
 export async function getActiveThread(): Promise<ThreadRef | null> {
   const res = await chrome.storage.local.get("activeThread");
   return (res["activeThread"] as ThreadRef | undefined) ?? null;

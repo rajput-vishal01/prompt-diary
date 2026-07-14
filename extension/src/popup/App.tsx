@@ -17,6 +17,7 @@ import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
 import { AccountView } from "./AccountView";
 import {
+  createProject,
   createThread,
   getActiveThread,
   getAuth,
@@ -239,6 +240,60 @@ export function App() {
         <button className="nav-item add-folder" onClick={() => void handleNewFolder()}>
           + New folder
         </button>
+
+        {auth && (
+          <>
+            <div className="sidebar-section">Threads</div>
+            <button
+              className="nav-item"
+              style={recording ? { color: "var(--danger)", fontWeight: 700 } : undefined}
+              title={
+                recording
+                  ? `Recording to “${recording.title}” — click to stop`
+                  : "Record saves into a thread"
+              }
+              onClick={() => {
+                if (recording) {
+                  void setActiveThread(null).then(() => setRecording(null));
+                } else {
+                  void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
+                }
+              }}
+            >
+              <span className="label">
+                {recording ? `◉ ${recording.title}` : "○ Record"}
+              </span>
+            </button>
+            <button
+              className="nav-item add-folder"
+              onClick={() => {
+                const title = window.prompt("Thread title");
+                if (!title?.trim()) return;
+                void createThread(title.trim()).then((t) => {
+                  void setActiveThread(t);
+                  setRecording(t);
+                  setSyncMsg(`Recording → ${t.title}`);
+                  setTimeout(() => setSyncMsg(null), 2000);
+                });
+              }}
+            >
+              + New thread
+            </button>
+            <button
+              className="nav-item add-folder"
+              onClick={() => {
+                const name = window.prompt("Project name");
+                if (!name?.trim()) return;
+                void createProject(name.trim()).then(() => {
+                  setSyncMsg("Project created");
+                  setTimeout(() => setSyncMsg(null), 2000);
+                });
+              }}
+            >
+              + New project
+            </button>
+          </>
+        )}
       </aside>
 
       <main className="main">
@@ -319,28 +374,6 @@ export function App() {
           </button>
           {auth ? (
             <>
-              {recording ? (
-                <button
-                  className="link-btn"
-                  style={{ color: "var(--danger)" }}
-                  title={`Recording to “${recording.title}” — click to stop`}
-                  onClick={() => {
-                    void setActiveThread(null).then(() => setRecording(null));
-                  }}
-                >
-                  ◉ {recording.title.slice(0, 12)}
-                </button>
-              ) : (
-                <button
-                  className="link-btn"
-                  title="Record saves into a thread"
-                  onClick={() => {
-                    void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
-                  }}
-                >
-                  ○ Rec
-                </button>
-              )}
               <button className="link-btn" onClick={() => void handleSync()}>
                 Sync
               </button>

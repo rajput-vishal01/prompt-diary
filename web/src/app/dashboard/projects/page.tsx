@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
+import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
+
+const emitChanged = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
 
 interface ProjectRow {
   id: string;
@@ -22,11 +25,22 @@ interface ThreadRow {
 }
 
 export default function ProjectsPage() {
+  return (
+    <Suspense>
+      <ProjectsPageInner />
+    </Suspense>
+  );
+}
+
+function ProjectsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selected = searchParams.get("p"); // project filter lives in the URL
+  const setSelected = (id: string | null) =>
+    router.push(id ? `/dashboard/projects?p=${id}` : "/dashboard/projects");
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null); // project filter
 
   const reload = useCallback(() => {
     void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
@@ -36,13 +50,18 @@ export default function ProjectsPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    reload();
+    window.addEventListener(FOLDERS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, reload);
+  }, [reload]);
 
   const newProject = async () => {
     const name = window.prompt("Project name");
     if (!name?.trim()) return;
     await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
     reload();
+    emitChanged();
   };
 
   const renameProject = async (p: ProjectRow) => {
@@ -50,12 +69,22 @@ export default function ProjectsPage() {
     if (!name?.trim() || name.trim() === p.name) return;
     await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
     reload();
+    emitChanged();
   };
 
   const deleteProject = async (p: ProjectRow) => {
     if (!window.confirm(`Delete project "${p.name}"? Its threads are kept.`)) return;
     await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
     if (selected === p.id) setSelected(null);
+    reload();
+    emitChanged();
+  };
+
+  const deleteThread = async (t: ThreadRow) => {
+    if (!window.confirm(`Delete thread "${t.title}"? The prompts inside are kept.`))
+      return;
+    await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
+    toast("Thread deleted");
     reload();
   };
 
@@ -141,8 +170,13 @@ export default function ProjectsPage() {
             return (
               <button
                 key={t.id}
-                className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-hover"
+                className="group flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-hover"
+                title={`${t.title} — right-click to delete`}
                 onClick={() => router.push(`/dashboard/t/${t.id}`)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  void deleteThread(t);
+                }}
               >
                 <span className="truncate text-[13px] font-semibold">{t.title}</span>
                 <span className="shrink-0 text-[11px] tabular-nums text-dim">
@@ -159,6 +193,24 @@ export default function ProjectsPage() {
                 {t.finalOutput && (
                   <span className="vis-badge shrink-0 text-accent">shipped</span>
                 )}
+                <span
+                  className="ml-auto shrink-0 text-[11px] text-danger opacity-0 transition-opacity group-hover:opacity-100"
+                  role="button"
+                  tabIndex={0}
+                  title="Delete thread"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void deleteThread(t);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                      void deleteThread(t);
+                    }
+                  }}
+                >
+                  Delete
+                </span>
               </button>
             );
           })}
