@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
 
 const NAV = [
+  { href: "/dashboard/projects", label: "Projects" },
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/gallery", label: "Public Gallery" },
   { href: "/dashboard/profile", label: "Profile" },

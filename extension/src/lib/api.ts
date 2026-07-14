@@ -135,6 +135,39 @@ export function getTeams(): Promise<TeamRow[]> {
   return api<TeamRow[]>("/api/v1/teams");
 }
 
+// ---- thread recording (forward capture) ----
+
+export interface ThreadRef {
+  id: string;
+  title: string;
+}
+
+export function getThreads(): Promise<ThreadRef[]> {
+  return api<Array<ThreadRef & { stepCount: number }>>("/api/v1/threads");
+}
+
+export function createThread(title: string): Promise<ThreadRef> {
+  return api<ThreadRef>("/api/v1/threads", { method: "POST", body: { title } });
+}
+
+export async function getActiveThread(): Promise<ThreadRef | null> {
+  const res = await chrome.storage.local.get("activeThread");
+  return (res["activeThread"] as ThreadRef | undefined) ?? null;
+}
+
+export async function setActiveThread(t: ThreadRef | null): Promise<void> {
+  if (t) await chrome.storage.local.set({ activeThread: t });
+  else await chrome.storage.local.remove("activeThread");
+}
+
+// steps queued while offline/unsynced — flushed after each successful sync
+export async function queueThreadStep(threadId: string, promptId: string): Promise<void> {
+  const res = await chrome.storage.local.get("pendingSteps");
+  const q = (res["pendingSteps"] as Array<{ threadId: string; promptId: string }>) ?? [];
+  q.push({ threadId, promptId });
+  await chrome.storage.local.set({ pendingSteps: q });
+}
+
 export function signIn(email: string, password: string): Promise<AuthState> {
   return authRequest("/api/auth/sign-in/email", { email, password });
 }

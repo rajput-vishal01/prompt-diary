@@ -99,13 +99,15 @@ function savePrompt(body: string) {
     text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX).trimEnd()}…` : text;
   chrome.runtime.sendMessage(
     { type: "save-prompt", title, body: text, sourceConvo: sourceConvo() },
-    (res?: { ok?: boolean; duplicate?: boolean }) => {
+    (res?: { ok?: boolean; duplicate?: boolean; threadTitle?: string | null }) => {
       showToast(
         !res?.ok
           ? "Could not save — is the extension enabled?"
           : res.duplicate
             ? "Already in your diary"
-            : "Saved to Prompt Diary ✓",
+            : res.threadTitle
+              ? `Saved → ${res.threadTitle} ✓`
+              : "Saved to Prompt Diary ✓",
       );
     },
   );

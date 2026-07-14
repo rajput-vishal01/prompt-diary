@@ -107,6 +107,55 @@ function PromptsPageInner() {
   const newHref = `/dashboard/new${folderTab ? `?folder=${folderTab}` : ""}`;
   const isTrueFirstRun = !isLoading && prompts.length === 0;
 
+  // backward thread assembly: saves stamped with the same conversation
+  // fingerprint cluster themselves — offer to chain them into a thread
+  const cluster = useMemo(() => {
+    let dismissed: string[] = [];
+    try {
+      dismissed = JSON.parse(localStorage.getItem("pd-dismissed-convos") ?? "[]");
+    } catch {
+      /* fresh start */
+    }
+    const groups = new Map<string, Prompt[]>();
+    for (const p of prompts) {
+      if (!p.sourceConvo || dismissed.includes(p.sourceConvo)) continue;
+      groups.set(p.sourceConvo, [...(groups.get(p.sourceConvo) ?? []), p]);
+    }
+    let best: Prompt[] | null = null;
+    for (const g of groups.values()) {
+      if (g.length >= 2 && (!best || g.length > best.length)) best = g;
+    }
+    return best;
+  }, [prompts]);
+
+  const dismissCluster = () => {
+    if (!cluster?.[0]?.sourceConvo) return;
+    const key = cluster[0].sourceConvo;
+    const prev = JSON.parse(localStorage.getItem("pd-dismissed-convos") ?? "[]") as string[];
+    localStorage.setItem("pd-dismissed-convos", JSON.stringify([...prev, key]));
+    void reload();
+  };
+
+  const chainCluster = async () => {
+    if (!cluster) return;
+    const ordered = [...cluster].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const first = ordered[0];
+    if (!first) return;
+    const site = first.tags.find((t) =>
+      ["chatgpt", "claude", "gemini", "perplexity", "poe"].includes(t),
+    );
+    const t = await api<{ id: string }>("/api/v1/threads", {
+      method: "POST",
+      body: {
+        title: `${first.title.slice(0, 60)} — thread`,
+        promptIds: ordered.map((p) => p.id),
+      },
+    });
+    dismissCluster();
+    toast(`Thread created from ${ordered.length} ${site ?? "chat"} saves`);
+    router.push(`/dashboard/t/${t.id}`);
+  };
+
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col">
       <div className="mb-5 flex items-baseline justify-between">
@@ -122,6 +171,21 @@ function PromptsPageInner() {
           + New prompt{activeFolder ? ` in ${activeFolder.name}` : ""}
         </button>
       </div>
+
+      {cluster && (
+        <div className="mb-3 flex items-center gap-3 rounded-[10px] border border-accent/40 bg-tint px-4 py-2.5 text-[13px]">
+          <span className="flex-1">
+            <b>{cluster.length} saves</b> came from the same conversation — chain
+            them into a thread?
+          </span>
+          <button className="btn-primary h-7 px-3 text-[12px]" onClick={() => void chainCluster()}>
+            Chain into thread
+          </button>
+          <button className="text-dim hover:text-ink" title="Dismiss" onClick={dismissCluster}>
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="mb-3 flex gap-2">
         <div className="relative flex-1">

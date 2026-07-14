@@ -2,6 +2,35 @@ import type { Folder, Prompt } from "shared";
 import { api, getAuth } from "./api";
 import { getVault, setVault } from "./vault";
 
+// steps recorded while the prompt only existed locally — appended after sync
+async function flushPendingSteps(): Promise<void> {
+  const res = await chrome.storage.local.get("pendingSteps");
+  const queue =
+    (res["pendingSteps"] as Array<{ threadId: string; promptId: string }>) ?? [];
+  if (queue.length === 0) return;
+
+  const byThread = new Map<string, string[]>();
+  for (const s of queue) {
+    byThread.set(s.threadId, [...(byThread.get(s.threadId) ?? []), s.promptId]);
+  }
+  try {
+    for (const [threadId, promptIds] of byThread) {
+      const thread = await api<{ steps: Array<{ prompt: { id: string } }> }>(
+        `/api/v1/threads/${threadId}`,
+      );
+      const existing = thread.steps.map((s) => s.prompt.id);
+      const merged = [...existing, ...promptIds.filter((p) => !existing.includes(p))];
+      await api(`/api/v1/threads/${threadId}`, {
+        method: "PATCH",
+        body: { promptIds: merged },
+      });
+    }
+    await chrome.storage.local.remove("pendingSteps");
+  } catch {
+    // keep the queue; next sync retries
+  }
+}
+
 interface SyncResult {
   prompts: Prompt[];
   folders: Folder[];
@@ -55,6 +84,7 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
       deletedFolderIds: [],
       lastSyncAt: result.syncedAt,
     });
+    await flushPendingSteps(); // prompts now exist server-side — attach queued steps
     return { synced: true };
   } catch (e) {
     return { synced: false, error: e instanceof Error ? e.message : "Sync failed" };

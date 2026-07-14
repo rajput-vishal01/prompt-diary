@@ -1,4 +1,14 @@
 import { addPrompt } from "./lib/vault";
+import { getActiveThread, queueThreadStep } from "./lib/api";
+
+// while "record to thread" is on, every fresh save queues as the next step
+async function maybeRecord(promptId: string, duplicate: boolean): Promise<string | null> {
+  if (duplicate) return null;
+  const active = await getActiveThread();
+  if (!active) return null;
+  await queueThreadStep(active.id, promptId);
+  return active.title;
+}
 
 const MENU_ID = "save-to-prompt-diary";
 const TITLE_MAX = 60;
@@ -41,9 +51,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   const title =
     text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX).trimEnd()}…` : text;
 
-  void addPrompt({ title, body: text, tags: siteTag(tab?.url) }).then((r) =>
-    flashBadge(r.duplicate ? "=" : "+1"),
-  );
+  void addPrompt({ title, body: text, tags: siteTag(tab?.url) }).then(async (r) => {
+    await maybeRecord(r.prompt.id, r.duplicate);
+    flashBadge(r.duplicate ? "=" : "+1");
+  });
 });
 
 // one-click saves from the content script (selection bubble / composer / messages)
@@ -60,9 +71,10 @@ chrome.runtime.onMessage.addListener(
       tags: siteTag(sender.tab?.url ?? sender.url),
       sourceConvo: msg.sourceConvo ?? null,
     })
-      .then((r) => {
+      .then(async (r) => {
+        const threadTitle = await maybeRecord(r.prompt.id, r.duplicate);
         flashBadge(r.duplicate ? "=" : "+1");
-        sendResponse({ ok: true, duplicate: r.duplicate });
+        sendResponse({ ok: true, duplicate: r.duplicate, threadTitle });
       })
       .catch(() => sendResponse({ ok: false }));
     return true; // async response

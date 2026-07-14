@@ -17,12 +17,17 @@ import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
 import { AccountView } from "./AccountView";
 import {
+  createThread,
+  getActiveThread,
   getAuth,
   getTeams,
+  getThreads,
+  setActiveThread,
   signOut,
   tryCookieSession,
   type AuthState,
   type TeamRow,
+  type ThreadRef,
 } from "../lib/api";
 import { syncNow } from "../lib/sync";
 
@@ -40,6 +45,9 @@ export function App() {
   const [selected, setSelected] = useState(0);
   const [recents, setRecents] = useState<string[]>([]);
   const [hotkey, setHotkey] = useState<string>("");
+  const [recording, setRecording] = useState<ThreadRef | null>(null);
+  const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
+  const [newThreadTitle, setNewThreadTitle] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const reload = () => void getVault().then(setVaultState);
@@ -67,6 +75,7 @@ export function App() {
   useEffect(() => {
     reload();
     void getRecents().then(setRecents);
+    void getActiveThread().then(setRecording);
     // show the ACTUAL current binding (users can rebind it in chrome)
     chrome.commands.getAll((cmds) => {
       const open = cmds.find((c) => c.name === "_execute_action");
@@ -310,6 +319,28 @@ export function App() {
           </button>
           {auth ? (
             <>
+              {recording ? (
+                <button
+                  className="link-btn"
+                  style={{ color: "var(--danger)" }}
+                  title={`Recording to “${recording.title}” — click to stop`}
+                  onClick={() => {
+                    void setActiveThread(null).then(() => setRecording(null));
+                  }}
+                >
+                  ◉ {recording.title.slice(0, 12)}
+                </button>
+              ) : (
+                <button
+                  className="link-btn"
+                  title="Record saves into a thread"
+                  onClick={() => {
+                    void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
+                  }}
+                >
+                  ○ Rec
+                </button>
+              )}
               <button className="link-btn" onClick={() => void handleSync()}>
                 Sync
               </button>
@@ -332,6 +363,60 @@ export function App() {
           )}
         </div>
       </main>
+
+      {recPicker !== null && (
+        <div className="editor">
+          <h2>Record to thread</h2>
+          <p style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.5 }}>
+            While recording, every save becomes the next step of the thread.
+          </p>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {recPicker.map((t) => (
+              <button
+                key={t.id}
+                className="nav-item"
+                style={{ marginBottom: 2 }}
+                onClick={() => {
+                  void setActiveThread(t).then(() => {
+                    setRecording(t);
+                    setRecPicker(null);
+                  });
+                }}
+              >
+                <span className="label">{t.title}</span>
+              </button>
+            ))}
+            {recPicker.length === 0 && (
+              <p style={{ color: "var(--dim)", fontSize: 12 }}>No threads yet.</p>
+            )}
+          </div>
+          <input
+            placeholder="New thread title…"
+            value={newThreadTitle}
+            onChange={(e) => setNewThreadTitle(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+          <div className="actions">
+            <button className="btn" onClick={() => setRecPicker(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn primary"
+              disabled={!newThreadTitle.trim()}
+              onClick={() => {
+                void createThread(newThreadTitle.trim()).then((t) => {
+                  void setActiveThread(t);
+                  setRecording(t);
+                  setRecPicker(null);
+                  setNewThreadTitle("");
+                });
+              }}
+            >
+              Create & record
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAccount && (
         <AccountView
