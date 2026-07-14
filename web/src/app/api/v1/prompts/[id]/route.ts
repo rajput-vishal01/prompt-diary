@@ -5,11 +5,14 @@ import { db } from "@/db";
 import { prompts } from "@/db/schema";
 import {
   forbidden,
+  getUser,
   guard,
   jsonErr,
   jsonOk,
   needsVerification,
   notFound,
+  rateLimit,
+  rateLimitKey,
 } from "@/lib/api";
 import { canAccessPrompt, isTeamMember } from "@/lib/permissions";
 
@@ -19,14 +22,17 @@ async function getPrompt(id: string) {
   return db.query.prompts.findFirst({ where: eq(prompts.id, id) });
 }
 
+// anonymous allowed: public prompts are world-readable (gallery detail view)
 export async function GET(req: NextRequest, { params }: Params) {
-  const g = await guard(req);
-  if ("response" in g) return g.response;
+  const user = await getUser(req);
+  if (!rateLimit(rateLimitKey(req, user?.id))) {
+    return jsonErr("Too many requests", 429);
+  }
 
   const { id } = await params;
   const row = await getPrompt(id);
   if (!row || row.deleted) return notFound();
-  if (!(await canAccessPrompt(g.user.id, row, "read"))) return forbidden();
+  if (!(await canAccessPrompt(user?.id ?? null, row, "read"))) return forbidden();
   return jsonOk(row);
 }
 

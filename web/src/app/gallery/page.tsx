@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
@@ -22,6 +23,9 @@ export default function GalleryPage() {
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
+  const [detail, setDetail] = useState<{ prompt: Prompt; authorName: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -48,6 +52,17 @@ export default function GalleryPage() {
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 1200);
+  };
+
+  const openDetail = async (p: GalleryPrompt) => {
+    // list payload stays light; outputs are fetched per-prompt on open
+    try {
+      const full = await api<Prompt>(`/api/v1/prompts/${p.id}`);
+      setDetail({ prompt: full, authorName: p.authorName });
+    } catch {
+      // prompt was just unpublished/deleted — refresh the list
+      setPrompts((prev) => prev.filter((x) => x.id !== p.id));
+    }
   };
 
   const addToDiary = async (p: GalleryPrompt) => {
@@ -104,13 +119,24 @@ export default function GalleryPage() {
           </p>
         )}
         {prompts.map((p) => (
-          <div key={p.id} className="card">
+          <div
+            key={p.id}
+            className="card cursor-pointer transition-colors hover:border-accent"
+            onClick={() => void openDetail(p)}
+            title="Open before/after view"
+          >
             <div className="flex items-center gap-2">
               <h2 className="flex-1 truncate font-semibold">{p.title}</h2>
               {copiedId === p.id && (
                 <span className="text-xs text-accent">Copied!</span>
               )}
-              <button className="btn" onClick={() => copy(p)}>
+              <button
+                className="btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copy(p);
+                }}
+              >
                 Copy
               </button>
               {session &&
@@ -119,7 +145,13 @@ export default function GalleryPage() {
                     In your diary
                   </span>
                 ) : (
-                  <button className="btn" onClick={() => void addToDiary(p)}>
+                  <button
+                    className="btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void addToDiary(p);
+                    }}
+                  >
                     + Add to my diary
                   </button>
                 ))}
@@ -140,6 +172,128 @@ export default function GalleryPage() {
           </div>
         ))}
       </div>
+        </div>
+      </div>
+
+      {detail && (
+        <GalleryDetail
+          prompt={detail.prompt}
+          authorName={detail.authorName}
+          owned={ownedSourceIds.has(detail.prompt.id)}
+          canAdd={!!session}
+          onAdd={() => {
+            void addToDiary({
+              id: detail.prompt.id,
+              title: detail.prompt.title,
+              body: detail.prompt.body,
+              tags: detail.prompt.tags,
+              useCount: detail.prompt.useCount,
+              createdAt: detail.prompt.createdAt,
+              authorName: detail.authorName,
+            });
+          }}
+          onClose={() => setDetail(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function GalleryDetail({
+  prompt,
+  authorName,
+  owned,
+  canAdd,
+  onAdd,
+  onClose,
+}: {
+  prompt: Prompt;
+  authorName: string;
+  owned: boolean;
+  canAdd: boolean;
+  onAdd: () => void;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const hasOutputs = prompt.outputBefore || prompt.outputAfter;
+
+  const copyPrompt = () => {
+    void navigator.clipboard.writeText(prompt.body);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    // read-only twin of the My Prompts detail view
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6">
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <button className="btn" onClick={onClose}>
+            ← Back
+          </button>
+          <h2 className="min-w-0 flex-1 truncate text-lg font-bold">
+            {prompt.title}
+          </h2>
+          <span className="text-xs text-dim">by {authorName}</span>
+          {copied && <span className="text-xs font-bold text-accent">Copied</span>}
+          <button className="btn" onClick={copyPrompt}>
+            Copy prompt
+          </button>
+          {canAdd &&
+            (owned ? (
+              <span className="text-xs font-semibold text-accent">In your diary</span>
+            ) : (
+              <button className="btn-primary" onClick={onAdd}>
+                + Add to my diary
+              </button>
+            ))}
+        </div>
+
+        {hasOutputs ? (
+          <div className="grid min-h-0 flex-[1.2] grid-cols-2 gap-4">
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
+              <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
+                BEFORE — output without this prompt
+              </div>
+              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-dim">
+                {prompt.outputBefore ?? "No sample provided."}
+              </pre>
+            </div>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-accent/40 bg-raised">
+              <div className="border-b border-line bg-tint px-3 py-2 text-xs font-semibold text-accent">
+                AFTER — output with this prompt
+              </div>
+              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
+                {prompt.outputAfter ?? "No sample provided."}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-[10px] border border-line bg-raised px-4 py-3 text-sm text-dim">
+            The author hasn't added before/after output samples for this prompt.
+          </p>
+        )}
+
+        <div
+          className={`flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-raised ${hasOutputs ? "flex-1" : "flex-[2]"}`}
+        >
+          <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
+            THE PROMPT
+          </div>
+          <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
+            {prompt.body}
+          </pre>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {prompt.tags.map((t) => (
+            <span key={t} className="chip">
+              {t}
+            </span>
+          ))}
+          <span className="ml-auto text-xs tabular-nums text-dim">
+            used {prompt.useCount}×
+          </span>
         </div>
       </div>
     </div>

@@ -273,30 +273,84 @@ function PromptDetail({
   const [outputBefore, setOutputBefore] = useState(prompt?.outputBefore ?? "");
   const [outputAfter, setOutputAfter] = useState(prompt?.outputAfter ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+  const savingRef = useRef(false);
 
-  const save = async () => {
-    setError(null);
-    const payload = {
-      title: title.trim(),
-      body: body.trim(),
-      tags: tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 20),
-      folderId: folderId || null,
-      visibility,
-      teamId: teamId || null,
-      pinned,
-      outputBefore: outputBefore.trim() || null,
-      outputAfter: outputAfter.trim() || null,
-    };
-    try {
-      if (prompt) {
-        await api(`/api/v1/prompts/${prompt.id}`, { method: "PATCH", body: payload });
-      } else {
-        await api("/api/v1/prompts", { method: "POST", body: payload });
+  const buildPayload = () => ({
+    title: title.trim(),
+    body: body.trim(),
+    tags: tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 20),
+    folderId: folderId || null,
+    visibility,
+    teamId: teamId || null,
+    pinned,
+    outputBefore: outputBefore.trim() || null,
+    outputAfter: outputAfter.trim() || null,
+  });
+  type Payload = ReturnType<typeof buildPayload>;
+
+  // last state the server has confirmed — autosave only sends the delta
+  const lastSaved = useRef<Payload | null>(prompt ? buildPayload() : null);
+
+  const diff = (): Partial<Payload> => {
+    const current = buildPayload();
+    const prev = lastSaved.current;
+    if (!prev) return current;
+    const changed: Record<string, unknown> = {};
+    for (const key of Object.keys(current) as Array<keyof Payload>) {
+      if (JSON.stringify(current[key]) !== JSON.stringify(prev[key])) {
+        changed[key] = current[key];
       }
+    }
+    return changed as Partial<Payload>;
+  };
+
+  // serialized flush: one request in flight, loops until the delta is empty
+  // (keystrokes that land mid-save get picked up by the next loop pass)
+  const flush = async () => {
+    if (!prompt || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      let delta = diff();
+      while (Object.keys(delta).length > 0) {
+        setSaveState("saving");
+        await api(`/api/v1/prompts/${prompt.id}`, { method: "PATCH", body: delta });
+        lastSaved.current = { ...(lastSaved.current as Payload), ...delta };
+        delta = diff();
+      }
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    } finally {
+      savingRef.current = false;
+    }
+  };
+
+  // autosave: fire 1.2s after the user stops typing; skip while invalid
+  useEffect(() => {
+    if (!prompt) return;
+    if (!title.trim() || !body.trim()) return;
+    if (Object.keys(diff()).length === 0) return;
+    const t = setTimeout(() => void flush(), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, body, tags, folderId, visibility, teamId, pinned, outputBefore, outputAfter]);
+
+  const done = async () => {
+    await flush();
+    onSaved();
+  };
+
+  const create = async () => {
+    setError(null);
+    try {
+      await api("/api/v1/prompts", { method: "POST", body: buildPayload() });
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -314,7 +368,10 @@ function PromptDetail({
     <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6">
       <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
         <div className="flex items-center gap-3">
-          <button className="btn" onClick={onClose}>
+          <button
+            className="btn"
+            onClick={() => (prompt ? void done() : onClose())}
+          >
             ← Back
           </button>
           <input
@@ -325,17 +382,30 @@ function PromptDetail({
             autoFocus={!prompt}
           />
           {prompt && (
-            <button className="btn text-danger" onClick={() => void remove()}>
-              Delete
+            <span className="w-16 text-right text-xs font-semibold" aria-live="polite">
+              {saveState === "saving" && <span className="text-dim">Saving…</span>}
+              {saveState === "saved" && <span className="text-accent">Saved ✓</span>}
+              {saveState === "error" && <span className="text-danger">Save failed</span>}
+            </span>
+          )}
+          {prompt ? (
+            <>
+              <button className="btn text-danger" onClick={() => void remove()}>
+                Delete
+              </button>
+              <button className="btn-primary px-5" onClick={() => void done()}>
+                Done
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn-primary px-5"
+              disabled={!title.trim() || !body.trim()}
+              onClick={() => void create()}
+            >
+              Save
             </button>
           )}
-          <button
-            className="btn-primary px-5"
-            disabled={!title.trim() || !body.trim()}
-            onClick={() => void save()}
-          >
-            Save
-          </button>
         </div>
 
         {/* the proof: what the model did before vs after this prompt */}
