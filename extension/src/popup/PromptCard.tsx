@@ -4,12 +4,20 @@ import type { Folder, Prompt } from "shared";
 interface Props {
   prompt: Prompt;
   folders: Folder[];
+  isSelected?: boolean;
   onCopy: () => void;
   onEdit: () => void;
   onTogglePin: () => void;
 }
 
-export function PromptCard({ prompt, folders, onCopy, onEdit, onTogglePin }: Props) {
+export function PromptCard({
+  prompt,
+  folders,
+  isSelected = false,
+  onCopy,
+  onEdit,
+  onTogglePin,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const folder = folders.find((f) => f.id === prompt.folderId);
 
@@ -21,7 +29,11 @@ export function PromptCard({ prompt, folders, onCopy, onEdit, onTogglePin }: Pro
   };
 
   return (
-    <div className="row" onClick={copy} title="Click to copy">
+    <div
+      className={`row ${isSelected ? "selected" : ""}`}
+      onClick={copy}
+      title="Click to copy"
+    >
       <div className="row-head">
         {prompt.pinned && <span className="pin">★</span>}
         <span className="row-title">{prompt.title}</span>

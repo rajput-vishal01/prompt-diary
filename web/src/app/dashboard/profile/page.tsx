@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Folder, Prompt } from "shared";
 import { api } from "@/lib/client-api";
+import { uploadImage } from "@/lib/upload";
 import { authClient, useSession } from "@/lib/auth-client";
 
 async function exportJson() {
@@ -29,6 +30,21 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
+
+  const changeAvatar = async (file: File) => {
+    setAvatarUploading(true);
+    setError(null);
+    try {
+      const url = await uploadImage(file);
+      await authClient.updateUser({ image: url });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (session) setName(session.user.name);
@@ -69,6 +85,42 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold">Profile</h1>
 
       <div className="card space-y-4">
+        <div className="flex items-center gap-4">
+          {session.user.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={session.user.image}
+              alt="profile"
+              className="h-16 w-16 rounded-full border border-line object-cover"
+            />
+          ) : (
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint text-xl font-bold text-accent">
+              {(session.user.name || session.user.email).charAt(0).toUpperCase()}
+            </span>
+          )}
+          <div>
+            <button
+              className="btn"
+              disabled={avatarUploading}
+              onClick={() => avatarRef.current?.click()}
+            >
+              {avatarUploading ? "Uploading…" : "Change photo"}
+            </button>
+            <input
+              ref={avatarRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void changeAvatar(f);
+                e.target.value = "";
+              }}
+            />
+            <p className="mt-1 text-[11px] text-dim">Square images look best. Max 5MB.</p>
+          </div>
+        </div>
+
         <div>
           <label htmlFor="profile-name" className="mb-1 block text-xs font-semibold text-dim">
             Username

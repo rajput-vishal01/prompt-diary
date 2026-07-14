@@ -10,25 +10,43 @@ body {
   @apply outline-2 outline-offset-2 outline-accent;
 }
 
+/* instrument density: 13px UI type, 32px controls, tight heading tracking */
 @layer components {
   .input {
-    @apply w-full rounded-md border border-line bg-raised px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-dim focus:border-accent;
+    @apply h-8 w-full rounded-md border border-line bg-raised px-2.5 text-[13px] text-ink shadow-[0_1px_1px_rgba(19,39,30,0.03)] outline-none transition-colors placeholder:text-dim focus:border-accent;
+  }
+  textarea.input {
+    @apply h-auto py-2;
   }
   .btn {
-    @apply rounded-md border border-line bg-raised px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-hover active:scale-[0.98];
+    @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 text-[13px] font-medium text-ink shadow-[0_1px_1px_rgba(19,39,30,0.04)] transition-[background,transform,border-color] duration-150 hover:bg-hover active:scale-[0.97];
   }
   .btn-primary {
-    @apply rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accent-deep active:scale-[0.98] disabled:opacity-50;
+    @apply inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(20,82,58,0.35)] transition-[background,transform] duration-150 hover:bg-accent-deep active:scale-[0.97] disabled:opacity-50;
   }
   .card {
-    @apply rounded-[10px] border border-line bg-raised p-4;
+    @apply rounded-[10px] border border-line bg-raised p-4 shadow-[0_1px_2px_rgba(19,39,30,0.04)];
+  }
+  .panel {
+    /* elevation tier 2: raised panels (list, panes) */
+    @apply rounded-[10px] border border-line bg-raised shadow-[0_1px_3px_rgba(19,39,30,0.05)];
   }
   .chip {
-    @apply text-xs font-medium text-accent before:opacity-60 before:content-['#'];
+    @apply text-[11px] font-medium text-accent before:opacity-60 before:content-['#'];
   }
   .vis-badge {
-    @apply inline-flex items-center gap-1.5 text-xs font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''];
+    @apply inline-flex items-center gap-1.5 text-[11px] font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''];
   }
+  .kbd {
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line bg-bg px-1 font-mono text-[10px] font-semibold text-dim shadow-[0_1px_0_rgba(19,39,30,0.08)];
+  }
+  h1 {
+    @apply tracking-[-0.015em];
+  }
+}
+
+::selection {
+  background: #cde5d8;
 }
 
 .skeleton {

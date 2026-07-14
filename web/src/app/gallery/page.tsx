@@ -215,7 +215,8 @@ function GalleryDetail({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const hasOutputs = prompt.outputBefore || prompt.outputAfter;
+  const hasOutputs =
+    prompt.outputBefore || prompt.outputAfter || prompt.imageBefore || prompt.imageAfter;
 
   const copyPrompt = () => {
     void navigator.clipboard.writeText(prompt.body);
@@ -255,17 +256,29 @@ function GalleryDetail({
               <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
                 BEFORE — output without this prompt
               </div>
-              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-dim">
-                {prompt.outputBefore ?? "No sample provided."}
-              </pre>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {prompt.imageBefore && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={prompt.imageBefore} alt="before output" className="w-full border-b border-line object-contain" />
+                )}
+                <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-dim">
+                  {prompt.outputBefore ?? (prompt.imageBefore ? "" : "No sample provided.")}
+                </pre>
+              </div>
             </div>
             <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-accent/40 bg-raised">
               <div className="border-b border-line bg-tint px-3 py-2 text-xs font-semibold text-accent">
                 AFTER — output with this prompt
               </div>
-              <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
-                {prompt.outputAfter ?? "No sample provided."}
-              </pre>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {prompt.imageAfter && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={prompt.imageAfter} alt="after output" className="w-full border-b border-line object-contain" />
+                )}
+                <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
+                  {prompt.outputAfter ?? (prompt.imageAfter ? "" : "No sample provided.")}
+                </pre>
+              </div>
             </div>
           </div>
         ) : (

@@ -24,6 +24,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const reloadFolders = useCallback(
     () => api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {}),
@@ -72,12 +73,32 @@ export function Sidebar() {
   };
 
   const channel = (active: boolean) =>
-    `flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
+    `flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-[13px] transition-colors ${
       active ? "bg-tint font-semibold text-accent" : "text-dim hover:bg-hover hover:text-ink"
     }`;
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-line bg-raised p-4">
+    <>
+      {/* mobile: hamburger + backdrop drawer */}
+      <button
+        className="btn fixed left-3 top-3 z-50 md:hidden"
+        aria-label="Menu"
+        onClick={() => setMobileOpen((o) => !o)}
+      >
+        ☰
+      </button>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-ink/30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+    <aside
+      className={`${
+        mobileOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
+      } w-56 shrink-0 flex-col border-r border-line bg-raised p-4 md:static md:flex`}
+      onClick={() => setMobileOpen(false)}
+    >
       <Link href="/" className="mb-6 px-2 font-display text-lg italic">
         Prompt <span className="text-accent">Diary</span>
       </Link>
@@ -146,15 +167,36 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto space-y-2 px-2 pt-4">
-        <p className="truncate text-xs text-dim">{session.user.email}</p>
+      <div className="mt-auto flex items-center gap-2.5 border-t border-line px-1 pt-3">
+        {session.user.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={session.user.image}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded-full border border-line object-cover"
+          />
+        ) : (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint text-[13px] font-bold text-accent">
+            {(session.user.name || session.user.email).charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold">
+            {session.user.name}
+          </span>
+          <span className="block truncate text-[11px] text-dim">
+            {session.user.email}
+          </span>
+        </span>
         <button
-          className="text-sm text-accent hover:underline"
+          className="text-[11px] font-semibold text-dim hover:text-danger"
+          title="Sign out"
           onClick={() => void signOut().then(() => router.push("/"))}
         >
-          Sign out
+          Exit
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -41,6 +41,8 @@ export const PromptSchema = z.object({
   sourceId: z.string().nullable().default(null), // gallery prompt this was copied from
   outputBefore: z.string().max(50_000).nullable().default(null),
   outputAfter: z.string().max(50_000).nullable().default(null),
+  imageBefore: z.string().url().max(500).nullable().default(null),
+  imageAfter: z.string().url().max(500).nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -70,6 +72,8 @@ export const PromptCreateSchema = PromptSchema.pick({
   sourceId: z.string().nullable().optional(),
   outputBefore: z.string().max(50_000).nullable().optional(),
   outputAfter: z.string().max(50_000).nullable().optional(),
+  imageBefore: z.string().url().max(500).nullable().optional(),
+  imageAfter: z.string().url().max(500).nullable().optional(),
   updatedAt: z.string().optional(), // for LWW sync
 });
 export type PromptCreate = z.infer<typeof PromptCreateSchema>;

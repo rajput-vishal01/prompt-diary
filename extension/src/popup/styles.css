@@ -259,6 +259,11 @@ button {
   background: var(--hover);
 }
 
+.row.selected {
+  background: var(--tint);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .row-head {
   display: flex;
   align-items: baseline;

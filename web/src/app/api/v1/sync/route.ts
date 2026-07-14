@@ -93,6 +93,8 @@ export async function POST(req: NextRequest) {
           pinned: p.pinned ?? existing.pinned,
           outputBefore: p.outputBefore ?? existing.outputBefore,
           outputAfter: p.outputAfter ?? existing.outputAfter,
+          imageBefore: p.imageBefore ?? existing.imageBefore,
+          imageAfter: p.imageAfter ?? existing.imageAfter,
           updatedAt: clientUpdatedAt,
         })
         .where(eq(prompts.id, p.id));
@@ -112,6 +114,8 @@ export async function POST(req: NextRequest) {
           sourceId: p.sourceId ?? null,
           outputBefore: p.outputBefore ?? null,
           outputAfter: p.outputAfter ?? null,
+          imageBefore: p.imageBefore ?? null,
+          imageAfter: p.imageAfter ?? null,
           updatedAt: clientUpdatedAt,
         })
         .onConflictDoNothing(); // (user, sourceId) already present from another path

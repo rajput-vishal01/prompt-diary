@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export default function DashboardLayout({
   children,
@@ -32,7 +33,8 @@ export default function DashboardLayout({
       <Suspense>
         <Sidebar />
       </Suspense>
-      <main className="min-h-0 flex-1 overflow-y-auto p-8">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
+      <CommandPalette />
     </div>
   );
 }

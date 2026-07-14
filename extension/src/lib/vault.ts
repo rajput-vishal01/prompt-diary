@@ -63,6 +63,8 @@ export async function addPrompt(input: NewPrompt): Promise<Prompt> {
     sourceId: null,
     outputBefore: null,
     outputAfter: null,
+    imageBefore: null,
+    imageAfter: null,
     createdAt: now(),
     updatedAt: now(),
   };

@@ -28,6 +28,7 @@ export function App() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [showAccount, setShowAccount] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [selected, setSelected] = useState(0);
 
   const reload = () => void getVault().then(setVaultState);
 
@@ -166,9 +167,30 @@ export function App() {
         <div className="topbar">
           <input
             className="search"
-            placeholder="Search prompts, tags…"
+            placeholder="Search — ↑↓ then ↵ copies"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelected(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSelected((s) => Math.min(s + 1, prompts.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSelected((s) => Math.max(s - 1, 0));
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                const p = prompts[selected];
+                if (p) {
+                  void handleCopy(p).then(() => window.close());
+                }
+              } else if (e.key === "Escape" && query) {
+                setQuery("");
+              }
+            }}
           />
           <button className="btn primary" onClick={() => setEditing("new")}>
             + New
@@ -184,9 +206,10 @@ export function App() {
               <em>Save to Prompt Diary</em>, or click <em>+ New</em>.
             </div>
           ) : (
-            prompts.map((p) => (
+            prompts.map((p, i) => (
               <PromptCard
                 key={p.id}
+                isSelected={i === selected}
                 prompt={p}
                 folders={vault.folders}
                 onCopy={() => void handleCopy(p)}

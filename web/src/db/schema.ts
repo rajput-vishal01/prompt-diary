@@ -147,6 +147,9 @@ export const prompts = pgTable(
     // the before/after panes in the detail view
     outputBefore: text("output_before"),
     outputAfter: text("output_after"),
+    // cloudinary screenshot URLs — panes can hold text, an image, or both
+    imageBefore: text("image_before"),
+    imageAfter: text("image_after"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

@@ -80,7 +80,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     input.visibility !== undefined ||
     input.teamId !== undefined ||
     input.outputBefore !== undefined ||
-    input.outputAfter !== undefined;
+    input.outputAfter !== undefined ||
+    input.imageBefore !== undefined ||
+    input.imageAfter !== undefined;
 
   const [updated] = await db
     .update(prompts)
@@ -92,6 +94,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.pinned !== undefined && { pinned: input.pinned }),
       ...(input.outputBefore !== undefined && { outputBefore: input.outputBefore }),
       ...(input.outputAfter !== undefined && { outputAfter: input.outputAfter }),
+      ...(input.imageBefore !== undefined && { imageBefore: input.imageBefore }),
+      ...(input.imageAfter !== undefined && { imageAfter: input.imageAfter }),
       ...(input.useCount !== undefined && { useCount: input.useCount }),
       ...(contentChanged && {
         visibility: nextVisibility,
