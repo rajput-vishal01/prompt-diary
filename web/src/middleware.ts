@@ -9,6 +9,8 @@ const CORS_HEADERS = {
   // without this the extension can't READ the session token header on
   // sign-in — cross-origin responses hide non-safelisted headers
   "Access-Control-Expose-Headers": "set-auth-token",
+  // lets the extension ride an existing web login (google users) via cookies
+  "Access-Control-Allow-Credentials": "true",
   "Access-Control-Max-Age": "86400",
 };
 

@@ -14,7 +14,14 @@ import {
 import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
 import { AccountView } from "./AccountView";
-import { getAuth, getTeams, signOut, type AuthState, type TeamRow } from "../lib/api";
+import {
+  getAuth,
+  getTeams,
+  signOut,
+  tryCookieSession,
+  type AuthState,
+  type TeamRow,
+} from "../lib/api";
 import { syncNow } from "../lib/sync";
 
 type Filter = "all" | "pinned" | { folderId: string };
@@ -36,9 +43,11 @@ export function App() {
     reload();
     // auto-sync on popup open so prompts added on the web (dashboard,
     // gallery "add to my diary") show up without a manual Sync click
-    void getAuth().then((a) => {
-      setAuthState(a);
-      if (a) {
+    void getAuth().then(async (a) => {
+      // no stored auth? adopt an existing web session (google users)
+      const auth = a ?? (await tryCookieSession());
+      setAuthState(auth);
+      if (auth) {
         void syncNow().then(reload);
         void getTeams().then(setTeams).catch(() => {});
       }

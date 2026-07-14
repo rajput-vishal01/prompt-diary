@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signIn, signUp, type AuthState } from "../lib/api";
+import { openWebSignIn, signIn, signUp, type AuthState } from "../lib/api";
 
 interface Props {
   onDone: (auth: AuthState) => void;
@@ -58,6 +58,19 @@ export function AccountView({ onDone, onClose }: Props) {
         onKeyDown={(e) => e.key === "Enter" && void submit()}
       />
       {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
+      <button
+        className="btn"
+        onClick={() => {
+          void openWebSignIn();
+          window.close();
+        }}
+      >
+        Continue with Google (opens the website)
+      </button>
+      <p style={{ color: "var(--dim)", fontSize: 11, lineHeight: 1.5 }}>
+        Sign in there with Google, then reopen this popup — it connects
+        automatically.
+      </p>
       <div style={{ flex: 1 }} />
       <div className="actions">
         <button
