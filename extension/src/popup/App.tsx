@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Folder, Prompt } from "shared";
 import {
   addFolder,
@@ -40,8 +40,29 @@ export function App() {
   const [selected, setSelected] = useState(0);
   const [recents, setRecents] = useState<string[]>([]);
   const [hotkey, setHotkey] = useState<string>("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const reload = () => void getVault().then(setVaultState);
+
+  // launcher behavior: typing ANYWHERE in the popup lands in the search box —
+  // clicking a row/button steals focus, and search must never "stop working"
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      const typingTarget =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement;
+      if (typingTarget) return;
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        searchRef.current?.focus(); // this keystroke then lands in the input
+      } else if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     reload();
@@ -115,6 +136,7 @@ export function App() {
     await bumpUseCount(prompt.id);
     await pushRecent(prompt.id);
     reload();
+    searchRef.current?.focus(); // keep the keyboard loop alive after a click
   };
 
   // Enter: insert straight into the active tab's chatbox; copy if there isn't one
@@ -213,6 +235,7 @@ export function App() {
       <main className="main">
         <div className="topbar">
           <input
+            ref={searchRef}
             className="search"
             placeholder="Search — ↑↓ then ↵ inserts into chat"
             value={query}
