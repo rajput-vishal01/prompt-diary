@@ -128,15 +128,6 @@ export async function addFolder(name: string, color = "#6366f1"): Promise<Folder
   return folder;
 }
 
-export async function renameFolder(id: string, name: string): Promise<void> {
-  const vault = await getVault();
-  await setVault({
-    ...vault,
-    folders: vault.folders.map((f) =>
-      f.id === id ? { ...f, name, updatedAt: now() } : f,
-    ),
-  });
-}
 
 export async function deleteFolder(id: string): Promise<void> {
   const vault = await getVault();

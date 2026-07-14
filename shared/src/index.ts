@@ -9,8 +9,15 @@ export const VISIBILITIES = ["private", "public"] as const;
 export const VisibilitySchema = z.enum(VISIBILITIES);
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
-export const TeamRoleSchema = z.enum(["owner", "member"]);
-export type TeamRole = z.infer<typeof TeamRoleSchema>;
+// only our own CDN — public prompts must not embed third-party images
+// (a hotlinked tracker would fire in every gallery visitor's browser)
+export const ImageUrlSchema = z
+  .string()
+  .url()
+  .max(500)
+  .refine((u) => u.startsWith("https://res.cloudinary.com/"), {
+    message: "Images must be uploaded through the app",
+  });
 
 // ---------- core entities ----------
 
@@ -41,8 +48,8 @@ export const PromptSchema = z.object({
   sourceId: z.string().nullable().default(null), // gallery prompt this was copied from
   outputBefore: z.string().max(50_000).nullable().default(null),
   outputAfter: z.string().max(50_000).nullable().default(null),
-  imageBefore: z.string().url().max(500).nullable().default(null),
-  imageAfter: z.string().url().max(500).nullable().default(null),
+  imageBefore: ImageUrlSchema.nullable().default(null),
+  imageAfter: ImageUrlSchema.nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -72,8 +79,8 @@ export const PromptCreateSchema = PromptSchema.pick({
   sourceId: z.string().nullable().optional(),
   outputBefore: z.string().max(50_000).nullable().optional(),
   outputAfter: z.string().max(50_000).nullable().optional(),
-  imageBefore: z.string().url().max(500).nullable().optional(),
-  imageAfter: z.string().url().max(500).nullable().optional(),
+  imageBefore: ImageUrlSchema.nullable().optional(),
+  imageAfter: ImageUrlSchema.nullable().optional(),
   updatedAt: z.string().optional(), // for LWW sync
 });
 export type PromptCreate = z.infer<typeof PromptCreateSchema>;
