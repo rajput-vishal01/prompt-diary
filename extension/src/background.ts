@@ -11,13 +11,29 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-function flashBadge() {
-  chrome.action.setBadgeText({ text: "+1" });
+function flashBadge(text: string) {
+  chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color: "#1c6b4a" });
   setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
 }
 
-chrome.contextMenus.onClicked.addListener((info) => {
+// auto-tag saves with the site they came from — free organization
+function siteTag(url: string | undefined): string[] {
+  if (!url) return [];
+  try {
+    const host = new URL(url).hostname;
+    if (/chatgpt|openai/.test(host)) return ["chatgpt"];
+    if (/claude\.ai/.test(host)) return ["claude"];
+    if (/gemini\.google/.test(host)) return ["gemini"];
+    if (/perplexity/.test(host)) return ["perplexity"];
+    if (/poe\.com/.test(host)) return ["poe"];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== MENU_ID || !info.selectionText) return;
   const text = info.selectionText.trim();
   if (!text) return;
@@ -25,19 +41,29 @@ chrome.contextMenus.onClicked.addListener((info) => {
   const title =
     text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX).trimEnd()}…` : text;
 
-  void addPrompt({ title, body: text }).then(flashBadge);
+  void addPrompt({ title, body: text, tags: siteTag(tab?.url) }).then((r) =>
+    flashBadge(r.duplicate ? "=" : "+1"),
+  );
 });
 
-// one-click saves from the content script (selection bubble / composer button)
+// one-click saves from the content script (selection bubble / composer / messages)
 chrome.runtime.onMessage.addListener(
-  (msg: { type?: string; title?: string; body?: string }, _sender, sendResponse) => {
+  (
+    msg: { type?: string; title?: string; body?: string },
+    sender,
+    sendResponse,
+  ) => {
     if (msg?.type !== "save-prompt" || !msg.body) return;
-    void addPrompt({ title: msg.title ?? msg.body.slice(0, TITLE_MAX), body: msg.body })
-      .then(() => {
-        flashBadge();
-        sendResponse({ ok: true });
+    void addPrompt({
+      title: msg.title ?? msg.body.slice(0, TITLE_MAX),
+      body: msg.body,
+      tags: siteTag(sender.tab?.url ?? sender.url),
+    })
+      .then((r) => {
+        flashBadge(r.duplicate ? "=" : "+1");
+        sendResponse({ ok: true, duplicate: r.duplicate });
       })
       .catch(() => sendResponse({ ok: false }));
-    return true; // keep the message channel open for the async response
+    return true; // async response
   },
 );

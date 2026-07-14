@@ -4,6 +4,8 @@ import {
   addFolder,
   addPrompt,
   bumpUseCount,
+  getRecents,
+  pushRecent,
   deleteFolder,
   deletePrompt,
   getVault,
@@ -36,11 +38,13 @@ export function App() {
   const [showAccount, setShowAccount] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
+  const [recents, setRecents] = useState<string[]>([]);
 
   const reload = () => void getVault().then(setVaultState);
 
   useEffect(() => {
     reload();
+    void getRecents().then(setRecents);
     // auto-sync on popup open so prompts added on the web (dashboard,
     // gallery "add to my diary") show up without a manual Sync click
     void getAuth().then(async (a) => {
@@ -76,10 +80,14 @@ export function App() {
       );
     }
     return [...list].sort((a, b) => {
+      // recently used first — the same few prompts get reused constantly
+      const ra = recents.indexOf(a.id);
+      const rb = recents.indexOf(b.id);
+      if (ra !== rb) return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       return b.updatedAt.localeCompare(a.updatedAt);
     });
-  }, [vault, filter, query]);
+  }, [vault, filter, query, recents]);
 
   if (!vault) return null;
 
@@ -99,7 +107,31 @@ export function App() {
   const handleCopy = async (prompt: Prompt) => {
     await navigator.clipboard.writeText(prompt.body);
     await bumpUseCount(prompt.id);
+    await pushRecent(prompt.id);
     reload();
+  };
+
+  // Enter: insert straight into the active tab's chatbox; copy if there isn't one
+  const insertOrCopy = async (prompt: Prompt) => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        const res = (await chrome.tabs.sendMessage(tab.id, {
+          type: "insert-prompt",
+          body: prompt.body,
+        })) as { ok?: boolean };
+        if (res?.ok) {
+          await bumpUseCount(prompt.id);
+          await pushRecent(prompt.id);
+          window.close();
+          return;
+        }
+      }
+    } catch {
+      // no content script on this tab — fall through to copy
+    }
+    await handleCopy(prompt);
+    window.close();
   };
 
   const handleSync = async () => {
@@ -176,7 +208,7 @@ export function App() {
         <div className="topbar">
           <input
             className="search"
-            placeholder="Search — ↑↓ then ↵ copies"
+            placeholder="Search — ↑↓ then ↵ inserts into chat"
             value={query}
             autoFocus
             onChange={(e) => {
@@ -193,9 +225,7 @@ export function App() {
               } else if (e.key === "Enter") {
                 e.preventDefault();
                 const p = prompts[selected];
-                if (p) {
-                  void handleCopy(p).then(() => window.close());
-                }
+                if (p) void insertOrCopy(p);
               } else if (e.key === "Escape" && query) {
                 setQuery("");
               }

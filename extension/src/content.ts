@@ -95,11 +95,39 @@ function savePrompt(body: string) {
     text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX).trimEnd()}…` : text;
   chrome.runtime.sendMessage(
     { type: "save-prompt", title, body: text },
-    (res?: { ok?: boolean }) => {
-      showToast(res?.ok ? "Saved to Prompt Diary ✓" : "Could not save — is the extension enabled?");
+    (res?: { ok?: boolean; duplicate?: boolean }) => {
+      showToast(
+        !res?.ok
+          ? "Could not save — is the extension enabled?"
+          : res.duplicate
+            ? "Already in your diary"
+            : "Saved to Prompt Diary ✓",
+      );
     },
   );
 }
+
+// popup asks us to insert a prompt straight into the chatbox
+chrome.runtime.onMessage.addListener(
+  (msg: { type?: string; body?: string }, _sender, sendResponse) => {
+    if (msg?.type !== "insert-prompt" || !msg.body) return;
+    const el = finder?.();
+    if (!el) {
+      sendResponse({ ok: false });
+      return;
+    }
+    el.focus();
+    if (el instanceof HTMLTextAreaElement) {
+      el.value = el.value ? `${el.value}\n${msg.body}` : msg.body;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    } else {
+      // contenteditable (ProseMirror etc.) — execCommand keeps the editor's state in sync
+      document.execCommand("insertText", false, msg.body);
+    }
+    showToast("Inserted from Prompt Diary ✓");
+    sendResponse({ ok: true });
+  },
+);
 
 // ---------- 1. selection bubble ----------
 

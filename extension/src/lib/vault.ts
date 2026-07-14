@@ -47,8 +47,16 @@ export interface NewPrompt {
   teamId?: string | null;
 }
 
-export async function addPrompt(input: NewPrompt): Promise<Prompt> {
+export interface AddResult {
+  prompt: Prompt;
+  duplicate: boolean;
+}
+
+export async function addPrompt(input: NewPrompt): Promise<AddResult> {
   const vault = await getVault();
+  // dedupe on exact body — the bubble/menu can be clicked twice on one selection
+  const existing = vault.prompts.find((p) => p.body === input.body.trim());
+  if (existing) return { prompt: existing, duplicate: true };
   const prompt: Prompt = {
     id: crypto.randomUUID(),
     userId: LOCAL_USER,
@@ -69,7 +77,19 @@ export async function addPrompt(input: NewPrompt): Promise<Prompt> {
     updatedAt: now(),
   };
   await setVault({ ...vault, prompts: [prompt, ...vault.prompts] });
-  return prompt;
+  return { prompt, duplicate: false };
+}
+
+// recently-used ids, most recent first — popup shows these on top
+export async function pushRecent(id: string): Promise<void> {
+  const res = await chrome.storage.local.get("recentIds");
+  const ids = ((res["recentIds"] as string[]) ?? []).filter((x) => x !== id);
+  await chrome.storage.local.set({ recentIds: [id, ...ids].slice(0, 5) });
+}
+
+export async function getRecents(): Promise<string[]> {
+  const res = await chrome.storage.local.get("recentIds");
+  return (res["recentIds"] as string[]) ?? [];
 }
 
 export async function updatePrompt(

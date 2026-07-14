@@ -29,6 +29,12 @@ export default defineManifest({
       run_at: "document_idle",
     },
   ],
+  commands: {
+    _execute_action: {
+      suggested_key: { default: "Alt+P" },
+      description: "Open Prompt Diary",
+    },
+  },
   permissions: ["storage", "contextMenus", "clipboardWrite", "identity"],
   // VITE_API_URL=https://your-app.vercel.app bun run build  → store build
   host_permissions: [`${process.env.VITE_API_URL ?? "http://localhost:3000"}/*`],
