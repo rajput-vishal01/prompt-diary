@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
+import { DialogHost } from "@/components/Dialog";
 
 const sans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -40,6 +41,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <DialogHost />
       </body>
     </html>
   );

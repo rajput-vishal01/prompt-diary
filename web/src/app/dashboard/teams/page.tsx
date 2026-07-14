@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
+import { dialog } from "@/components/Dialog";
 
 interface TeamRow {
   id: string;
@@ -51,7 +52,7 @@ export default function TeamsPage() {
   useEffect(reload, []);
 
   const createTeam = async () => {
-    const name = window.prompt("Team name");
+    const name = await dialog.prompt({ title: "New team", placeholder: "Team name", submitLabel: "Create" });
     if (!name?.trim()) return;
     setError(null);
     try {
@@ -208,7 +209,7 @@ function TeamDetail({
   };
 
   const deleteTeam = async () => {
-    if (!window.confirm(`Delete team "${team.name}"? Team prompts become private.`))
+    if (!(await dialog.confirm({ title: `Delete team “${team.name}”?`, body: "Team prompts become private.", danger: true })))
       return;
     await api(`/api/v1/teams/${team.id}`, { method: "DELETE" });
     onChanged();

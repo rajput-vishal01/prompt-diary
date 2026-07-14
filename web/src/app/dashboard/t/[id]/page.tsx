@@ -6,6 +6,7 @@ import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { dialog } from "@/components/Dialog";
 
 interface Step {
   order: number;
@@ -159,7 +160,7 @@ export default function ThreadPage() {
         <button
           className="btn text-danger"
           onClick={async () => {
-            if (!window.confirm("Delete this thread? The prompts inside are kept.")) return;
+            if (!(await dialog.confirm({ title: "Delete this thread?", body: "The prompts inside are kept.", danger: true }))) return;
             await api(`/api/v1/threads/${id}`, { method: "DELETE" });
             router.push("/dashboard/projects");
           }}

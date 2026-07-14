@@ -49,6 +49,18 @@ export function App() {
   const [recording, setRecording] = useState<ThreadRef | null>(null);
   const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
   const [newThreadTitle, setNewThreadTitle] = useState("");
+  // window.prompt is unreliable in MV3 popups — inline ask overlay instead
+  const [ask, setAsk] = useState<{
+    title: string;
+    placeholder: string;
+    onSubmit: (value: string) => void;
+  } | null>(null);
+  const [askValue, setAskValue] = useState("");
+  const [confirmAsk, setConfirmAsk] = useState<{
+    title: string;
+    body: string;
+    onConfirm: () => void;
+  } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const reload = () => void getVault().then(setVaultState);
@@ -180,22 +192,28 @@ export function App() {
     setTimeout(() => setSyncMsg(null), 2500);
   };
 
-  const handleNewFolder = async () => {
-    const name = window.prompt("Folder name");
-    if (name?.trim()) {
-      await addFolder(name.trim());
-      reload();
-    }
+  const handleNewFolder = () => {
+    setAskValue("");
+    setAsk({
+      title: "New folder",
+      placeholder: "Folder name",
+      onSubmit: (name) => void addFolder(name).then(reload),
+    });
   };
 
   const handleDeleteFolder = async (folder: Folder) => {
-    if (window.confirm(`Delete folder "${folder.name}"? Prompts inside are kept.`)) {
-      await deleteFolder(folder.id);
-      if (filter !== "all" && filter !== "pinned" && filter.folderId === folder.id) {
-        setFilter("all");
-      }
-      reload();
-    }
+    setConfirmAsk({
+      title: `Delete folder “${folder.name}”?`,
+      body: "Prompts inside are kept.",
+      onConfirm: () => {
+        void deleteFolder(folder.id).then(() => {
+          if (filter !== "all" && filter !== "pinned" && filter.folderId === folder.id) {
+            setFilter("all");
+          }
+          reload();
+        });
+      },
+    });
   };
 
   return (
@@ -267,13 +285,17 @@ export function App() {
             <button
               className="nav-item add-folder"
               onClick={() => {
-                const title = window.prompt("Thread title");
-                if (!title?.trim()) return;
-                void createThread(title.trim()).then((t) => {
-                  void setActiveThread(t);
-                  setRecording(t);
-                  setSyncMsg(`Recording → ${t.title}`);
-                  setTimeout(() => setSyncMsg(null), 2000);
+                setAskValue("");
+                setAsk({
+                  title: "New thread",
+                  placeholder: "Thread title",
+                  onSubmit: (title) =>
+                    void createThread(title).then((t) => {
+                      void setActiveThread(t);
+                      setRecording(t);
+                      setSyncMsg(`Recording → ${t.title}`);
+                      setTimeout(() => setSyncMsg(null), 2000);
+                    }),
                 });
               }}
             >
@@ -282,11 +304,15 @@ export function App() {
             <button
               className="nav-item add-folder"
               onClick={() => {
-                const name = window.prompt("Project name");
-                if (!name?.trim()) return;
-                void createProject(name.trim()).then(() => {
-                  setSyncMsg("Project created");
-                  setTimeout(() => setSyncMsg(null), 2000);
+                setAskValue("");
+                setAsk({
+                  title: "New project",
+                  placeholder: "Project name",
+                  onSubmit: (name) =>
+                    void createProject(name).then(() => {
+                      setSyncMsg("Project created");
+                      setTimeout(() => setSyncMsg(null), 2000);
+                    }),
                 });
               }}
             >
@@ -397,6 +423,66 @@ export function App() {
         </div>
       </main>
 
+      {ask && (
+        <div className="editor">
+          <h2>{ask.title}</h2>
+          <input
+            placeholder={ask.placeholder}
+            value={askValue}
+            autoFocus
+            onChange={(e) => setAskValue(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter" && askValue.trim()) {
+                ask.onSubmit(askValue.trim());
+                setAsk(null);
+              }
+              if (e.key === "Escape") setAsk(null);
+            }}
+          />
+          <div style={{ flex: 1 }} />
+          <div className="actions">
+            <button className="btn" onClick={() => setAsk(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn primary"
+              disabled={!askValue.trim()}
+              onClick={() => {
+                ask.onSubmit(askValue.trim());
+                setAsk(null);
+              }}
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmAsk && (
+        <div className="editor">
+          <h2>{confirmAsk.title}</h2>
+          <p style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.5 }}>
+            {confirmAsk.body}
+          </p>
+          <div style={{ flex: 1 }} />
+          <div className="actions">
+            <button className="btn" onClick={() => setConfirmAsk(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn danger"
+              onClick={() => {
+                confirmAsk.onConfirm();
+                setConfirmAsk(null);
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       {recPicker !== null && (
         <div className="editor">
           <h2>Record to thread</h2>
@@ -468,7 +554,13 @@ export function App() {
           folders={vault.folders}
           teams={teams}
           onSave={(input, existing) => void handleSave(input, existing)}
-          onDelete={(id) => void handleDelete(id)}
+          onDelete={(id) =>
+            setConfirmAsk({
+              title: "Delete this prompt?",
+              body: "This removes it from your vault (and syncs the deletion).",
+              onConfirm: () => void handleDelete(id),
+            })
+          }
           onClose={() => setEditing(null)}
         />
       )}

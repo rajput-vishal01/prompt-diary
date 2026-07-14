@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Folder } from "shared";
 import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
+import { dialog } from "@/components/Dialog";
 
 const NAV = [
   { href: "/dashboard/teams", label: "Teams" },
@@ -64,7 +65,7 @@ export function Sidebar() {
   const activeTab = onPrompts ? searchParams.get("tab") : null;
 
   const newFolder = async () => {
-    const name = window.prompt("Folder name");
+    const name = await dialog.prompt({ title: "New folder", placeholder: "Folder name", submitLabel: "Create" });
     if (!name?.trim()) return;
     const folder = await api<Folder>("/api/v1/folders", {
       method: "POST",
@@ -76,7 +77,7 @@ export function Sidebar() {
   };
 
   const renameFolder = async (f: Folder) => {
-    const name = window.prompt("Rename folder", f.name);
+    const name = await dialog.prompt({ title: "Rename folder", initial: f.name });
     if (!name?.trim() || name.trim() === f.name) return;
     await api(`/api/v1/folders/${f.id}`, {
       method: "PATCH",
@@ -87,7 +88,7 @@ export function Sidebar() {
   };
 
   const deleteFolder = async (f: Folder) => {
-    if (!window.confirm(`Delete folder "${f.name}"? Prompts inside are kept.`)) return;
+    if (!(await dialog.confirm({ title: `Delete folder “${f.name}”?`, body: "Prompts inside are kept.", danger: true }))) return;
     await api(`/api/v1/folders/${f.id}`, { method: "DELETE" });
     await reloadFolders();
     emitFoldersChanged();
@@ -204,7 +205,7 @@ export function Sidebar() {
           <button
             className="flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-dim transition-colors hover:bg-hover hover:text-accent"
             onClick={async () => {
-              const name = window.prompt("Project name");
+              const name = await dialog.prompt({ title: "New project", placeholder: "Project name", submitLabel: "Create" });
               if (!name?.trim()) return;
               await api("/api/v1/projects", {
                 method: "POST",

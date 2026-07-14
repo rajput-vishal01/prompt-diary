@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
+import { dialog } from "@/components/Dialog";
 
 const emitChanged = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
 
@@ -57,7 +58,7 @@ function ProjectsPageInner() {
   }, [reload]);
 
   const newProject = async () => {
-    const name = window.prompt("Project name");
+    const name = await dialog.prompt({ title: "New project", placeholder: "Project name", submitLabel: "Create" });
     if (!name?.trim()) return;
     await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
     reload();
@@ -65,7 +66,7 @@ function ProjectsPageInner() {
   };
 
   const renameProject = async (p: ProjectRow) => {
-    const name = window.prompt("Rename project", p.name);
+    const name = await dialog.prompt({ title: "Rename project", initial: p.name });
     if (!name?.trim() || name.trim() === p.name) return;
     await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
     reload();
@@ -73,7 +74,7 @@ function ProjectsPageInner() {
   };
 
   const deleteProject = async (p: ProjectRow) => {
-    if (!window.confirm(`Delete project "${p.name}"? Its threads are kept.`)) return;
+    if (!(await dialog.confirm({ title: `Delete project “${p.name}”?`, body: "Its threads are kept.", danger: true }))) return;
     await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
     if (selected === p.id) setSelected(null);
     reload();
@@ -81,7 +82,7 @@ function ProjectsPageInner() {
   };
 
   const deleteThread = async (t: ThreadRow) => {
-    if (!window.confirm(`Delete thread "${t.title}"? The prompts inside are kept.`))
+    if (!(await dialog.confirm({ title: `Delete thread “${t.title}”?`, body: "The prompts inside are kept.", danger: true })))
       return;
     await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
     toast("Thread deleted");
@@ -89,7 +90,7 @@ function ProjectsPageInner() {
   };
 
   const newThread = async () => {
-    const title = window.prompt("Thread title");
+    const title = await dialog.prompt({ title: "New thread", placeholder: "Thread title", submitLabel: "Create" });
     if (!title?.trim()) return;
     const t = await api<ThreadRow>("/api/v1/threads", {
       method: "POST",
@@ -100,6 +101,17 @@ function ProjectsPageInner() {
   };
 
   const visible = selected ? threads.filter((t) => t.projectId === selected) : threads;
+  const selectedProject = projects.find((p) => p.id === selected) ?? null;
+
+  const renameThread = async (t: ThreadRow) => {
+    const title = await dialog.prompt({ title: "Rename thread", initial: t.title });
+    if (!title?.trim() || title.trim() === t.title) return;
+    await api(`/api/v1/threads/${t.id}`, {
+      method: "PATCH",
+      body: { title: title.trim() },
+    });
+    reload();
+  };
 
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col">
@@ -113,6 +125,19 @@ function ProjectsPageInner() {
           )}
         </h1>
         <span className="flex gap-2">
+          {selectedProject && (
+            <>
+              <button className="btn" onClick={() => void renameProject(selectedProject)}>
+                Rename project
+              </button>
+              <button
+                className="btn text-danger"
+                onClick={() => void deleteProject(selectedProject)}
+              >
+                Delete project
+              </button>
+            </>
+          )}
           <button className="btn" onClick={() => void newProject()}>
             + Project
           </button>
@@ -194,7 +219,25 @@ function ProjectsPageInner() {
                   <span className="vis-badge shrink-0 text-accent">shipped</span>
                 )}
                 <span
-                  className="ml-auto shrink-0 text-[11px] text-danger opacity-0 transition-opacity group-hover:opacity-100"
+                  className="ml-auto shrink-0 text-[11px] text-dim opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
+                  role="button"
+                  tabIndex={0}
+                  title="Rename thread"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void renameThread(t);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.stopPropagation();
+                      void renameThread(t);
+                    }
+                  }}
+                >
+                  Rename
+                </span>
+                <span
+                  className="shrink-0 text-[11px] text-danger opacity-0 transition-opacity group-hover:opacity-100"
                   role="button"
                   tabIndex={0}
                   title="Delete thread"

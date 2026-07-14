@@ -110,7 +110,7 @@ export function PromptEditor({
           <button
             className="btn danger"
             onClick={() => {
-              if (window.confirm("Delete this prompt?")) onDelete(prompt.id);
+              onDelete(prompt.id); // App wraps this in a styled confirm
             }}
           >
             Delete
