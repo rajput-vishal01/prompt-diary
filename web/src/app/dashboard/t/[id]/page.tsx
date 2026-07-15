@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, X } from "lucide-react";
 import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
-import { dialog } from "@/components/Dialog";
 
 interface Step {
   order: number;
@@ -29,8 +29,16 @@ interface ProjectRow {
   color: string;
 }
 
-const SITE_TAGS = ["chatgpt", "claude", "gemini", "perplexity", "poe"];
-const siteOf = (p: Prompt) => p.tags.find((t) => SITE_TAGS.includes(t)) ?? null;
+// same desaturated source language as the list rows — never a filled color
+const SOURCE_DOTS: Record<string, string> = {
+  chatgpt: "hsl(160 25% 50%)",
+  claude: "hsl(24 30% 55%)",
+  gemini: "hsl(217 30% 58%)",
+  perplexity: "hsl(190 25% 48%)",
+  poe: "hsl(260 22% 56%)",
+};
+
+const siteOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
 
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +49,7 @@ export default function ThreadPage() {
   const [addQuery, setAddQuery] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [uploading, setUploading] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(() => {
@@ -63,7 +72,7 @@ export default function ThreadPage() {
     try {
       await api(`/api/v1/threads/${id}`, { method: "PATCH", body });
       setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 1500);
+      setTimeout(() => setSaveState("idle"), 2000);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Save failed", { kind: "error" });
       setSaveState("idle");
@@ -120,26 +129,25 @@ export default function ThreadPage() {
     );
   }
 
-  const sites = [...new Set(thread.steps.map((s) => siteOf(s.prompt)).filter(Boolean))];
+  const sites = [...new Set(thread.steps.map((s) => siteOf(s.prompt)).filter(Boolean))] as string[];
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <button className="btn" onClick={() => router.push("/dashboard/projects")}>
-          ← Projects
+    <div className="mx-auto flex h-full max-w-3xl flex-col gap-4">
+      {/* top bar — ghost back, autosave, quiet actions */}
+      <div className="flex items-center gap-3">
+        <button
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+          onClick={() => router.push("/dashboard/projects")}
+        >
+          <ArrowLeft size={15} /> Projects
         </button>
-        <input
-          className="input flex-1 text-[15px] font-semibold"
-          value={thread.title}
-          onChange={(e) => setThread({ ...thread, title: e.target.value })}
-          onBlur={() => void patch({ title: thread.title.trim() || "Untitled thread" })}
-        />
-        <span className="w-14 text-right text-xs font-semibold" aria-live="polite">
+        <span className="flex-1" />
+        <span className="text-sm" aria-live="polite">
           {saveState === "saving" && <span className="text-dim">Saving…</span>}
-          {saveState === "saved" && <span className="text-accent">Saved ✓</span>}
+          {saveState === "saved" && <span className="text-success">Saved ✓</span>}
         </span>
         <select
-          className="input max-w-40"
+          className="input h-9 max-w-40"
           value={thread.projectId ?? ""}
           onChange={(e) => {
             const v = e.target.value || null;
@@ -155,27 +163,60 @@ export default function ThreadPage() {
           ))}
         </select>
         <button className="btn" onClick={copyAll}>
-          ⧉ Copy all
+          <Copy size={13} /> Copy all
         </button>
-        <button
-          className="btn text-danger"
-          onClick={async () => {
-            if (!(await dialog.confirm({ title: "Delete this thread?", body: "The prompts inside are kept.", danger: true }))) return;
-            await api(`/api/v1/threads/${id}`, { method: "DELETE" });
-            router.push("/dashboard/projects");
-          }}
-        >
-          Delete
-        </button>
+        {confirmingDelete ? (
+          // inline confirm replaces the button — no modal
+          <span className="flex items-center gap-3 text-sm">
+            <span className="text-danger">Delete this thread?</span>
+            <button
+              className="font-medium text-danger hover:underline"
+              onClick={async () => {
+                await api(`/api/v1/threads/${id}`, { method: "DELETE" });
+                router.push("/dashboard/projects");
+              }}
+            >
+              Delete
+            </button>
+            <button className="text-dim hover:text-ink" onClick={() => setConfirmingDelete(false)}>
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-colors hover:bg-danger/5"
+            onClick={() => setConfirmingDelete(true)}
+          >
+            Delete
+          </button>
+        )}
       </div>
 
-      {sites.length > 0 && (
-        <p className="text-xs font-semibold text-dim">
-          {sites.join(" → ")}
-        </p>
-      )}
+      {/* the page's one Waldenburg moment — an editable headline */}
+      <div>
+        <input
+          className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
+          placeholder="Untitled thread"
+          value={thread.title}
+          onChange={(e) => setThread({ ...thread, title: e.target.value })}
+          onBlur={() => void patch({ title: thread.title.trim() || "Untitled thread" })}
+        />
+        {sites.length > 0 && (
+          <p className="mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+            {sites.map((s, i) => (
+              <span key={s} className="flex items-center gap-2">
+                {i > 0 && <span className="text-dim/50">→</span>}
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: SOURCE_DOTS[s] }} />
+                  {s}
+                </span>
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
 
-      {/* the recipe */}
+      {/* the recipe — numbered manuscript steps */}
       <div className="panel min-h-0 flex-1 divide-y divide-line overflow-y-auto">
         {thread.steps.length === 0 && (
           <p className="px-4 py-10 text-center text-sm text-dim">
@@ -188,45 +229,65 @@ export default function ThreadPage() {
           .map((s, i, arr) => {
             const site = siteOf(s.prompt);
             return (
-              <div key={s.prompt.id} className="group flex gap-3 px-4 py-3">
-                <span className="w-8 shrink-0 pt-0.5 font-mono text-xs text-dim">
+              <div
+                key={s.prompt.id}
+                className="group flex gap-4 px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+              >
+                <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim/70">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[15px] font-medium text-ink">
+                      {s.prompt.title}
+                    </span>
                     {site && (
-                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-accent">
+                      <span className="chip shrink-0 gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: SOURCE_DOTS[site] }} />
                         {site}
                       </span>
                     )}
-                    <span className="truncate text-sm font-semibold">
-                      {s.prompt.title}
-                    </span>
-                    <span className="ml-auto flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
                       <button
-                        className="btn h-6 px-2 text-xs"
+                        aria-label="Copy step"
+                        title="Copy step"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
                         onClick={() => {
                           void navigator.clipboard.writeText(s.prompt.body);
                           toast("Step copied");
                         }}
                       >
-                        Copy
-                      </button>
-                      <button className="btn h-6 px-2 text-xs" disabled={i === 0} onClick={() => move(i, -1)}>
-                        ↑
-                      </button>
-                      <button className="btn h-6 px-2 text-xs" disabled={i === arr.length - 1} onClick={() => move(i, 1)}>
-                        ↓
+                        <Copy size={14} />
                       </button>
                       <button
-                        className="btn h-6 px-2 text-xs text-danger"
+                        aria-label="Move up"
+                        title="Move up"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                        disabled={i === 0}
+                        onClick={() => move(i, -1)}
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        aria-label="Move down"
+                        title="Move down"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                        disabled={i === arr.length - 1}
+                        onClick={() => move(i, 1)}
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        aria-label="Remove step"
+                        title="Remove from thread (prompt is kept)"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
                         onClick={() => void setSteps(stepIds.filter((x) => x !== s.prompt.id))}
                       >
-                        ✕
+                        <X size={14} />
                       </button>
                     </span>
                   </div>
-                  <p className="mt-1 line-clamp-2 font-mono text-[11.5px] leading-relaxed text-dim">
+                  <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">
                     {s.prompt.body}
                   </p>
                 </div>
@@ -245,29 +306,35 @@ export default function ThreadPage() {
           {addable.map((p) => (
             <button
               key={p.id}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover"
+              className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-[120ms] hover:bg-hover"
               onClick={() => {
                 setAddQuery("");
                 void setSteps([...stepIds, p.id]);
               }}
             >
               <span className="truncate">{p.title}</span>
-              <span className="ml-auto text-xs text-accent">add →</span>
+              <span className="ml-auto shrink-0 text-xs font-medium text-dim">add →</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* final output — the deliverable */}
-      <div className="panel flex min-h-0 flex-[0.7] flex-col overflow-hidden border-accent/40">
-        <div className="flex items-center border-b border-line bg-tint px-3 py-1.5 text-xs font-semibold text-accent">
-          <span className="flex-1">FINAL OUTPUT — what this recipe produced</span>
+      {/* final output — the deliverable, the page's primary surface */}
+      <div className="flex min-h-0 flex-[0.7] flex-col">
+        <div className="mb-1.5 flex items-center">
+          <span className="flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+            Final output{" "}
+            <span className="font-normal normal-case tracking-normal text-dim/70">
+              — what this recipe produced
+            </span>
+          </span>
           <button
-            className="text-xs font-semibold text-accent hover:underline"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover disabled:opacity-50"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >
-            {uploading ? "Uploading…" : thread.finalImage ? "Replace image" : "+ Screenshot"}
+            <ImagePlus size={13} />
+            {uploading ? "Uploading…" : thread.finalImage ? "Replace" : "Screenshot"}
           </button>
           <input
             ref={fileRef}
@@ -291,28 +358,30 @@ export default function ThreadPage() {
             }}
           />
         </div>
-        {thread.finalImage && (
-          <div className="relative border-b border-line">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thread.finalImage} alt="final output" className="max-h-36 w-full object-contain" />
-            <button
-              className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
-              onClick={() => {
-                setThread({ ...thread, finalImage: null });
-                void patch({ finalImage: null });
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        )}
-        <textarea
-          className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
-          placeholder="What did this chain produce? Paste the result, metrics, or notes…"
-          value={thread.finalOutput ?? ""}
-          onChange={(e) => setThread({ ...thread, finalOutput: e.target.value })}
-          onBlur={() => void patch({ finalOutput: thread.finalOutput?.trim() || null })}
-        />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-[#fafafa]">
+          {thread.finalImage && (
+            <div className="relative m-3 mb-0 overflow-hidden rounded-lg border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={thread.finalImage} alt="final output" className="max-h-36 w-full object-contain" />
+              <button
+                className="absolute right-2 top-2 rounded-md bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                onClick={() => {
+                  setThread({ ...thread, finalImage: null });
+                  void patch({ finalImage: null });
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          <textarea
+            className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim/60"
+            placeholder="What did this chain produce? Paste the result, metrics, or notes…"
+            value={thread.finalOutput ?? ""}
+            onChange={(e) => setThread({ ...thread, finalOutput: e.target.value })}
+            onBlur={() => void patch({ finalOutput: thread.finalOutput?.trim() || null })}
+          />
+        </div>
       </div>
     </div>
   );

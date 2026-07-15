@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
@@ -25,6 +26,15 @@ interface ThreadRow {
   updatedAt: string;
 }
 
+function relativeTime(iso: string): string {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+  return `${Math.floor(s / 604800)}w ago`;
+}
+
 export default function ProjectsPage() {
   return (
     <Suspense>
@@ -42,6 +52,7 @@ function ProjectsPageInner() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectMenu, setProjectMenu] = useState(false);
 
   const reload = useCallback(() => {
     void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
@@ -87,6 +98,15 @@ function ProjectsPageInner() {
     await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
     toast("Thread deleted");
     reload();
+    emitChanged();
+  };
+
+  const renameThread = async (t: ThreadRow) => {
+    const title = await dialog.prompt({ title: "Rename thread", initial: t.title });
+    if (!title?.trim() || title.trim() === t.title) return;
+    await api(`/api/v1/threads/${t.id}`, { method: "PATCH", body: { title: title.trim() } });
+    reload();
+    emitChanged();
   };
 
   const newThread = async () => {
@@ -108,41 +128,55 @@ function ProjectsPageInner() {
   const visible = loopingOnly ? inProject.filter(isLooping) : inProject;
   const selectedProject = projects.find((p) => p.id === selected) ?? null;
 
-  const renameThread = async (t: ThreadRow) => {
-    const title = await dialog.prompt({ title: "Rename thread", initial: t.title });
-    if (!title?.trim() || title.trim() === t.title) return;
-    await api(`/api/v1/threads/${t.id}`, {
-      method: "PATCH",
-      body: { title: title.trim() },
-    });
-    reload();
-  };
-
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">
-          Projects
+      <div className="mb-4 flex items-center justify-between">
+        {/* the one Waldenburg moment on this page */}
+        <h1 className="flex items-center gap-2 font-display text-2xl font-light tracking-tight">
+          {selectedProject?.name ?? "Projects"}
           {!isLoading && (
-            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
-              {threads.length} {threads.length === 1 ? "thread" : "threads"}
+            <span className="font-sans text-sm font-normal tabular-nums text-dim">
+              {visible.length} {visible.length === 1 ? "thread" : "threads"}
+            </span>
+          )}
+          {selectedProject && (
+            <span className="relative">
+              <button
+                aria-label="Project actions"
+                className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${projectMenu ? "bg-ink/[0.06]" : ""}`}
+                onClick={() => setProjectMenu((m) => !m)}
+              >
+                <MoreHorizontal size={15} />
+              </button>
+              {projectMenu && (
+                <>
+                  <span className="fixed inset-0 z-40" onClick={() => setProjectMenu(false)} />
+                  <span className="absolute left-0 top-9 z-50 flex w-40 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 font-sans text-sm shadow-soft">
+                    <button
+                      className="px-3 py-1.5 text-left text-ink hover:bg-hover"
+                      onClick={() => {
+                        setProjectMenu(false);
+                        void renameProject(selectedProject);
+                      }}
+                    >
+                      Rename project
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-left text-danger hover:bg-hover"
+                      onClick={() => {
+                        setProjectMenu(false);
+                        void deleteProject(selectedProject);
+                      }}
+                    >
+                      Delete project
+                    </button>
+                  </span>
+                </>
+              )}
             </span>
           )}
         </h1>
         <span className="flex gap-2">
-          {selectedProject && (
-            <>
-              <button className="btn" onClick={() => void renameProject(selectedProject)}>
-                Rename project
-              </button>
-              <button
-                className="btn text-danger"
-                onClick={() => void deleteProject(selectedProject)}
-              >
-                Delete project
-              </button>
-            </>
-          )}
           <button className="btn" onClick={() => void newProject()}>
             + Project
           </button>
@@ -152,10 +186,14 @@ function ProjectsPageInner() {
         </span>
       </div>
 
-      {/* project shelf */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/* project shelf — chip navigation, same language as the popup */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
         <button
-          className={`btn ${selected === null ? "border-accent bg-tint text-accent" : "text-dim"}`}
+          className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+            selected === null
+              ? "border-accent bg-accent text-white"
+              : "border-line-strong text-dim hover:bg-hover hover:text-ink"
+          }`}
           onClick={() => setSelected(null)}
         >
           All threads
@@ -163,23 +201,25 @@ function ProjectsPageInner() {
         {projects.map((p) => (
           <button
             key={p.id}
-            className={`btn ${selected === p.id ? "border-accent bg-tint text-accent" : ""}`}
-            title={`${p.name} — double-click to rename, right-click to delete`}
-            onClick={() => setSelected(p.id)}
-            onDoubleClick={() => void renameProject(p)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              void deleteProject(p);
-            }}
+            className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+              selected === p.id
+                ? "border-accent bg-accent text-white"
+                : "border-line-strong text-dim hover:bg-hover hover:text-ink"
+            }`}
+            onClick={() => setSelected(selected === p.id ? null : p.id)}
           >
-            <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.color }} />
             {p.name}
-            <span className="tabular-nums text-dim">{p.threadCount}</span>
+            <span className={`tabular-nums ${selected === p.id ? "text-white/70" : "text-dim/70"}`}>
+              {p.threadCount}
+            </span>
           </button>
         ))}
         <button
-          className={`chip ml-auto cursor-pointer self-center transition-colors ${
-            loopingOnly ? "border-accent bg-tint text-accent" : "text-dim hover:text-ink"
+          className={`ml-auto inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+            loopingOnly
+              ? "border-accent bg-accent text-white"
+              : "border-line-strong text-dim hover:bg-hover hover:text-ink"
           }`}
           title="Threads with 3+ steps — the prompt was iterated toward the output"
           onClick={() => setLoopingOnly((v) => !v)}
@@ -188,11 +228,11 @@ function ProjectsPageInner() {
         </button>
       </div>
 
-      {/* thread ledger */}
+      {/* thread ledger — two-line manuscript rows */}
       <div className="panel min-h-0 flex-1 divide-y divide-line overflow-y-auto">
         {isLoading &&
           Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="px-4 py-3">
+            <div key={i} className="px-4 py-5">
               <div className="skeleton h-4 w-2/5" />
             </div>
           ))}
@@ -207,71 +247,68 @@ function ProjectsPageInner() {
           visible.map((t) => {
             const project = projects.find((p) => p.id === t.projectId);
             return (
-              <button
+              <div
                 key={t.id}
-                className="group flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-hover"
-                title={`${t.title} — right-click to delete`}
+                className="group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
                 onClick={() => router.push(`/dashboard/t/${t.id}`)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  void deleteThread(t);
-                }}
+                title="Open"
               >
-                <span className="truncate text-sm font-semibold">{t.title}</span>
-                <span className="shrink-0 text-xs tabular-nums text-dim">
-                  {t.stepCount} {t.stepCount === 1 ? "step" : "steps"}
-                </span>
-                {project && (
-                  <span
-                    className="shrink-0 text-xs font-semibold"
-                    style={{ color: project.color }}
-                  >
-                    {project.name}
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-[16px] font-medium leading-6 text-ink">
+                      {t.title}
+                    </span>
+                    {t.finalOutput && (
+                      <span className="shrink-0 text-xs font-medium text-success" title="Has a final output">
+                        shipped ✓
+                      </span>
+                    )}
                   </span>
-                )}
-                {isLooping(t) && (
-                  <span className="chip shrink-0 border-accent/30 text-accent">looping</span>
-                )}
-                {t.finalOutput && (
-                  <span className="vis-badge shrink-0 text-accent">shipped</span>
-                )}
-                <span
-                  className="ml-auto shrink-0 text-xs text-dim opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
-                  role="button"
-                  tabIndex={0}
-                  title="Rename thread"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void renameThread(t);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.stopPropagation();
-                      void renameThread(t);
-                    }
-                  }}
-                >
-                  Rename
+                  <span className="block truncate font-mono text-sm leading-5 tracking-tight text-dim">
+                    {t.finalOutput?.replace(/\s+/g, " ").trim() ||
+                      (t.stepCount > 0 ? `${t.stepCount}-step recipe, no final output yet` : "Empty recipe")}
+                  </span>
                 </span>
-                <span
-                  className="shrink-0 text-xs text-danger opacity-0 transition-opacity group-hover:opacity-100"
-                  role="button"
-                  tabIndex={0}
-                  title="Delete thread"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void deleteThread(t);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.stopPropagation();
-                      void deleteThread(t);
-                    }
-                  }}
-                >
-                  Delete
+                <span className="flex shrink-0 items-center gap-3">
+                  {isLooping(t) && <span className="chip">looping</span>}
+                  {project && !selected && (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-dim">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: project.color }} />
+                      {project.name}
+                    </span>
+                  )}
+                  <span className="text-xs tabular-nums text-dim/70">
+                    {t.stepCount} {t.stepCount === 1 ? "step" : "steps"}
+                  </span>
+                  <span className="row-passive text-xs text-dim/70 group-hover:hidden">
+                    {relativeTime(t.updatedAt)}
+                  </span>
+                  <span className="hidden items-center gap-0.5 group-hover:flex">
+                    <button
+                      aria-label="Rename thread"
+                      title="Rename"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void renameThread(t);
+                      }}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      aria-label="Delete thread"
+                      title="Delete"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void deleteThread(t);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </span>
                 </span>
-              </button>
+              </div>
             );
           })}
       </div>
