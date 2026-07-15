@@ -134,7 +134,7 @@ export default function ThreadPage() {
           onChange={(e) => setThread({ ...thread, title: e.target.value })}
           onBlur={() => void patch({ title: thread.title.trim() || "Untitled thread" })}
         />
-        <span className="w-14 text-right text-[11px] font-semibold" aria-live="polite">
+        <span className="w-14 text-right text-xs font-semibold" aria-live="polite">
           {saveState === "saving" && <span className="text-dim">Saving…</span>}
           {saveState === "saved" && <span className="text-accent">Saved ✓</span>}
         </span>
@@ -170,7 +170,7 @@ export default function ThreadPage() {
       </div>
 
       {sites.length > 0 && (
-        <p className="text-[11px] font-semibold text-dim">
+        <p className="text-xs font-semibold text-dim">
           {sites.join(" → ")}
         </p>
       )}
@@ -178,7 +178,7 @@ export default function ThreadPage() {
       {/* the recipe */}
       <div className="panel min-h-0 flex-1 divide-y divide-line overflow-y-auto">
         {thread.steps.length === 0 && (
-          <p className="px-4 py-10 text-center text-[13px] text-dim">
+          <p className="px-4 py-10 text-center text-sm text-dim">
             No steps yet — search your prompts below, or turn on “record to
             thread” in the extension popup.
           </p>
@@ -189,22 +189,22 @@ export default function ThreadPage() {
             const site = siteOf(s.prompt);
             return (
               <div key={s.prompt.id} className="group flex gap-3 px-4 py-3">
-                <span className="w-8 shrink-0 pt-0.5 font-mono text-[11px] text-dim">
+                <span className="w-8 shrink-0 pt-0.5 font-mono text-xs text-dim">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     {site && (
-                      <span className="text-[10px] font-extrabold uppercase tracking-wide text-accent">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-accent">
                         {site}
                       </span>
                     )}
-                    <span className="truncate text-[13px] font-semibold">
+                    <span className="truncate text-sm font-semibold">
                       {s.prompt.title}
                     </span>
                     <span className="ml-auto flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
-                        className="btn h-6 px-2 text-[11px]"
+                        className="btn h-6 px-2 text-xs"
                         onClick={() => {
                           void navigator.clipboard.writeText(s.prompt.body);
                           toast("Step copied");
@@ -212,14 +212,14 @@ export default function ThreadPage() {
                       >
                         Copy
                       </button>
-                      <button className="btn h-6 px-2 text-[11px]" disabled={i === 0} onClick={() => move(i, -1)}>
+                      <button className="btn h-6 px-2 text-xs" disabled={i === 0} onClick={() => move(i, -1)}>
                         ↑
                       </button>
-                      <button className="btn h-6 px-2 text-[11px]" disabled={i === arr.length - 1} onClick={() => move(i, 1)}>
+                      <button className="btn h-6 px-2 text-xs" disabled={i === arr.length - 1} onClick={() => move(i, 1)}>
                         ↓
                       </button>
                       <button
-                        className="btn h-6 px-2 text-[11px] text-danger"
+                        className="btn h-6 px-2 text-xs text-danger"
                         onClick={() => void setSteps(stepIds.filter((x) => x !== s.prompt.id))}
                       >
                         ✕
@@ -245,14 +245,14 @@ export default function ThreadPage() {
           {addable.map((p) => (
             <button
               key={p.id}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-hover"
+              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover"
               onClick={() => {
                 setAddQuery("");
                 void setSteps([...stepIds, p.id]);
               }}
             >
               <span className="truncate">{p.title}</span>
-              <span className="ml-auto text-[11px] text-accent">add →</span>
+              <span className="ml-auto text-xs text-accent">add →</span>
             </button>
           ))}
         </div>
@@ -260,10 +260,10 @@ export default function ThreadPage() {
 
       {/* final output — the deliverable */}
       <div className="panel flex min-h-0 flex-[0.7] flex-col overflow-hidden border-accent/40">
-        <div className="flex items-center border-b border-line bg-tint px-3 py-1.5 text-[11px] font-semibold text-accent">
+        <div className="flex items-center border-b border-line bg-tint px-3 py-1.5 text-xs font-semibold text-accent">
           <span className="flex-1">FINAL OUTPUT — what this recipe produced</span>
           <button
-            className="text-[11px] font-semibold text-accent hover:underline"
+            className="text-xs font-semibold text-accent hover:underline"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >
@@ -296,7 +296,7 @@ export default function ThreadPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={thread.finalImage} alt="final output" className="max-h-36 w-full object-contain" />
             <button
-              className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+              className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
               onClick={() => {
                 setThread({ ...thread, finalImage: null });
                 void patch({ finalImage: null });

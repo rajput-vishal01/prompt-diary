@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { dialog } from "@/components/Dialog";
@@ -43,6 +44,16 @@ interface TeamPrompt {
 }
 
 export default function TeamsPage() {
+  return (
+    <Suspense>
+      <TeamsPageInner />
+    </Suspense>
+  );
+}
+
+function TeamsPageInner() {
+  const searchParams = useSearchParams();
+  const teamParam = searchParams.get("t"); // sidebar deep-link
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [selected, setSelected] = useState<TeamRow | null>(null);
@@ -57,6 +68,15 @@ export default function TeamsPage() {
   };
 
   useEffect(reload, []);
+
+  // ?t=<id> from the sidebar opens that team directly
+  useEffect(() => {
+    if (!teamParam) {
+      setSelected(null);
+      return;
+    }
+    setSelected(teams.find((t) => t.id === teamParam) ?? null);
+  }, [teamParam, teams]);
 
   const createTeam = async () => {
     const name = await dialog.prompt({ title: "New team", placeholder: "Team name", submitLabel: "Create" });
@@ -373,7 +393,7 @@ function TeamDetail({
                 {usage.map((u) => (
                   <div
                     key={`${u.userId}-${u.site}`}
-                    className="flex items-center gap-2 py-1.5 text-[13px]"
+                    className="flex items-center gap-2 py-1.5 text-sm"
                   >
                     <span className="min-w-0 flex-1 truncate">{u.name}</span>
                     <span className="chip">{u.site}</span>

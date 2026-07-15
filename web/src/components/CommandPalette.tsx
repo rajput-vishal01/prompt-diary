@@ -121,12 +121,12 @@ export function CommandPalette() {
         />
         <div className="max-h-72 overflow-y-auto py-1">
           {items.length === 0 && (
-            <p className="px-4 py-6 text-center text-[13px] text-dim">No matches.</p>
+            <p className="px-4 py-6 text-center text-sm text-dim">No matches.</p>
           )}
           {items.map((item, i) => (
             <button
               key={i}
-              className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] ${
+              className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm ${
                 i === sel ? "bg-tint text-accent" : "text-ink hover:bg-hover"
               }`}
               onMouseEnter={() => setSel(i)}
@@ -135,7 +135,7 @@ export function CommandPalette() {
               {item.kind === "prompt" && (
                 <>
                   <span className="truncate font-medium">{item.prompt.title}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-dim">copy ↵</span>
+                  <span className="ml-auto shrink-0 text-xs text-dim">copy ↵</span>
                 </>
               )}
               {item.kind === "folder" && (
@@ -145,19 +145,19 @@ export function CommandPalette() {
                     style={{ background: item.folder.color }}
                   />
                   <span className="truncate">{item.folder.name}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-dim">folder</span>
+                  <span className="ml-auto shrink-0 text-xs text-dim">folder</span>
                 </>
               )}
               {item.kind === "action" && (
                 <>
                   <span>{item.label}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-dim">action</span>
+                  <span className="ml-auto shrink-0 text-xs text-dim">action</span>
                 </>
               )}
             </button>
           ))}
         </div>
-        <div className="flex gap-3 border-t border-line px-4 py-2 text-[11px] text-dim">
+        <div className="flex gap-3 border-t border-line px-4 py-2 text-xs text-dim">
           <span>
             <span className="kbd">↑↓</span> navigate
           </span>

@@ -117,7 +117,7 @@ export default function ProfilePage() {
                 e.target.value = "";
               }}
             />
-            <p className="mt-1 text-[11px] text-dim">Square images look best. Max 5MB.</p>
+            <p className="mt-1 text-xs text-dim">Square images look best. Max 5MB.</p>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export default function ProfilePage() {
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Keyboard shortcuts</h2>
-        <div className="grid gap-1.5 text-[13px]">
+        <div className="grid gap-1.5 text-sm">
           <p className="flex justify-between">
             <span className="text-dim">Command palette</span>
             <span><span className="kbd">⌘</span> <span className="kbd">K</span></span>
@@ -214,7 +214,7 @@ export default function ProfilePage() {
             <span><span className="kbd">Alt</span> <span className="kbd">P</span></span>
           </p>
         </div>
-        <div className="border-t border-line pt-2 text-[12px] leading-relaxed text-dim">
+        <div className="border-t border-line pt-2 text-[13px] leading-relaxed text-dim">
           To change the extension hotkey, Chrome requires you to do it in the
           browser itself (extensions can't rebind their own keys):{" "}
           <button

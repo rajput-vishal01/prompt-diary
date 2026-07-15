@@ -42,7 +42,7 @@ export function Toaster() {
         <div
           key={t.id}
           role="status"
-          className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line bg-ink px-4 py-2.5 text-[13px] font-medium text-white shadow-lg"
+          className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg"
         >
           <span className={t.kind === "error" ? "text-red-300" : ""}>{t.message}</span>
           {t.action && (

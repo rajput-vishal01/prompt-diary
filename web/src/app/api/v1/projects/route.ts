@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { ProjectCreateSchema } from "shared";
 import { db } from "@/db";
 import { projects, threads } from "@/db/schema";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     .leftJoin(threads, eq(threads.projectId, projects.id))
     .where(eq(projects.userId, g.user.id))
     .groupBy(projects.id)
-    .orderBy(desc(projects.updatedAt));
+    .orderBy(asc(projects.sortOrder), desc(projects.updatedAt));
 
   return jsonOk(rows);
 }

@@ -51,6 +51,7 @@ export const FolderSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .default("#6366f1"),
+  sortOrder: z.number().int().default(0), // sidebar drag order
   createdAt: z.string(), // ISO
   updatedAt: z.string(),
 });
@@ -134,7 +135,8 @@ export const ProjectSchema = z.object({
   id: z.string(),
   userId: z.string(),
   name: z.string().min(1).max(100),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#1c6b4a"),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#777169"),
+  sortOrder: z.number().int().default(0), // sidebar drag order
   teamId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

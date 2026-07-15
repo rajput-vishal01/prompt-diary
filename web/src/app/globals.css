@@ -16,18 +16,18 @@ body {
    ink pills for actions, one soft shadow tier. */
 @layer components {
   .input {
-    @apply h-8 w-full rounded-lg border border-line-strong bg-raised px-2.5 text-[13px] text-ink outline-none transition-colors placeholder:text-dim focus:border-ink;
+    @apply h-9 w-full rounded-lg border border-line-strong bg-raised px-3 text-sm text-ink outline-none transition-colors placeholder:text-dim focus:border-ink;
   }
   textarea.input {
     @apply h-auto py-2;
   }
   .btn {
     /* secondary: transparent pill with hairline border */
-    @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-transparent px-3.5 text-[13px] font-medium text-ink transition-[background,transform,border-color] duration-150 hover:bg-hover active:scale-[0.97];
+    @apply inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line-strong bg-transparent px-4 text-sm font-medium text-ink transition-[background,transform,border-color] duration-150 hover:bg-hover active:scale-[0.97];
   }
   .btn-primary {
     /* the ink pill — the only CTA color in the system */
-    @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 text-[13px] font-medium text-white transition-[background,transform] duration-150 hover:bg-accent-deep active:scale-[0.97] disabled:opacity-50;
+    @apply inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-accent px-5 text-sm font-medium text-white transition-[background,transform] duration-150 hover:bg-accent-deep active:scale-[0.97] disabled:opacity-50;
   }
   .card {
     @apply rounded-2xl border border-line bg-raised p-4 transition-shadow;
@@ -36,13 +36,13 @@ body {
     @apply rounded-xl border border-line bg-raised;
   }
   .chip {
-    @apply inline-flex items-center rounded-full border border-transparent bg-tint px-2 py-px text-[11px] font-medium text-ink;
+    @apply inline-flex items-center rounded-full border border-transparent bg-tint px-2.5 py-0.5 text-xs font-medium text-ink;
   }
   .vis-badge {
     @apply inline-flex items-center gap-1.5 text-[11px] font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''];
   }
   .kbd {
-    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line bg-tint px-1 font-mono text-[10px] font-semibold text-dim;
+    @apply inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-line bg-tint px-1 font-mono text-[11px] font-semibold text-dim;
   }
   h1 {
     @apply tracking-[-0.015em];

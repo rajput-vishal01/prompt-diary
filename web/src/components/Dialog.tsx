@@ -113,7 +113,7 @@ export function DialogHost() {
             }}
           >
             {pending.opts.label && (
-              <p className="text-[12px] text-dim">{pending.opts.label}</p>
+              <p className="text-[13px] text-dim">{pending.opts.label}</p>
             )}
             <input
               ref={inputRef}
@@ -135,7 +135,7 @@ export function DialogHost() {
         ) : (
           <div className="mt-3 space-y-3">
             {pending.opts.body && (
-              <p className="text-[13px] leading-relaxed text-dim">
+              <p className="text-sm leading-relaxed text-dim">
                 {pending.opts.body}
               </p>
             )}

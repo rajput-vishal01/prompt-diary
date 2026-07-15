@@ -57,16 +57,16 @@ export default function UsagePage() {
     SITE_COLORS[sites.indexOf(site) % SITE_COLORS.length];
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col">
+    <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-1 flex items-baseline justify-between">
-        <h1 className="text-xl font-bold">Usage</h1>
+        <h1 className="text-2xl font-bold">Usage</h1>
         {!isLoading && total > 0 && (
-          <span className="text-[13px] tabular-nums text-dim">
+          <span className="text-sm tabular-nums text-dim">
             ~{formatTokens(total)} tokens · last {DAYS_SHOWN} days
           </span>
         )}
       </div>
-      <p className="mb-5 text-[13px] text-dim">
+      <p className="mb-5 text-sm text-dim">
         Estimated from message length (characters ÷ 4) on chats where the
         extension is active — not billing data.
       </p>
@@ -74,7 +74,7 @@ export default function UsagePage() {
       {isLoading && <div className="skeleton h-48 w-full" />}
 
       {!isLoading && total === 0 && (
-        <div className="panel px-6 py-14 text-center text-[13px] leading-relaxed text-dim">
+        <div className="panel px-6 py-14 text-center text-sm leading-relaxed text-dim">
           Nothing recorded yet. Browse ChatGPT, Claude or Gemini with the
           extension installed — observed messages are estimated locally and
           appear here after the next sync.
@@ -109,13 +109,13 @@ export default function UsagePage() {
               );
             })}
           </div>
-          <div className="mt-1.5 flex justify-between text-[10px] tabular-nums text-dim">
+          <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-dim">
             <span>{days[0]?.day.slice(5)}</span>
             <span>{days[days.length - 1]?.day.slice(5)}</span>
           </div>
           <div className="mt-4 flex flex-wrap gap-3 border-t border-line pt-3">
             {sites.map((s) => (
-              <span key={s} className="flex items-center gap-1.5 text-[12px]">
+              <span key={s} className="flex items-center gap-1.5 text-[13px]">
                 <span
                   className="h-2.5 w-2.5 rounded-[3px]"
                   style={{ background: colorOf(s) }}

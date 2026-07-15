@@ -119,12 +119,12 @@ function ProjectsPageInner() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col">
+    <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-xl font-bold">
+        <h1 className="text-2xl font-bold">
           Projects
           {!isLoading && (
-            <span className="ml-2 text-[13px] font-normal tabular-nums text-dim">
+            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
               {threads.length} {threads.length === 1 ? "thread" : "threads"}
             </span>
           )}
@@ -197,7 +197,7 @@ function ProjectsPageInner() {
             </div>
           ))}
         {!isLoading && visible.length === 0 && (
-          <p className="mx-auto max-w-sm py-14 text-center text-[13px] leading-relaxed text-dim">
+          <p className="mx-auto max-w-sm py-14 text-center text-sm leading-relaxed text-dim">
             A thread is a recipe: the chain of prompts that produced one result.
             Create one here, or from the “saves from this conversation” banner
             on My Prompts.
@@ -217,13 +217,13 @@ function ProjectsPageInner() {
                   void deleteThread(t);
                 }}
               >
-                <span className="truncate text-[13px] font-semibold">{t.title}</span>
-                <span className="shrink-0 text-[11px] tabular-nums text-dim">
+                <span className="truncate text-sm font-semibold">{t.title}</span>
+                <span className="shrink-0 text-xs tabular-nums text-dim">
                   {t.stepCount} {t.stepCount === 1 ? "step" : "steps"}
                 </span>
                 {project && (
                   <span
-                    className="shrink-0 text-[11px] font-semibold"
+                    className="shrink-0 text-xs font-semibold"
                     style={{ color: project.color }}
                   >
                     {project.name}
@@ -236,7 +236,7 @@ function ProjectsPageInner() {
                   <span className="vis-badge shrink-0 text-accent">shipped</span>
                 )}
                 <span
-                  className="ml-auto shrink-0 text-[11px] text-dim opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
+                  className="ml-auto shrink-0 text-xs text-dim opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
                   role="button"
                   tabIndex={0}
                   title="Rename thread"
@@ -254,7 +254,7 @@ function ProjectsPageInner() {
                   Rename
                 </span>
                 <span
-                  className="shrink-0 text-[11px] text-danger opacity-0 transition-opacity group-hover:opacity-100"
+                  className="shrink-0 text-xs text-danger opacity-0 transition-opacity group-hover:opacity-100"
                   role="button"
                   tabIndex={0}
                   title="Delete thread"

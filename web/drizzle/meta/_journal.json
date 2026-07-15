@@ -57,6 +57,13 @@
       "when": 1784095320542,
       "tag": "0007_steady_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784100913058,
+      "tag": "0008_mighty_dracula",
+      "breakpoints": true
     }
   ]
 }

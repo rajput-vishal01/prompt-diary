@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     .select()
     .from(folders)
     .where(eq(folders.userId, g.user.id))
-    .orderBy(asc(folders.name));
+    .orderBy(asc(folders.sortOrder), asc(folders.name));
   return jsonOk(rows);
 }
 

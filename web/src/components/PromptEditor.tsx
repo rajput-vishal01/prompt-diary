@@ -206,7 +206,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           autoFocus={!id}
         />
         {id && (
-          <span className="w-14 text-right text-[11px] font-semibold" aria-live="polite">
+          <span className="w-14 text-right text-xs font-semibold" aria-live="polite">
             {saveState === "saving" && <span className="text-dim">Saving…</span>}
             {saveState === "saved" && <span className="text-accent">Saved ✓</span>}
             {saveState === "error" && <span className="text-danger">Failed</span>}
@@ -252,7 +252,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
       </div>
 
       <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="border-b border-line px-3 py-1.5 text-[11px] font-semibold text-dim">
+        <div className="border-b border-line px-3 py-1.5 text-xs font-semibold text-dim">
           THE PROMPT
         </div>
         <textarea
@@ -294,7 +294,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-[13px] text-dim">
+        <label className="flex items-center gap-1.5 text-sm text-dim">
           <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
           Pin
         </label>
@@ -337,13 +337,13 @@ function OutputPane({
       className={`panel flex min-h-0 flex-col overflow-hidden ${accent ? "border-accent/40" : ""}`}
     >
       <div
-        className={`flex items-center border-b border-line px-3 py-1.5 text-[11px] font-semibold ${
+        className={`flex items-center border-b border-line px-3 py-1.5 text-xs font-semibold ${
           accent ? "bg-tint text-accent" : "text-dim"
         }`}
       >
         <span className="flex-1">{label}</span>
         <button
-          className="text-[11px] font-semibold text-accent hover:underline"
+          className="text-xs font-semibold text-accent hover:underline"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
         >
@@ -366,7 +366,7 @@ function OutputPane({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="output screenshot" className="max-h-40 w-full object-contain" />
           <button
-            className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+            className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
             onClick={() => onImage(null)}
           >
             Remove

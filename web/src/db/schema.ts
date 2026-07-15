@@ -119,6 +119,7 @@ export const projects = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     color: text("color").notNull().default("#777169"),
+    sortOrder: integer("sort_order").notNull().default(0), // sidebar drag order
     teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -188,6 +189,7 @@ export const folders = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     color: text("color").notNull().default("#6366f1"),
+    sortOrder: integer("sort_order").notNull().default(0), // sidebar drag order
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

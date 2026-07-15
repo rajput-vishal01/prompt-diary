@@ -181,12 +181,12 @@ function PromptsPageInner() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col">
+    <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-xl font-bold">
+        <h1 className="text-2xl font-bold">
           {pinnedTab ? "Pinned" : (activeFolder?.name ?? "My Prompts")}
           {!isLoading && (
-            <span className="ml-2 text-[13px] font-normal tabular-nums text-dim">
+            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
               {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
             </span>
           )}
@@ -197,12 +197,12 @@ function PromptsPageInner() {
       </div>
 
       {cluster && (
-        <div className="mb-3 flex items-center gap-3 rounded-[10px] border border-accent/40 bg-tint px-4 py-2.5 text-[13px]">
+        <div className="mb-3 flex items-center gap-3 rounded-[10px] border border-accent/40 bg-tint px-4 py-2.5 text-sm">
           <span className="flex-1">
             <b>{cluster.length} saves</b> came from the same conversation — chain
             them into a thread?
           </span>
-          <button className="btn-primary h-7 px-3 text-[12px]" onClick={() => void chainCluster()}>
+          <button className="btn-primary h-7 px-3 text-[13px]" onClick={() => void chainCluster()}>
             Chain into thread
           </button>
           <button className="text-dim hover:text-ink" title="Dismiss" onClick={dismissCluster}>
@@ -255,7 +255,7 @@ function PromptsPageInner() {
           {(["list", "cards"] as const).map((v) => (
             <button
               key={v}
-              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
                 view === v ? "bg-tint text-accent" : "text-dim hover:text-ink"
               }`}
               onClick={() => setViewMode(v)}
@@ -282,7 +282,7 @@ function PromptsPageInner() {
         {isTrueFirstRun && (
           <div className="mx-auto max-w-md py-14 text-center">
             <p className="font-display text-xl font-light">Start your diary</p>
-            <ol className="mt-4 space-y-3 text-left text-[13px] leading-relaxed text-dim">
+            <ol className="mt-4 space-y-3 text-left text-sm leading-relaxed text-dim">
               <li>
                 <span className="font-semibold text-ink">1 · Install the extension</span>
                 <br />
@@ -307,7 +307,7 @@ function PromptsPageInner() {
         )}
 
         {!isLoading && !isTrueFirstRun && filtered.length === 0 && (
-          <p className="py-14 text-center text-[13px] text-dim">
+          <p className="py-14 text-center text-sm text-dim">
             {folderTab
               ? "This folder is empty — “New prompt” adds straight into it."
               : "Nothing matches your filters."}
@@ -324,8 +324,8 @@ function PromptsPageInner() {
                 onClick={() => router.push(`/dashboard/p/${p.id}`)}
                 title="Open"
               >
-                {p.pinned && <span className="text-[11px] text-accent">★</span>}
-                <span className="truncate text-[13px] font-semibold">{p.title}</span>
+                {p.pinned && <span className="text-xs text-accent">★</span>}
+                <span className="truncate text-sm font-semibold">{p.title}</span>
                 <span
                   className={`vis-badge shrink-0 ${
                     p.visibility === "public" ? "text-accent" : "text-dim"
@@ -336,7 +336,7 @@ function PromptsPageInner() {
                 {p.teamId && <span className="vis-badge shrink-0 text-amber">team</span>}
                 {folder && !folderTab && (
                   <span
-                    className="shrink-0 text-[11px] font-semibold"
+                    className="shrink-0 text-xs font-semibold"
                     style={{ color: folder.color }}
                   >
                     {folder.name}
@@ -349,13 +349,13 @@ function PromptsPageInner() {
                 ))}
                 <span className="ml-auto flex shrink-0 items-center gap-2">
                   {copiedId === p.id ? (
-                    <span className="text-[11px] font-bold text-accent">Copied</span>
+                    <span className="text-xs font-bold text-accent">Copied</span>
                   ) : (
-                    <button className="btn h-6 px-2 text-[11px]" onClick={(e) => copy(p, e)}>
+                    <button className="btn h-6 px-2 text-xs" onClick={(e) => copy(p, e)}>
                       Copy
                     </button>
                   )}
-                  <span className="w-8 text-right text-[11px] tabular-nums text-dim">
+                  <span className="w-8 text-right text-xs tabular-nums text-dim">
                     {p.useCount > 0 ? `${p.useCount}×` : ""}
                   </span>
                 </span>
@@ -376,22 +376,22 @@ function PromptsPageInner() {
                   title="Open"
                 >
                   <div className="flex items-center gap-2">
-                    {p.pinned && <span className="text-[11px] text-accent">★</span>}
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
+                    {p.pinned && <span className="text-xs text-accent">★</span>}
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       {p.title}
                     </span>
                     {copiedId === p.id ? (
-                      <span className="text-[11px] font-bold text-accent">Copied</span>
+                      <span className="text-xs font-bold text-accent">Copied</span>
                     ) : (
                       <button
-                        className="btn h-6 px-2 text-[11px] opacity-0 transition-opacity group-hover:opacity-100"
+                        className="btn h-6 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
                         onClick={(e) => copy(p, e)}
                       >
                         Copy
                       </button>
                     )}
                   </div>
-                  <p className="line-clamp-4 font-mono text-[11px] leading-relaxed text-dim">
+                  <p className="line-clamp-4 font-mono text-xs leading-relaxed text-dim">
                     {p.body}
                   </p>
                   <div className="mt-auto flex flex-wrap items-center gap-1.5">
@@ -407,7 +407,7 @@ function PromptsPageInner() {
                     ))}
                     {folder && !folderTab && (
                       <span
-                        className="text-[11px] font-semibold"
+                        className="text-xs font-semibold"
                         style={{ color: folder.color }}
                       >
                         {folder.name}
@@ -422,7 +422,7 @@ function PromptsPageInner() {
                         {p.visibility}
                       </span>
                       {p.teamId && <span className="vis-badge text-amber">team</span>}
-                      <span className="text-[11px] tabular-nums text-dim">
+                      <span className="text-xs tabular-nums text-dim">
                         {p.useCount > 0 ? `${p.useCount}×` : ""}
                       </span>
                     </span>
