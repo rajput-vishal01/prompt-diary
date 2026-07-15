@@ -17,9 +17,18 @@ export default function ProfilePage() {
   const changeAvatar = async (file: File) => {
     setAvatarUploading(true);
     setError(null);
+    const previous = session?.user.image;
     try {
       const url = await uploadImage(file);
       await authClient.updateUser({ image: url });
+      // the replaced avatar is an orphan on Cloudinary now — clean it up
+      if (previous) {
+        void fetch("/api/v1/uploads/destroy", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: previous }),
+        }).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {

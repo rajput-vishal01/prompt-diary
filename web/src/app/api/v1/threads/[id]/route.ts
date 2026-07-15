@@ -1,3 +1,4 @@
+import { destroyImage } from "@/lib/cloudinary";
 import { NextRequest } from "next/server";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { ThreadUpdateSchema } from "shared";
@@ -80,6 +81,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .where(eq(threads.id, id))
     .returning();
 
+  // a replaced/removed final screenshot leaves an orphan on Cloudinary
+  if (input.finalImage !== undefined && thread.finalImage && thread.finalImage !== input.finalImage) {
+    void destroyImage(thread.finalImage, g.user.id);
+  }
+
   return jsonOk(updated);
 }
 
@@ -93,5 +99,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   // steps cascade; the referenced prompts are untouched
   await db.delete(threads).where(eq(threads.id, id));
+  void destroyImage(thread.finalImage, g.user.id); // hard delete → clean the screenshot too
   return jsonOk({ deleted: true });
 }

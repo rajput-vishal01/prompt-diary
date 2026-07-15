@@ -1,3 +1,4 @@
+import { destroyImage } from "@/lib/cloudinary";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { PromptUpdateSchema } from "shared";
@@ -105,6 +106,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     })
     .where(eq(prompts.id, id))
     .returning();
+
+  // replaced/removed screenshots leave orphans on Cloudinary — clean them up
+  // fire-and-forget (never blocks or fails the save)
+  if (input.imageBefore !== undefined && row.imageBefore && row.imageBefore !== input.imageBefore) {
+    void destroyImage(row.imageBefore, g.user.id);
+  }
+  if (input.imageAfter !== undefined && row.imageAfter && row.imageAfter !== input.imageAfter) {
+    void destroyImage(row.imageAfter, g.user.id);
+  }
 
   return jsonOk(updated);
 }
