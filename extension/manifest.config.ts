@@ -35,7 +35,11 @@ export default defineManifest({
       description: "Open Prompt Diary",
     },
   },
-  permissions: ["storage", "contextMenus", "clipboardWrite", "identity"],
+  // activeTab + scripting: opening the popup counts as invoking the action,
+  // which grants temporary access to the current tab — that's what lets
+  // Enter insert into the focused field on ANY site, not just the AI chat
+  // sites with a content script
+  permissions: ["storage", "contextMenus", "clipboardWrite", "identity", "activeTab", "scripting"],
   // VITE_API_URL=https://your-app.vercel.app bun run build  → store build
   host_permissions: [`${process.env.VITE_API_URL ?? "http://localhost:3000"}/*`],
   icons: {

@@ -34,6 +34,35 @@ import { syncNow } from "../lib/sync";
 
 type Filter = "all" | "pinned" | { folderId: string };
 
+// Runs INSIDE the page via chrome.scripting — must be fully self-contained
+// (it is serialized, so no imports or closures). The element that was focused
+// when the popup opened is still document.activeElement.
+function insertIntoFocusedField(text: string): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    if (el.readOnly || el.disabled) return false;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const proto =
+      el instanceof HTMLInputElement
+        ? HTMLInputElement.prototype
+        : HTMLTextAreaElement.prototype;
+    // native setter so React/Vue-controlled inputs see the change
+    const setValue = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+    setValue?.call(el, el.value.slice(0, start) + text + el.value.slice(end));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.focus();
+    return true;
+  }
+  if (el.isContentEditable) {
+    el.focus();
+    document.execCommand("insertText", false, text);
+    return true;
+  }
+  return false;
+}
+
 export function App() {
   const [vault, setVaultState] = useState<Vault | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -163,9 +192,10 @@ export function App() {
 
   // Enter: insert straight into the active tab's chatbox; copy if there isn't one
   const insertOrCopy = async (prompt: Prompt) => {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    // 1) AI chat sites: the content script knows the site's composer
+    if (tab?.id) {
+      try {
         const res = (await chrome.tabs.sendMessage(tab.id, {
           type: "insert-prompt",
           body: prompt.body,
@@ -176,10 +206,28 @@ export function App() {
           window.close();
           return;
         }
+      } catch {
+        // no content script on this tab — try scripting below
       }
-    } catch {
-      // no content script on this tab — fall through to copy
+      // 2) any other site: activeTab grants one-shot access, inject into the
+      //    field that was focused when the popup opened
+      try {
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: insertIntoFocusedField,
+          args: [prompt.body],
+        });
+        if (result?.result) {
+          await bumpUseCount(prompt.id);
+          await pushRecent(prompt.id);
+          window.close();
+          return;
+        }
+      } catch {
+        // restricted page (chrome://, web store) — fall through to copy
+      }
     }
+    // 3) nowhere to type: copy to clipboard
     await handleCopy(prompt);
     window.close();
   };
@@ -327,7 +375,7 @@ export function App() {
           <input
             ref={searchRef}
             className="search"
-            placeholder="Search — ↑↓ then ↵ inserts into chat"
+            placeholder="Search — ↑↓ then ↵ inserts where you were typing"
             value={query}
             autoFocus
             onChange={(e) => {
