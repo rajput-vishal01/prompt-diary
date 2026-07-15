@@ -195,3 +195,65 @@ export async function signOut(): Promise<void> {
     await chrome.storage.local.set({ cookieOptOut: true });
   }
 }
+
+// ---------- usage-limit tracker events ----------
+// Send events are recorded by the background worker. They ALWAYS land in the
+// local log (works signed-out and offline) and, when signed in, queue for the
+// server so counts survive refreshes/reinstalls and follow the user across
+// devices. Server is the source of truth when reachable.
+
+export interface UsageEvent {
+  site: string;
+  at: number; // epoch ms
+}
+
+const DAY_MS = 24 * 3_600_000;
+
+/** Record one send event: local log + server queue. */
+export async function recordUsageEvent(site: string, at = Date.now()): Promise<void> {
+  const res = await chrome.storage.local.get(["usageLocalLog", "usageEvents"]);
+  const log = (res["usageLocalLog"] as Record<string, number[]> | undefined) ?? {};
+  log[site] = [...(log[site] ?? []).filter((t) => t > at - DAY_MS), at];
+  const queue = (res["usageEvents"] as UsageEvent[] | undefined) ?? [];
+  queue.push({ site, at });
+  await chrome.storage.local.set({ usageLocalLog: log, usageEvents: queue.slice(-500) });
+}
+
+/** Push queued events to the server (no-op signed out; retries next call). */
+export async function flushUsageEvents(): Promise<void> {
+  const auth = await getAuth();
+  if (!auth) return;
+  const res = await chrome.storage.local.get("usageEvents");
+  const queue = (res["usageEvents"] as UsageEvent[] | undefined) ?? [];
+  if (queue.length === 0) return;
+  try {
+    await api("/api/v1/usage/messages", {
+      method: "POST",
+      body: { events: queue.slice(0, 100) },
+    });
+    const latest = await chrome.storage.local.get("usageEvents");
+    const current = (latest["usageEvents"] as UsageEvent[] | undefined) ?? [];
+    await chrome.storage.local.set({ usageEvents: current.slice(queue.slice(0, 100).length) });
+  } catch {
+    // keep the queue; next event or sync retries
+  }
+}
+
+/** Send timestamps for a site: server (authoritative) ∪ unflushed queue, or the local log. */
+export async function getUsageTimestamps(site: string): Promise<number[]> {
+  const auth = await getAuth();
+  const res = await chrome.storage.local.get(["usageLocalLog", "usageEvents"]);
+  const queue = ((res["usageEvents"] as UsageEvent[] | undefined) ?? [])
+    .filter((e) => e.site === site)
+    .map((e) => e.at);
+  if (auth) {
+    try {
+      const server = await api<number[]>(`/api/v1/usage/messages?site=${encodeURIComponent(site)}`);
+      return [...server, ...queue].sort((a, b) => a - b);
+    } catch {
+      // fall through to local
+    }
+  }
+  const log = (res["usageLocalLog"] as Record<string, number[]> | undefined) ?? {};
+  return (log[site] ?? []).sort((a, b) => a - b);
+}

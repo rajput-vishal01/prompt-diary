@@ -16,7 +16,9 @@ export default defineManifest({
   },
   content_scripts: [
     {
-      // one-click save surfaces on AI chat sites (selection bubble + composer button)
+      // save surfaces + the usage-limit tracker on every major AI chat site.
+      // Tracking is send-event based (no per-site selectors), so a new model
+      // site only needs a match here + an entry in lib/limits.ts SITES.
       matches: [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
@@ -24,6 +26,15 @@ export default defineManifest({
         "https://gemini.google.com/*",
         "https://www.perplexity.ai/*",
         "https://poe.com/*",
+        "https://chat.deepseek.com/*",
+        "https://grok.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://chat.mistral.ai/*",
+        "https://kimi.com/*",
+        "https://www.kimi.com/*",
+        "https://chat.qwen.ai/*",
+        "https://www.meta.ai/*",
+        "https://meta.ai/*",
       ],
       js: ["src/content.ts"],
       run_at: "document_idle",

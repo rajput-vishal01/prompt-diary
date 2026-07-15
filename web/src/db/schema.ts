@@ -180,6 +180,22 @@ export const usageDays = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.day, t.site] })],
 );
 
+// individual message-send events for the on-page limit widget — rolling-window
+// counts need timestamps, and storing them server-side is what makes the
+// tracker survive refreshes and work across devices. Rows self-prune (48h).
+export const usageMessages = pgTable(
+  "usage_messages",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    site: text("site").notNull(),
+    at: timestamp("at").notNull(),
+  },
+  (t) => [index("usage_messages_user_site_at_idx").on(t.userId, t.site, t.at)],
+);
+
 export const folders = pgTable(
   "folders",
   {

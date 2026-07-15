@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { limitState, pruneWindow, resetEta } from "../src/lib/limits";
+import { limitState, limitsFor, pruneWindow, resetEta, siteForHost } from "../src/lib/limits";
 
 const HOUR = 3_600_000;
 
@@ -17,6 +17,24 @@ describe("limitState — the three cases", () => {
   });
   test("unlimited plans never warn", () => {
     expect(limitState(9999, null)).toBe("ok");
+  });
+});
+
+describe("site coverage", () => {
+  test("maps every supported host to a site key", () => {
+    expect(siteForHost("chatgpt.com")?.key).toBe("chatgpt");
+    expect(siteForHost("chat.deepseek.com")?.key).toBe("deepseek");
+    expect(siteForHost("grok.com")?.key).toBe("grok");
+    expect(siteForHost("copilot.microsoft.com")?.key).toBe("copilot");
+    expect(siteForHost("chat.mistral.ai")?.key).toBe("mistral");
+    expect(siteForHost("www.kimi.com")?.key).toBe("kimi");
+    expect(siteForHost("unknown.example.com")).toBeNull();
+  });
+
+  test("sites without a researched entry get the conservative default", () => {
+    expect(limitsFor("qwen", "free")).toEqual({ windowHours: 5, maxMessages: 50 });
+    expect(limitsFor("chatgpt", "plus").maxMessages).toBe(80);
+    expect(limitsFor("chatgpt", "pro").maxMessages).toBeNull();
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Folder, Prompt } from "shared";
-import { api, getAuth } from "./api";
+import { api, flushUsageEvents, getAuth } from "./api";
 import { getVault, setVault } from "./vault";
 
 // steps recorded while the prompt only existed locally — appended after sync
@@ -114,6 +114,7 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
     });
     await flushPendingSteps(); // prompts now exist server-side — attach queued steps
     await flushPendingUsage(); // push estimated token deltas
+    await flushUsageEvents(); // push queued limit-tracker send events
     return { synced: true };
   } catch (e) {
     return { synced: false, error: e instanceof Error ? e.message : "Sync failed" };

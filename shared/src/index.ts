@@ -194,6 +194,21 @@ export const UsagePushSchema = z.object({
 });
 export type UsagePush = z.infer<typeof UsagePushSchema>;
 
+// individual message-send events — the limit tracker's raw data. The server
+// stores them so counts survive refreshes, reinstalls, and device switches.
+export const UsageEventsSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        site: z.string().min(1).max(30),
+        at: z.number().int().positive(), // epoch ms, client clock
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+export type UsageEvents = z.infer<typeof UsageEventsSchema>;
+
 // ---------- sync ----------
 
 export const SyncPushSchema = z.object({

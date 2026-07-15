@@ -1,5 +1,11 @@
 import { addPrompt } from "./lib/vault";
-import { getActiveThread, queueThreadStep } from "./lib/api";
+import {
+  flushUsageEvents,
+  getActiveThread,
+  getUsageTimestamps,
+  queueThreadStep,
+  recordUsageEvent,
+} from "./lib/api";
 
 // while "record to thread" is on, every fresh save queues as the next step
 async function maybeRecord(promptId: string, duplicate: boolean): Promise<string | null> {
@@ -56,6 +62,41 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     flashBadge(r.duplicate ? "=" : "+1");
   });
 });
+
+// usage-limit tracker: content scripts can't call our API (page-origin CORS),
+// so the worker records events (local + server queue) and serves counts back
+let serverFetchCache: { site: string; at: number; timestamps: number[] } | null = null;
+
+chrome.runtime.onMessage.addListener(
+  (msg: { type?: string; site?: string }, _sender, sendResponse) => {
+    if (msg?.type === "usage-msg" && msg.site) {
+      void recordUsageEvent(msg.site)
+        .then(() => flushUsageEvents())
+        .then(() => {
+          serverFetchCache = null; // count changed — next read refetches
+          sendResponse({ ok: true });
+        })
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (msg?.type === "get-usage" && msg.site) {
+      const site = msg.site;
+      // 60s cache keeps the widget's tick from hammering the server
+      if (serverFetchCache && serverFetchCache.site === site && Date.now() - serverFetchCache.at < 60_000) {
+        sendResponse({ timestamps: serverFetchCache.timestamps });
+        return;
+      }
+      void getUsageTimestamps(site)
+        .then((timestamps) => {
+          serverFetchCache = { site, at: Date.now(), timestamps };
+          sendResponse({ timestamps });
+        })
+        .catch(() => sendResponse({ timestamps: [] }));
+      return true;
+    }
+    return;
+  },
+);
 
 // one-click saves from the content script (selection bubble / composer / messages)
 chrome.runtime.onMessage.addListener(

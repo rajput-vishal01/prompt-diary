@@ -16,7 +16,41 @@ export const PLAN_LABELS: Record<Plan, string> = {
   pro: "Max / Ultra",
 };
 
-// site → plan → limit
+// every model site we track — hostname pattern → site key + display name.
+// Tracking is send-event based (no DOM message selectors), so adding a site
+// here is ALL it takes (plus a manifest match) for the tracker to work on it.
+export const SITES: Array<{ key: string; name: string; host: RegExp }> = [
+  { key: "chatgpt", name: "ChatGPT", host: /(^|\.)chatgpt\.com$|(^|\.)chat\.openai\.com$/ },
+  { key: "claude", name: "Claude", host: /(^|\.)claude\.ai$/ },
+  { key: "gemini", name: "Gemini", host: /(^|\.)gemini\.google\.com$/ },
+  { key: "perplexity", name: "Perplexity", host: /(^|\.)perplexity\.ai$/ },
+  { key: "poe", name: "Poe", host: /(^|\.)poe\.com$/ },
+  { key: "deepseek", name: "DeepSeek", host: /(^|\.)chat\.deepseek\.com$/ },
+  { key: "grok", name: "Grok", host: /(^|\.)grok\.com$/ },
+  { key: "copilot", name: "Copilot", host: /(^|\.)copilot\.microsoft\.com$/ },
+  { key: "mistral", name: "Le Chat", host: /(^|\.)chat\.mistral\.ai$/ },
+  { key: "kimi", name: "Kimi", host: /(^|\.)kimi\.com$|(^|\.)kimi\.moonshot\.cn$/ },
+  { key: "qwen", name: "Qwen", host: /(^|\.)chat\.qwen\.ai$/ },
+  { key: "meta", name: "Meta AI", host: /(^|\.)meta\.ai$/ },
+];
+
+export function siteForHost(hostname: string): { key: string; name: string } | null {
+  const s = SITES.find((s) => s.host.test(hostname));
+  return s ? { key: s.key, name: s.name } : null;
+}
+
+export function siteDisplayName(key: string): string {
+  return SITES.find((s) => s.key === key)?.name ?? key;
+}
+
+// sites without a researched entry fall back to this conservative default
+export const DEFAULT_LIMITS: Record<Plan, SiteLimit> = {
+  free: { windowHours: 5, maxMessages: 50 },
+  plus: { windowHours: 5, maxMessages: 250 },
+  pro: { windowHours: 5, maxMessages: null },
+};
+
+// site → plan → limit (ballparks; tune freely)
 export const LIMITS: Record<string, Record<Plan, SiteLimit>> = {
   chatgpt: {
     free: { windowHours: 3, maxMessages: 15 },
@@ -33,7 +67,31 @@ export const LIMITS: Record<string, Record<Plan, SiteLimit>> = {
     plus: { windowHours: 24, maxMessages: 500 },
     pro: { windowHours: 24, maxMessages: null },
   },
+  perplexity: {
+    free: { windowHours: 24, maxMessages: 100 },
+    plus: { windowHours: 24, maxMessages: 600 },
+    pro: { windowHours: 24, maxMessages: null },
+  },
+  deepseek: {
+    free: { windowHours: 24, maxMessages: 200 },
+    plus: { windowHours: 24, maxMessages: null },
+    pro: { windowHours: 24, maxMessages: null },
+  },
+  grok: {
+    free: { windowHours: 2, maxMessages: 20 },
+    plus: { windowHours: 2, maxMessages: 100 },
+    pro: { windowHours: 2, maxMessages: null },
+  },
+  copilot: {
+    free: { windowHours: 24, maxMessages: 300 },
+    plus: { windowHours: 24, maxMessages: null },
+    pro: { windowHours: 24, maxMessages: null },
+  },
 };
+
+export function limitsFor(site: string, plan: Plan): SiteLimit {
+  return LIMITS[site]?.[plan] ?? DEFAULT_LIMITS[plan];
+}
 
 export type LimitState = "ok" | "warn" | "over";
 

@@ -5,11 +5,12 @@
 //  2. composer button — docked at the chatbox, saves your draft pre-send
 
 import {
-  LIMITS,
   PLAN_LABELS,
   limitState,
+  limitsFor,
   pruneWindow,
   resetEta,
+  siteForHost,
   type Plan,
 } from "./lib/limits";
 
@@ -304,12 +305,11 @@ function dockComposerButton() {
 }
 
 // SPAs mount the chatbox late, move it around, and stream messages in —
-// one cheap tick handles composer re-docking, new-message buttons, and the
-// usage-limit widget
+// one cheap tick handles composer re-docking, new-message buttons, and
+// keeping the limit widget's window fresh as time passes
 setInterval(() => {
   if (finder) dockComposerButton();
   injectMessageButtons();
-  trackUserMessages();
   updateLimitWidget();
 }, 600);
 if (finder) window.addEventListener("resize", dockComposerButton);
@@ -388,64 +388,85 @@ function roleOf(el: HTMLElement): "user" | "assistant" | undefined {
 }
 
 // ---------- usage-limit widget ----------
-// We already estimate usage; this puts it ON the page: user messages are
-// counted in the site's rolling window and compared against plan limits
-// (estimated — vendors don't publish exact numbers). Three states: ok,
-// nearing (≥70%), likely reached.
+// SEND-EVENT tracking: a message is counted the moment the user submits it
+// (Enter in the composer / a send-button click) — never by observing rendered
+// messages, so a refresh or an old conversation can't corrupt the count.
+// Events are recorded by the background worker: server-side when signed in
+// (survives refresh/reinstall, follows the user across devices), local log
+// otherwise. Limits are estimates; three states: ok → nearing → reached.
 
-// user-turn selectors (the save-button selector misses Gemini's user turns)
-const USER_MSG_SELECTORS: Record<string, string> = {
-  chatgpt: "[data-message-author-role='user']",
-  claude: "div[data-testid='user-message']",
-  gemini: "user-query",
-};
+const TRACK_SITE = siteForHost(location.hostname); // any supported model site
 
-let msgLog: number[] = []; // in-window user-message timestamps for this site
+let usageTimestamps: number[] = []; // fetched from background, pruned locally
 let sitePlan: Plan = "free";
-// hydrating an old conversation mounts historical messages — a grace period
-// after load/SPA-navigation keeps them from counting as new sends
-let graceUntil = Date.now() + 3000;
-let lastPath = location.pathname;
+let lastSendAt = 0; // debounce: Enter + send-click for one message = one event
 
-if (SITE_KEY_FOR_CAPTURE) {
-  void chrome.storage.local.get(["usageMsgLog", "sitePlans"]).then((res) => {
-    const log = (res["usageMsgLog"] as Record<string, number[]> | undefined) ?? {};
-    msgLog = log[SITE_KEY_FOR_CAPTURE!] ?? [];
+function refreshUsage() {
+  if (!TRACK_SITE) return;
+  chrome.runtime.sendMessage(
+    { type: "get-usage", site: TRACK_SITE.key },
+    (res?: { timestamps?: number[] }) => {
+      if (chrome.runtime.lastError || !res?.timestamps) return;
+      usageTimestamps = res.timestamps;
+      updateLimitWidget();
+    },
+  );
+}
+
+if (TRACK_SITE) {
+  void chrome.storage.local.get("sitePlans").then((res) => {
     const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
-    sitePlan = plans[SITE_KEY_FOR_CAPTURE!] ?? "free";
+    sitePlan = plans[TRACK_SITE.key] ?? "free";
     buildLimitWidget();
+    refreshUsage();
   });
-}
+  setInterval(refreshUsage, 30_000); // background caches server reads for 60s
 
-function persistMsgLog() {
-  void chrome.storage.local.get("usageMsgLog").then((res) => {
-    const log = (res["usageMsgLog"] as Record<string, number[]> | undefined) ?? {};
-    log[SITE_KEY_FOR_CAPTURE!] = msgLog;
-    void chrome.storage.local.set({ usageMsgLog: log });
-  });
-}
+  const editableText = (t: EventTarget | null): string | null => {
+    if (t instanceof HTMLTextAreaElement) return t.value;
+    if (t instanceof HTMLInputElement && t.type === "text") return t.value;
+    if (t instanceof HTMLElement && t.isContentEditable) return t.innerText;
+    return null;
+  };
 
-function trackUserMessages() {
-  if (!SITE_KEY_FOR_CAPTURE) return;
-  if (location.pathname !== lastPath) {
-    lastPath = location.pathname;
-    graceUntil = Date.now() + 3000; // SPA nav — old messages about to mount
-  }
-  const sel = USER_MSG_SELECTORS[SITE_KEY_FOR_CAPTURE];
-  if (!sel) return;
-  let logged = false;
-  for (const el of document.querySelectorAll<HTMLElement>(sel)) {
-    if (el.dataset["pdMsgSeen"]) continue;
-    el.dataset["pdMsgSeen"] = "1";
-    if (Date.now() < graceUntil) continue; // hydration, not a new send
-    msgLog.push(Date.now());
-    logged = true;
-  }
-  if (logged) {
-    const { windowHours } = LIMITS[SITE_KEY_FOR_CAPTURE]![sitePlan];
-    msgLog = pruneWindow(msgLog, windowHours, Date.now());
-    persistMsgLog();
-  }
+  const recordSend = () => {
+    const now = Date.now();
+    if (now - lastSendAt < 1500) return; // Enter and click both fired
+    lastSendAt = now;
+    usageTimestamps = [...usageTimestamps, now]; // optimistic — instant UI
+    updateLimitWidget();
+    chrome.runtime.sendMessage({ type: "usage-msg", site: TRACK_SITE.key }, () => {
+      void chrome.runtime.lastError; // worker asleep — event is still queued next time
+    });
+  };
+
+  // Enter (or Ctrl/Cmd+Enter) in a non-empty composer = a send, on EVERY site —
+  // no per-site selectors to rot
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+      const text = editableText(e.target);
+      if (text && text.trim().length > 0) recordSend();
+    },
+    true,
+  );
+
+  // send-button clicks (common patterns) while a composer holds text
+  document.addEventListener(
+    "click",
+    (e) => {
+      const el = e.target instanceof Element ? e.target : null;
+      const btn = el?.closest(
+        "button[data-testid*='send' i], button[aria-label*='send' i], button[type='submit']",
+      );
+      if (!btn) return;
+      const composer = finder?.() ?? document.querySelector<HTMLElement>("textarea, [contenteditable='true']");
+      const text = composer ? (composer instanceof HTMLTextAreaElement ? composer.value : composer.innerText) : "";
+      if (text.trim().length > 0) recordSend();
+    },
+    true,
+  );
 }
 
 // widget DOM (inside the same closed shadow root)
@@ -454,7 +475,7 @@ limitBox.className = "pd-limit";
 shadow.appendChild(limitBox);
 
 function buildLimitWidget() {
-  if (!SITE_KEY_FOR_CAPTURE) return;
+  if (!TRACK_SITE) return;
   limitBox.innerHTML = `
     <div class="pd-limit-head">
       <span class="pd-mark">Pd</span>
@@ -465,7 +486,7 @@ function buildLimitWidget() {
     <div class="pd-limit-note"></div>
     <div class="pd-limit-panel">
       <div class="pd-limit-plans"></div>
-      <span class="pd-limit-est">Estimated from observed messages — not an official meter.</span>
+      <span class="pd-limit-est">Estimated from your sends — not an official meter.</span>
     </div>`;
   const plansEl = limitBox.querySelector(".pd-limit-plans")!;
   (Object.keys(PLAN_LABELS) as Plan[]).forEach((p) => {
@@ -478,7 +499,7 @@ function buildLimitWidget() {
       sitePlan = p;
       void chrome.storage.local.get("sitePlans").then((res) => {
         const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
-        plans[SITE_KEY_FOR_CAPTURE!] = p;
+        plans[TRACK_SITE!.key] = p;
         void chrome.storage.local.set({ sitePlans: plans });
       });
       updateLimitWidget();
@@ -491,10 +512,10 @@ function buildLimitWidget() {
 }
 
 function updateLimitWidget() {
-  if (!SITE_KEY_FOR_CAPTURE || limitBox.style.display === "none") return;
-  const { windowHours, maxMessages } = LIMITS[SITE_KEY_FOR_CAPTURE]![sitePlan];
-  msgLog = pruneWindow(msgLog, windowHours, Date.now());
-  const count = msgLog.length;
+  if (!TRACK_SITE || limitBox.style.display === "none") return;
+  const { windowHours, maxMessages } = limitsFor(TRACK_SITE.key, sitePlan);
+  const inWindow = pruneWindow(usageTimestamps, windowHours, Date.now());
+  const count = inWindow.length;
   const state = limitState(count, maxMessages);
   limitBox.classList.remove("warn", "over");
   if (state !== "ok") limitBox.classList.add(state);
@@ -505,11 +526,11 @@ function updateLimitWidget() {
   const note = limitBox.querySelector<HTMLElement>(".pd-limit-note");
   if (!label || !countEl || !fill || !note) return;
 
-  label.textContent = `${windowHours}h window`;
+  label.textContent = `${TRACK_SITE.name} · ${windowHours}h`;
   countEl.textContent = maxMessages === null ? `${count} msgs · ∞` : `${count}/${maxMessages} msgs`;
   fill.style.width =
     maxMessages === null ? "4%" : `${Math.min(100, (count / maxMessages) * 100)}%`;
-  const eta = resetEta(msgLog, windowHours, Date.now());
+  const eta = resetEta(inWindow, windowHours, Date.now());
   note.textContent =
     state === "over"
       ? `Limit likely reached${eta ? ` · frees up in ${eta}` : ""}`
