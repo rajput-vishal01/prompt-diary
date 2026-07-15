@@ -113,9 +113,14 @@ function savePrompt(body: string) {
   );
 }
 
-// popup asks us to insert a prompt straight into the chatbox
+// popup asks us to insert a prompt straight into the chatbox,
+// or to capture the whole conversation as a context handoff
 chrome.runtime.onMessage.addListener(
   (msg: { type?: string; body?: string }, _sender, sendResponse) => {
+    if (msg?.type === "capture-transcript") {
+      sendResponse(captureTranscript());
+      return;
+    }
     if (msg?.type !== "insert-prompt" || !msg.body) return;
     const el = finder?.();
     if (!el) {
@@ -279,6 +284,92 @@ const messageSelector = MESSAGE_SELECTORS.find((m) =>
 
 const PD_MARKER = "pdSaveInjected";
 
+// ---------- context transfer: capture this conversation as a handoff ----------
+// Walks the same MESSAGE_SELECTORS the save buttons use, in DOM order, and
+// returns a role-labeled transcript. The popup stores it and inserts it into
+// another model's composer so the user continues where they left off.
+
+const MAX_HANDOFF_CHARS = 60_000; // keep in sync with lib/handoff.ts
+
+const SITE_KEY_FOR_CAPTURE =
+  /chatgpt\.com|chat\.openai\.com/.test(location.hostname)
+    ? "chatgpt"
+    : /claude\.ai/.test(location.hostname)
+      ? "claude"
+      : /gemini\.google\.com/.test(location.hostname)
+        ? "gemini"
+        : null;
+
+function roleOf(el: HTMLElement): "user" | "assistant" | undefined {
+  if (SITE_KEY_FOR_CAPTURE === "chatgpt") {
+    const role = el.closest("[data-message-author-role]")?.getAttribute("data-message-author-role");
+    return role === "user" ? "user" : role === "assistant" ? "assistant" : undefined;
+  }
+  if (SITE_KEY_FOR_CAPTURE === "claude") {
+    if (el.closest("[data-testid='user-message']")) return "user";
+    return "assistant"; // matched via font-claude-* / data-is-streaming ⇒ assistant turn
+  }
+  if (SITE_KEY_FOR_CAPTURE === "gemini") {
+    // best effort — if the ancestor tag ever disappears this degrades to
+    // unlabeled turns rather than mislabeling
+    return el.closest("user-query") ? "user" : "assistant";
+  }
+  return undefined;
+}
+
+function captureTranscript():
+  | { ok: true; handoff: Record<string, unknown> }
+  | { ok: false; reason: "unsupported" | "empty" } {
+  if (!messageSelector || !SITE_KEY_FOR_CAPTURE) return { ok: false, reason: "unsupported" };
+
+  // outer nodes come first in querySelectorAll order, so containment dedupe
+  // keeps the outermost match per message
+  const accepted: HTMLElement[] = [];
+  for (const el of document.querySelectorAll<HTMLElement>(messageSelector)) {
+    if (el.closest("[data-is-streaming='true']")) continue;
+    if (accepted.some((a) => a.contains(el))) continue;
+    accepted.push(el);
+  }
+
+  // our injected save buttons must not leak into the transcript
+  const btns = document.querySelectorAll<HTMLElement>("[data-pd-btn]");
+  btns.forEach((b) => (b.style.display = "none"));
+  let messages = accepted
+    .map((el) => ({ role: roleOf(el), text: el.innerText.trim() }))
+    .filter((m) => m.text.length >= MIN_SELECTION);
+  btns.forEach((b) => (b.style.display = "inline-flex"));
+
+  if (messages.length === 0) return { ok: false, reason: "empty" };
+
+  // truncate whole messages from the TOP — the newest turns matter most
+  let total = messages.reduce((a, m) => a + m.text.length, 0);
+  let truncated = false;
+  while (total > MAX_HANDOFF_CHARS && messages.length > 1) {
+    const dropped = messages.shift();
+    total -= dropped?.text.length ?? 0;
+    truncated = true;
+  }
+  const only = messages[0];
+  if (only && total > MAX_HANDOFF_CHARS) {
+    only.text = only.text.slice(-MAX_HANDOFF_CHARS);
+    total = only.text.length;
+    truncated = true;
+  }
+
+  return {
+    ok: true,
+    handoff: {
+      site: SITE_KEY_FOR_CAPTURE,
+      url: sourceConvo(),
+      title: document.title.trim().slice(0, 80) || "Untitled conversation",
+      capturedAt: new Date().toISOString(),
+      messages,
+      charCount: total,
+      truncated,
+    },
+  };
+}
+
 // ---------- estimated token usage ----------
 // every message we see (already deduped by PD_MARKER) adds chars÷4 tokens to
 // a local per-site/day counter; sync flushes it to the server. Estimates only.
@@ -317,6 +408,7 @@ setInterval(() => {
 function makeMessageButton(target: HTMLElement): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
+  btn.dataset["pdBtn"] = "1"; // transcript capture hides these before reading innerText
   btn.textContent = "Pd · Save";
   btn.title = "Save this message to Prompt Diary";
   Object.assign(btn.style, {

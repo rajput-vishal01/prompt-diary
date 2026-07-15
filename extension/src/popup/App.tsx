@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeftRight, MoreHorizontal, Plus, RefreshCw, X } from "lucide-react";
 import type { Folder, Prompt } from "shared";
+import {
+  buildHandoffText,
+  getHandoff,
+  setHandoff,
+  siteName,
+  type Handoff,
+} from "../lib/handoff";
 import {
   addFolder,
   addPrompt,
@@ -81,6 +88,9 @@ export function App() {
   const [newThreadTitle, setNewThreadTitle] = useState("");
   // navigation tree lives behind "⋯" as a temporary overlay, never a column
   const [manageOpen, setManageOpen] = useState(false);
+  // context transfer: one handoff slot + whether this tab can be captured
+  const [handoff, setHandoffState] = useState<Handoff | null>(null);
+  const [canCapture, setCanCapture] = useState(false);
   // window.prompt is unreliable in MV3 popups — inline ask overlay instead
   const [ask, setAsk] = useState<{
     title: string;
@@ -122,6 +132,15 @@ export function App() {
     reload();
     void getRecents().then(setRecents);
     void getActiveThread().then(setRecording);
+    void getHandoff().then(setHandoffState);
+    // the Transfer chip only appears on sites we can actually capture
+    void chrome.tabs
+      .query({ active: true, currentWindow: true })
+      .then(([tab]) => {
+        const host = tab?.url ? new URL(tab.url).hostname : "";
+        setCanCapture(/chatgpt\.com|chat\.openai\.com|claude\.ai|gemini\.google\.com/.test(host));
+      })
+      .catch(() => {});
     // show the ACTUAL current binding (users can rebind it in chrome)
     chrome.commands.getAll((cmds) => {
       const open = cmds.find((c) => c.name === "_execute_action");
@@ -201,46 +220,82 @@ export function App() {
     searchRef.current?.focus(); // keep the keyboard loop alive after a click
   };
 
+  // the insert cascade, shared by prompt-insert and context-handoff insert:
+  // content script composer → activeTab scripting → false (caller falls back)
+  const insertText = async (body: string): Promise<boolean> => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    if (!tab?.id) return false;
+    // 1) AI chat sites: the content script knows the site's composer
+    try {
+      const res = (await chrome.tabs.sendMessage(tab.id, {
+        type: "insert-prompt",
+        body,
+      })) as { ok?: boolean };
+      if (res?.ok) return true;
+    } catch {
+      // no content script on this tab — try scripting below
+    }
+    // 2) any other site: activeTab grants one-shot access, inject into the
+    //    field that was focused when the popup opened
+    try {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: insertIntoFocusedField,
+        args: [body],
+      });
+      if (result?.result) return true;
+    } catch {
+      // restricted page (chrome://, web store) — fall through
+    }
+    return false;
+  };
+
   // Enter: insert straight into the active tab's chatbox; copy if there isn't one
   const insertOrCopy = async (prompt: Prompt) => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
-    // 1) AI chat sites: the content script knows the site's composer
-    if (tab?.id) {
-      try {
-        const res = (await chrome.tabs.sendMessage(tab.id, {
-          type: "insert-prompt",
-          body: prompt.body,
-        })) as { ok?: boolean };
-        if (res?.ok) {
-          await bumpUseCount(prompt.id);
-          await pushRecent(prompt.id);
-          window.close();
-          return;
-        }
-      } catch {
-        // no content script on this tab — try scripting below
-      }
-      // 2) any other site: activeTab grants one-shot access, inject into the
-      //    field that was focused when the popup opened
-      try {
-        const [result] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: insertIntoFocusedField,
-          args: [prompt.body],
-        });
-        if (result?.result) {
-          await bumpUseCount(prompt.id);
-          await pushRecent(prompt.id);
-          window.close();
-          return;
-        }
-      } catch {
-        // restricted page (chrome://, web store) — fall through to copy
-      }
+    if (await insertText(prompt.body)) {
+      await bumpUseCount(prompt.id);
+      await pushRecent(prompt.id);
+      window.close();
+      return;
     }
-    // 3) nowhere to type: copy to clipboard
+    // nowhere to type: copy to clipboard
     await handleCopy(prompt);
     window.close();
+  };
+
+  // ---------- context transfer ----------
+
+  const captureContext = async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    if (!tab?.id) return;
+    try {
+      const res = (await chrome.tabs.sendMessage(tab.id, { type: "capture-transcript" })) as
+        | { ok: true; handoff: Handoff }
+        | { ok: false; reason: string };
+      if (res.ok) {
+        await setHandoff(res.handoff);
+        setHandoffState(res.handoff);
+        setSyncMsg(`Context captured ✓ — open another AI chat and hit Insert`);
+      } else {
+        setSyncMsg(res.reason === "empty" ? "Nothing to capture here" : "Can't capture on this site yet");
+      }
+    } catch {
+      setSyncMsg("Reload the chat tab first, then try again");
+    }
+    setTimeout(() => setSyncMsg(null), 3000);
+  };
+
+  const insertHandoff = async () => {
+    if (!handoff) return;
+    const text = buildHandoffText(handoff);
+    if (await insertText(text)) {
+      await setHandoff(null); // one-shot by design
+      window.close();
+      return;
+    }
+    await navigator.clipboard.writeText(text);
+    setSyncMsg("Copied — paste into the chat");
+    setTimeout(() => setSyncMsg(null), 2500);
   };
 
   const handleSync = async () => {
@@ -346,6 +401,15 @@ export function App() {
               {f.name}
             </button>
           ))}
+          {canCapture && (
+            <button
+              className="chip"
+              title="Capture this conversation's context to continue it on another AI"
+              onClick={() => void captureContext()}
+            >
+              <ArrowLeftRight size={12} /> Transfer
+            </button>
+          )}
           {recording && (
             <button
               className="chip recording"
@@ -364,6 +428,33 @@ export function App() {
           </button>
         </div>
       </div>
+
+      {/* ---------- context handoff: continue a captured conversation here ---------- */}
+      {handoff && (
+        <div className="handoff-banner">
+          <ArrowLeftRight size={13} className="handoff-icon" />
+          <span className="handoff-text">
+            Continue <b>“{handoff.title}”</b>
+            <span className="handoff-meta">
+              {siteName(handoff.site)} · {handoff.messages.length} messages
+              {handoff.truncated ? " · truncated" : ""}
+            </span>
+          </span>
+          <button className="btn primary small" onClick={() => void insertHandoff()}>
+            Insert
+          </button>
+          <button
+            className="icon-btn"
+            title="Discard captured context"
+            onClick={() => {
+              void setHandoff(null);
+              setHandoffState(null);
+            }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       {/* ---------- results ---------- */}
       <div className="list" ref={listRef}>

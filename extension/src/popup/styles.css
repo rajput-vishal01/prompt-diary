@@ -195,6 +195,42 @@ button {
   justify-content: center;
 }
 
+/* ---------- context handoff banner ---------- */
+
+.handoff-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--tint);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.handoff-icon {
+  flex-shrink: 0;
+  color: var(--dim);
+}
+
+.handoff-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.handoff-text b {
+  font-weight: 600;
+}
+
+.handoff-meta {
+  margin-left: 6px;
+  color: var(--dim);
+  font-size: 11px;
+}
+
 /* ---------- results: two-line launcher rows ---------- */
 
 .list {
