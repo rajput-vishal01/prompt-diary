@@ -28,19 +28,19 @@ export async function sendMail(opts: {
 
 export function verificationEmailHtml(name: string, url: string): string {
   return `
-  <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#13271e">
-    <h1 style="font-style:italic;font-size:22px;margin:0 0 4px">Prompt <span style="color:#1c6b4a">Diary</span></h1>
-    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#5f6f65">
+  <div style="font-family:Georgia,'Times New Roman',serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#0c0a09;background:#f5f5f5">
+    <h1 style="font-weight:300;font-size:24px;letter-spacing:-0.02em;margin:0 0 4px">Prompt Diary</h1>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#4e4e4e">
       Hi ${name}, confirm your email address to unlock publishing public prompts and joining teams.
     </p>
     <p style="margin:24px 0">
-      <a href="${url}" style="font-family:system-ui,sans-serif;background:#1c6b4a;color:#fff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;font-size:14px">
+      <a href="${url}" style="font-family:system-ui,sans-serif;background:#292524;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:9999px;font-weight:500;font-size:15px">
         Verify email
       </a>
     </p>
-    <p style="font-family:system-ui,sans-serif;font-size:12px;color:#5f6f65">
+    <p style="font-family:system-ui,sans-serif;font-size:12px;color:#777169">
       If the button doesn't work, paste this link into your browser:<br>
-      <a href="${url}" style="color:#1c6b4a;word-break:break-all">${url}</a>
+      <a href="${url}" style="color:#292524;word-break:break-all">${url}</a>
     </p>
   </div>`;
 }

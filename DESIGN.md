@@ -1,50 +1,80 @@
-# Design System — "Ledger"
+# Design System — "Editorial Ink"
 
-Light, archival, precise. A banker's ledger for prompts.
+Quietly editorial, like a print magazine that happens to be a tool. Off-white
+canvas, warm near-black ink, pastel atmosphere. Based on the ElevenLabs
+design analysis spec (v-alpha) — no saturated CTA color, no dark dev-tools
+canvas; the ink pill IS the action color.
 
-## Color (OKLCH-derived, committed green ink on paper-neutral)
+## Color
 
 | Token | Value | Use |
 |---|---|---|
-| `bg` | `#f4f6f4` | page background (true neutral, whisper of green) |
+| `bg` | `#f5f5f5` | canvas — off-white page floor |
 | `raised` | `#ffffff` | cards, panels, popup surface |
-| `hover` | `#ecf1ed` | row/button hover |
-| `line` | `#dde4de` | hairline rules, borders |
-| `ink` | `#13271e` | primary text (green-black) |
-| `dim` | `#5f6f65` | secondary text (≥4.5:1 on bg) |
-| `accent` | `#1c6b4a` | bottle green: primary actions, selection, links, brand |
-| `accent-deep` | `#14523a` | primary hover |
-| `tint` | `#e7f0ea` | selected/active background |
-| `amber` | `#8a5a06` | team visibility |
-| `danger` | `#9f2d20` | destructive (oxblood) |
+| `hover` | `#efedec` | row/button hover |
+| `line` | `#e7e5e4` | default 1px hairline |
+| `line-strong` | `#d6d3d1` | input/outline-pill borders |
+| `ink` | `#0c0a09` | display + primary text |
+| `body` | `#4e4e4e` | running text (landing prose) |
+| `dim` | `#57534e` | secondary text (≥4.5:1 on bg) |
+| `accent` | `#292524` | ink primary: CTA pills, selection. Used scarcely |
+| `accent-deep` | `#0c0a09` | press state |
+| `tint` | `#f0efed` | surface-strong: selected bg, badges, chips |
+| `amber` | `#8a5a06` | team visibility (semantic) |
+| `danger` | `#dc2626` | destructive |
+| `success` | `#16a34a` | confirmation |
+| `orb-mint/peach/lavender/sky/rose` | pastels | atmospheric gradient orbs — landing decoration ONLY |
 
-Dark mode: not shipped; single committed light theme is the identity.
+Rules: no saturated brand action color — the near-black pill is the only CTA.
+Orb pastels never appear as button fills, text colors, or component
+backgrounds. Dark mode: not shipped.
 
 ## Typography
 
-- **UI sans**: IBM Plex Sans (dashboard, via next/font) / system-ui (extension popup).
-- **Prompt bodies**: IBM Plex Mono (dashboard) / ui-monospace (extension). Always. Prompts are artifacts.
-- **Display**: Newsreader (serif) — wordmark and landing headline ONLY. Never in UI labels/buttons.
-- **Instrument density** (P0): 13px UI type, 32px control height (`h-8`),
-  11px metadata/badges, heading tracking -0.015em. The app reads as a tool,
-  not a website.
+- **Display**: Newsreader at weight **300** (open substitute for licensed
+  Waldenburg Light) — landing headlines, wordmark, section heads. Negative
+  tracking (-0.01em to -0.03em by size). **Never bold display copy.**
+- **UI sans**: Inter 400/500/600 (via next/font) / system-ui (extension
+  popup). Body carries +0.011em letter-spacing — the editorial dialect.
+- **Prompt bodies**: IBM Plex Mono (dashboard) / ui-monospace (extension).
+  Always. Prompts are artifacts.
+- **Instrument density kept**: 13px UI type, 32px control height (`h-8`),
+  11px metadata/badges, heading tracking -0.015em. The app reads as a tool.
 - Tabular numerals for counts. `kbd` chips for every shortcut shown in UI.
 
 ## Shape & Depth
 
-- Radius: 6px controls, 10px panels. No pills except badges.
-- Three elevation tiers: flat bg → `.panel`/`.card` (hairline + whisper
-  shadow) → floating (palette/toasts, real shadow). Never arbitrary shadows.
-- Ledger rows: hairline `divide-y`, generous horizontal padding, hover = `hover` bg.
+- **Pills for every CTA and badge** (`rounded-full`). Inputs 8px, panels
+  12px, cards 16px, orb cards 24px.
+- Elevation = hairline + one soft shadow tier (`shadow-soft`,
+  `0 4px 16px rgba(0,0,0,0.04)`). Atmospheric depth comes from gradient orbs
+  on the landing page, never from stacked shadows.
+- Ledger rows stay: hairline `divide-y`, generous horizontal padding,
+  hover = `hover` bg.
 
 ## Components
 
-- **Primary button**: accent bg, white text, radius 6.
-- **Secondary**: white bg, `line` border, ink text.
-- **Visibility badge**: dot + lowercase label. private = dim, team = amber, public = accent.
-- **Focus**: 2px accent ring, offset 2px, everywhere.
+- **Primary button** (`.btn-primary`): ink pill — `accent` bg, white text,
+  15px/500 on marketing, 13px/500 in-app.
+- **Secondary** (`.btn`): transparent pill, 1px `line-strong` border, ink text.
+- **Chip / badge** (`.chip`): `tint` pill, 11px ink text.
+- **Visibility badge**: dot + lowercase label. private = dim, team = amber,
+  public = ink.
+- **Input**: white bg, `line-strong` border, 8px radius; focus = ink border.
+- **Focus**: 2px ink outline, offset 2px, everywhere.
 - **Empty states**: teach the flow ("highlight text → right-click → save").
+
+## Landing (brand register)
+
+64px nav (wordmark left, outline + ink pills right) · centered hero with
+display serif over drifting pastel orbs (`.orb` + `.orb-drift`, 18–22s
+ease-in-out, reduced-motion kills them) · the interactive diary specimen as
+product imagery · hairline-ruled editorial story rows · CTA band · quiet
+footer. 96px-ish section rhythm, content caps ~1152px.
 
 ## Motion
 
-150–200ms, ease-out. State feedback only (hover, press scale 0.98, copy confirmation). No page-load choreography. `prefers-reduced-motion`: transitions off.
+Dashboard: 150–200ms ease-out state feedback only (hover, press scale 0.97,
+copy confirmation) — no page-load choreography. Landing: one orchestrated
+GSAP entrance (hero copy → specimen rows) + orb drift. `prefers-reduced-motion`:
+everything off.

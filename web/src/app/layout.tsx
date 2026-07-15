@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import { DialogHost } from "@/components/Dialog";
 
-const sans = IBM_Plex_Sans({
+const sans = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600"],
   variable: "--font-sans",
 });
 
@@ -16,10 +16,12 @@ const mono = IBM_Plex_Mono({
   variable: "--font-mono",
 });
 
+// display serif stays at weight 300 — the editorial signature. Never bold.
+// (Newsreader Light is the open substitute for the licensed Waldenburg.)
 const display = Newsreader({
   subsets: ["latin"],
   style: ["normal", "italic"],
-  weight: ["500", "600"],
+  weight: ["300", "400"],
   variable: "--font-display",
 });
 

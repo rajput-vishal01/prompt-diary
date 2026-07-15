@@ -4,49 +4,57 @@
 
 body {
   @apply bg-bg text-ink antialiased;
+  letter-spacing: 0.011em; /* Inter at +0.15px-ish — the editorial dialect */
 }
 
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent;
+  @apply outline-2 outline-offset-2 outline-ink;
 }
 
-/* instrument density: 13px UI type, 32px controls, tight heading tracking */
+/* instrument density kept from v1: 13px UI type, 32px controls.
+   Skin is the ElevenLabs editorial system: white surfaces, warm hairlines,
+   ink pills for actions, one soft shadow tier. */
 @layer components {
   .input {
-    @apply h-8 w-full rounded-md border border-line bg-raised px-2.5 text-[13px] text-ink shadow-[0_1px_1px_rgba(19,39,30,0.03)] outline-none transition-colors placeholder:text-dim focus:border-accent;
+    @apply h-8 w-full rounded-lg border border-line-strong bg-raised px-2.5 text-[13px] text-ink outline-none transition-colors placeholder:text-dim focus:border-ink;
   }
   textarea.input {
     @apply h-auto py-2;
   }
   .btn {
-    @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 text-[13px] font-medium text-ink shadow-[0_1px_1px_rgba(19,39,30,0.04)] transition-[background,transform,border-color] duration-150 hover:bg-hover active:scale-[0.97];
+    /* secondary: transparent pill with hairline border */
+    @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-transparent px-3.5 text-[13px] font-medium text-ink transition-[background,transform,border-color] duration-150 hover:bg-hover active:scale-[0.97];
   }
   .btn-primary {
-    @apply inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(20,82,58,0.35)] transition-[background,transform] duration-150 hover:bg-accent-deep active:scale-[0.97] disabled:opacity-50;
+    /* the ink pill — the only CTA color in the system */
+    @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-accent px-4 text-[13px] font-medium text-white transition-[background,transform] duration-150 hover:bg-accent-deep active:scale-[0.97] disabled:opacity-50;
   }
   .card {
-    @apply rounded-[10px] border border-line bg-raised p-4 shadow-[0_1px_2px_rgba(19,39,30,0.04)];
+    @apply rounded-2xl border border-line bg-raised p-4 transition-shadow;
   }
   .panel {
-    /* elevation tier 2: raised panels (list, panes) */
-    @apply rounded-[10px] border border-line bg-raised shadow-[0_1px_3px_rgba(19,39,30,0.05)];
+    @apply rounded-xl border border-line bg-raised;
   }
   .chip {
-    @apply text-[11px] font-medium text-accent before:opacity-60 before:content-['#'];
+    @apply inline-flex items-center rounded-full border border-transparent bg-tint px-2 py-px text-[11px] font-medium text-ink;
   }
   .vis-badge {
     @apply inline-flex items-center gap-1.5 text-[11px] font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''];
   }
   .kbd {
-    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line bg-bg px-1 font-mono text-[10px] font-semibold text-dim shadow-[0_1px_0_rgba(19,39,30,0.08)];
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line bg-tint px-1 font-mono text-[10px] font-semibold text-dim;
   }
   h1 {
     @apply tracking-[-0.015em];
   }
+  /* atmospheric gradient orb — landing decoration ONLY, never a component fill */
+  .orb {
+    @apply pointer-events-none absolute rounded-full opacity-70 blur-3xl;
+  }
 }
 
 ::selection {
-  background: #cde5d8;
+  background: #e0ddd9;
 }
 
 .skeleton {
@@ -64,12 +72,33 @@ body {
   }
 }
 
+/* slow atmospheric drift for landing orbs */
+@keyframes orb-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(4%, -6%) scale(1.06);
+  }
+  66% {
+    transform: translate(-5%, 4%) scale(0.96);
+  }
+}
+
+.orb-drift {
+  animation: orb-drift 18s ease-in-out infinite;
+}
+.orb-drift-late {
+  animation: orb-drift 22s ease-in-out -8s infinite reverse;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded bg-line;
+  @apply rounded bg-line-strong;
 }
 
 @media (prefers-reduced-motion: reduce) {

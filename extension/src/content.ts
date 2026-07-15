@@ -22,18 +22,18 @@ style.textContent = `
     align-items: center;
     gap: 6px;
     background: #ffffff;
-    color: #13271e;
-    border: 1px solid #dde4de;
+    color: #0c0a09;
+    border: 1px solid #e7e5e4;
     border-radius: 8px;
     padding: 5px 10px;
     font: 600 12px/1 system-ui, sans-serif;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(19, 39, 30, 0.14);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     user-select: none;
   }
   .pd-bubble:hover, .pd-composer:hover {
-    background: #e7f0ea;
-    border-color: #1c6b4a;
+    background: #f0efed;
+    border-color: #292524;
   }
   .pd-composer {
     padding: 4px 8px;
@@ -44,7 +44,7 @@ style.textContent = `
     font-family: Georgia, serif;
     font-style: italic;
     font-weight: 700;
-    color: #1c6b4a;
+    color: #0c0a09;
     font-size: 13px;
   }
   .pd-toast {
@@ -53,7 +53,7 @@ style.textContent = `
     left: 50%;
     bottom: 28px;
     transform: translateX(-50%);
-    background: #13271e;
+    background: #0c0a09;
     color: #fff;
     border-radius: 8px;
     padding: 8px 16px;
@@ -325,9 +325,9 @@ function makeMessageButton(target: HTMLElement): HTMLButtonElement {
     marginTop: "6px",
     padding: "3px 9px",
     font: "600 11px/1.4 system-ui, sans-serif",
-    color: "#1c6b4a",
+    color: "#292524",
     background: "transparent",
-    border: "1px solid rgba(28, 107, 74, 0.35)",
+    border: "1px solid rgba(41, 37, 36, 0.35)",
     borderRadius: "6px",
     cursor: "pointer",
     opacity: "0.7",

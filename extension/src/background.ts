@@ -23,7 +23,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 function flashBadge(text: string) {
   chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color: "#1c6b4a" });
+  chrome.action.setBadgeBackgroundColor({ color: "#292524" });
   setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
 }
 

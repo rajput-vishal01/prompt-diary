@@ -11,8 +11,8 @@ interface UsageRow {
 
 const DAYS_SHOWN = 14;
 
-// stable site → color mapping (Ledger palette tints)
-const SITE_COLORS = ["#1c6b4a", "#8a5a06", "#2b5d8a", "#7a3d78", "#9f2d20"];
+// stable site → color mapping (ink first, then muted semantics — data viz only)
+const SITE_COLORS = ["#292524", "#8a5a06", "#2b5d8a", "#7a3d78", "#9f2d20"];
 
 const formatTokens = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;

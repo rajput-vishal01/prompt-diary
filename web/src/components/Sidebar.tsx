@@ -123,7 +123,7 @@ export function Sidebar() {
       } w-56 shrink-0 flex-col border-r border-line bg-raised p-4 md:static md:flex`}
       onClick={() => setMobileOpen(false)}
     >
-      <Link href="/" className="mb-6 px-2 font-display text-lg italic">
+      <Link href="/" className="mb-6 px-2 font-display text-lg font-light tracking-tight">
         Prompt <span className="text-accent">Diary</span>
       </Link>
 

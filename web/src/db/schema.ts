@@ -118,7 +118,7 @@ export const projects = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    color: text("color").notNull().default("#1c6b4a"),
+    color: text("color").notNull().default("#777169"),
     teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

@@ -26,7 +26,7 @@ Precise, archival, calm. A well-kept ledger, not a neon dashboard. The tool disa
 
 1. **Ledger, not dashboard** — light paper-neutral surfaces, hairline rules, rows not card grids. Data reads like entries in a book.
 2. **Prompts are artifacts** — prompt bodies always render in monospace; titles and UI in the sans. The content is the hero.
-3. **One ink** — bottle green carries brand, primary actions, and selection. Nothing else gets saturated color except semantic state (team = amber, danger = oxblood).
+3. **One ink** — warm near-black (`#292524`) carries brand, primary actions, and selection as a pill. No saturated CTA color anywhere; pastel gradient orbs are landing-page atmosphere only. Semantic state keeps color (team = amber, danger = red).
 4. **Five-second popup** — extension surface optimizes for instant scan + one-click copy. Density over decoration.
 5. **Earned familiarity** — standard affordances (buttons, selects, modals) done precisely; no invented controls.
 

@@ -141,7 +141,7 @@ export default function TeamsPage() {
               onClick={() => setSelected(t)}
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-tint font-display text-lg italic text-accent">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-tint font-display text-lg font-light text-ink">
                   {t.name.charAt(0).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">

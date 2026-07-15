@@ -281,7 +281,7 @@ function PromptsPageInner() {
 
         {isTrueFirstRun && (
           <div className="mx-auto max-w-md py-14 text-center">
-            <p className="font-display text-xl italic">Start your diary</p>
+            <p className="font-display text-xl font-light">Start your diary</p>
             <ol className="mt-4 space-y-3 text-left text-[13px] leading-relaxed text-dim">
               <li>
                 <span className="font-semibold text-ink">1 · Install the extension</span>

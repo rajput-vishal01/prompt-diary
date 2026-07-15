@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       id: crypto.randomUUID(),
       userId: g.user.id,
       name: parsed.data.name,
-      color: parsed.data.color ?? "#1c6b4a",
+      color: parsed.data.color ?? "#777169",
       teamId: parsed.data.teamId ?? null,
     })
     .returning();

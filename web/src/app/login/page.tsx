@@ -40,7 +40,7 @@ export default function LoginPage() {
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"
       >
-        <Link href="/" className="block text-center font-display text-2xl italic">
+        <Link href="/" className="block text-center font-display text-2xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>
         </Link>
         <h1 className="text-center text-sm text-dim">
