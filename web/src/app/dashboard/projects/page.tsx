@@ -100,7 +100,12 @@ function ProjectsPageInner() {
     router.push(`/dashboard/t/${t.id}`);
   };
 
-  const visible = selected ? threads.filter((t) => t.projectId === selected) : threads;
+  // looping is the thread-level style facet: computed, never stored —
+  // a chain of 3+ steps means the prompt was iterated toward the output
+  const [loopingOnly, setLoopingOnly] = useState(false);
+  const isLooping = (t: ThreadRow) => t.stepCount >= 3;
+  const inProject = selected ? threads.filter((t) => t.projectId === selected) : threads;
+  const visible = loopingOnly ? inProject.filter(isLooping) : inProject;
   const selectedProject = projects.find((p) => p.id === selected) ?? null;
 
   const renameThread = async (t: ThreadRow) => {
@@ -172,6 +177,15 @@ function ProjectsPageInner() {
             <span className="tabular-nums text-dim">{p.threadCount}</span>
           </button>
         ))}
+        <button
+          className={`chip ml-auto cursor-pointer self-center transition-colors ${
+            loopingOnly ? "border-accent bg-tint text-accent" : "text-dim hover:text-ink"
+          }`}
+          title="Threads with 3+ steps — the prompt was iterated toward the output"
+          onClick={() => setLoopingOnly((v) => !v)}
+        >
+          looping
+        </button>
       </div>
 
       {/* thread ledger */}
@@ -214,6 +228,9 @@ function ProjectsPageInner() {
                   >
                     {project.name}
                   </span>
+                )}
+                {isLooping(t) && (
+                  <span className="chip shrink-0 border-accent/30 text-accent">looping</span>
                 )}
                 {t.finalOutput && (
                   <span className="vis-badge shrink-0 text-accent">shipped</span>

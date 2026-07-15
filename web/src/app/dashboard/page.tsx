@@ -4,8 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import type { Folder, Prompt } from "shared";
-import { VISIBILITIES } from "shared";
+import type { Facet, Folder, Prompt } from "shared";
+import { FACETS, VISIBILITIES, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
@@ -31,6 +31,8 @@ function PromptsPageInner() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [query, setQuery] = useState("");
   const [visFilter, setVisFilter] = useState("");
+  const [facetSel, setFacetSel] = useState<Facet[]>([]);
+  const [view, setView] = useState<"list" | "cards">("list");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -44,6 +46,7 @@ function PromptsPageInner() {
   }, []);
 
   useEffect(() => {
+    if (localStorage.getItem("pd-view") === "cards") setView("cards");
     reload();
     window.addEventListener(FOLDERS_CHANGED_EVENT, reload);
     // "/" focuses search from anywhere on the page
@@ -75,12 +78,23 @@ function PromptsPageInner() {
 
   const activeFolder = folders.find((f) => f.id === folderTab) ?? null;
 
+  // style facets are computed from the text, never stored
+  const facetsById = useMemo(
+    () => new Map(prompts.map((p) => [p.id, promptFacets(p.body)])),
+    [prompts],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return prompts.filter((p) => {
       if (pinnedTab && !p.pinned) return false;
       if (folderTab && p.folderId !== folderTab) return false;
       if (visFilter && p.visibility !== visFilter) return false;
+      if (
+        facetSel.length > 0 &&
+        !facetSel.every((f) => facetsById.get(p.id)?.includes(f))
+      )
+        return false;
       if (!q) return true;
       return (
         p.title.toLowerCase().includes(q) ||
@@ -88,7 +102,17 @@ function PromptsPageInner() {
         p.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [prompts, query, pinnedTab, folderTab, visFilter]);
+  }, [prompts, query, pinnedTab, folderTab, visFilter, facetSel, facetsById]);
+
+  const toggleFacet = (f: Facet) =>
+    setFacetSel((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+    );
+
+  const setViewMode = (v: "list" | "cards") => {
+    setView(v);
+    localStorage.setItem("pd-view", v);
+  };
 
   const copy = (p: Prompt, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -212,9 +236,41 @@ function PromptsPageInner() {
         </select>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {FACETS.map((f) => (
+          <button
+            key={f}
+            className={`chip cursor-pointer transition-colors ${
+              facetSel.includes(f)
+                ? "border-accent bg-tint text-accent"
+                : "text-dim hover:text-ink"
+            }`}
+            title={`Filter by ${f} style (detected from the prompt text)`}
+            onClick={() => toggleFacet(f)}
+          >
+            {f}
+          </button>
+        ))}
+        <span className="ml-auto flex overflow-hidden rounded-[7px] border border-line">
+          {(["list", "cards"] as const).map((v) => (
+            <button
+              key={v}
+              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                view === v ? "bg-tint text-accent" : "text-dim hover:text-ink"
+              }`}
+              onClick={() => setViewMode(v)}
+            >
+              {v === "list" ? "List" : "Cards"}
+            </button>
+          ))}
+        </span>
+      </div>
+
       <div
         ref={listRef}
-        className="panel min-h-0 flex-1 divide-y divide-line overflow-y-auto"
+        className={`min-h-0 flex-1 overflow-y-auto ${
+          view === "list" ? "panel divide-y divide-line" : ""
+        }`}
       >
         {isLoading &&
           Array.from({ length: 8 }, (_, i) => (
@@ -258,7 +314,7 @@ function PromptsPageInner() {
           </p>
         )}
 
-        {!isLoading &&
+        {!isLoading && view === "list" &&
           filtered.map((p) => {
             const folder = folders.find((f) => f.id === p.folderId);
             return (
@@ -306,6 +362,76 @@ function PromptsPageInner() {
               </div>
             );
           })}
+
+        {!isLoading && view === "cards" && filtered.length > 0 && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((p) => {
+              const folder = folders.find((f) => f.id === p.folderId);
+              const facets = facetsById.get(p.id) ?? [];
+              return (
+                <div
+                  key={p.id}
+                  className="ledger-row group flex cursor-pointer flex-col gap-2 rounded-[10px] border border-line bg-raised p-3.5 transition-colors hover:border-accent"
+                  onClick={() => router.push(`/dashboard/p/${p.id}`)}
+                  title="Open"
+                >
+                  <div className="flex items-center gap-2">
+                    {p.pinned && <span className="text-[11px] text-accent">★</span>}
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
+                      {p.title}
+                    </span>
+                    {copiedId === p.id ? (
+                      <span className="text-[11px] font-bold text-accent">Copied</span>
+                    ) : (
+                      <button
+                        className="btn h-6 px-2 text-[11px] opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={(e) => copy(p, e)}
+                      >
+                        Copy
+                      </button>
+                    )}
+                  </div>
+                  <p className="line-clamp-4 font-mono text-[11px] leading-relaxed text-dim">
+                    {p.body}
+                  </p>
+                  <div className="mt-auto flex flex-wrap items-center gap-1.5">
+                    {facets.map((f) => (
+                      <span key={f} className="chip border-accent/30 text-accent">
+                        {f}
+                      </span>
+                    ))}
+                    {p.tags.slice(0, 2).map((t) => (
+                      <span key={t} className="chip">
+                        {t}
+                      </span>
+                    ))}
+                    {folder && !folderTab && (
+                      <span
+                        className="text-[11px] font-semibold"
+                        style={{ color: folder.color }}
+                      >
+                        {folder.name}
+                      </span>
+                    )}
+                    <span className="ml-auto flex items-center gap-1.5">
+                      <span
+                        className={`vis-badge ${
+                          p.visibility === "public" ? "text-accent" : "text-dim"
+                        }`}
+                      >
+                        {p.visibility}
+                      </span>
+                      {p.teamId && <span className="vis-badge text-amber">team</span>}
+                      <span className="text-[11px] tabular-nums text-dim">
+                        {p.useCount > 0 ? `${p.useCount}×` : ""}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -19,6 +19,28 @@ export const ImageUrlSchema = z
     message: "Images must be uploaded through the app",
   });
 
+// ---------- computed style facets ----------
+
+// Facets are HEURISTICS computed from the prompt text at render time — never
+// stored, never an enum column. A prompt can match several at once, and the
+// rules can evolve without a migration.
+export const FACETS = ["few-shot", "chain-of-thought", "role-play", "template"] as const;
+export type Facet = (typeof FACETS)[number];
+
+export function promptFacets(body: string): Facet[] {
+  const out: Facet[] = [];
+  // few-shot: two or more example blocks (Example 1…, Input:/Output: pairs, Q:/A: pairs)
+  const exampleBlocks = (body.match(/^\s*(example\s*\d|input\s*:|q\s*[:.)])/gim) ?? []).length;
+  if (exampleBlocks >= 2) out.push("few-shot");
+  if (/step[ -]by[ -]step|chain[ -]of[ -]thought|show your (reasoning|work)|let'?s think|reason (through|about) (this|it)/i.test(body))
+    out.push("chain-of-thought");
+  if (/\b(you are (a|an|the|my)|you'?re (a|an|the)|act as|pretend to be|play the role of|roleplay)\b/i.test(body))
+    out.push("role-play");
+  // template: fill-in slots — {{var}} or [PLACEHOLDER] (angle brackets excluded: too many HTML false positives)
+  if (/\{\{[^{}]+\}\}|\[[A-Z][A-Z0-9_ ]{2,}\]/.test(body)) out.push("template");
+  return out;
+}
+
 // ---------- core entities ----------
 
 export const FolderSchema = z.object({

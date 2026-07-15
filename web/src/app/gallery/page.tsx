@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Prompt } from "shared";
+import type { Facet, Prompt } from "shared";
+import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
@@ -21,6 +22,7 @@ export default function GalleryPage() {
   const { data: session } = useSession();
   const [prompts, setPrompts] = useState<GalleryPrompt[]>([]);
   const [query, setQuery] = useState("");
+  const [facetSel, setFacetSel] = useState<Facet[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<{ prompt: Prompt; authorName: string } | null>(
@@ -47,6 +49,21 @@ export default function GalleryPage() {
       )
       .catch(() => {});
   }, [session]);
+
+  // computed style facets — heuristics over the text, never stored
+  const facetsById = useMemo(
+    () => new Map(prompts.map((p) => [p.id, promptFacets(p.body)])),
+    [prompts],
+  );
+  const visible = facetSel.length
+    ? prompts.filter((p) =>
+        facetSel.every((f) => facetsById.get(p.id)?.includes(f)),
+      )
+    : prompts;
+  const toggleFacet = (f: Facet) =>
+    setFacetSel((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+    );
 
   const copy = (p: GalleryPrompt) => {
     void navigator.clipboard.writeText(p.body);
@@ -106,19 +123,36 @@ export default function GalleryPage() {
         </div>
 
       <input
-        className="input mb-4"
+        className="input mb-3"
         placeholder="Search public prompts…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
 
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {FACETS.map((f) => (
+          <button
+            key={f}
+            className={`chip cursor-pointer transition-colors ${
+              facetSel.includes(f)
+                ? "border-accent bg-tint text-accent"
+                : "text-dim hover:text-ink"
+            }`}
+            title={`Filter by ${f} style (detected from the prompt text)`}
+            onClick={() => toggleFacet(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-3">
-        {prompts.length === 0 && (
+        {visible.length === 0 && (
           <p className="py-16 text-center text-dim">
-            No public prompts{query ? " match your search" : " yet"}.
+            No public prompts{query || facetSel.length ? " match your filters" : " yet"}.
           </p>
         )}
-        {prompts.map((p) => (
+        {visible.map((p) => (
           <div
             key={p.id}
             className="card cursor-pointer transition-colors hover:border-accent"
@@ -160,6 +194,11 @@ export default function GalleryPage() {
               {p.body}
             </p>
             <div className="mt-3 flex items-center gap-2">
+              {(facetsById.get(p.id) ?? []).map((f) => (
+                <span key={f} className="chip border-accent/30 text-accent">
+                  {f}
+                </span>
+              ))}
               {p.tags.map((t) => (
                 <span key={t} className="chip">
                   {t}
