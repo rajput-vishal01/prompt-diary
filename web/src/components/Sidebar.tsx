@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FileText, Folder as FolderIcon, FolderKanban, Star, Users } from "lucide-react";
-import type { Folder } from "shared";
+import type { Folder, Prompt } from "shared";
+import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
 import { toast } from "@/components/Toast";
@@ -50,6 +51,7 @@ export function Sidebar() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [width, setWidth] = useState(WIDTH_DEFAULT);
   const resizing = useRef(false);
@@ -64,6 +66,7 @@ export function Sidebar() {
     void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
     void api<ThreadRow[]>("/api/v1/threads").then(setThreads).catch(() => {});
     void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
+    void api<Prompt[]>("/api/v1/prompts").then(setPrompts).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -183,6 +186,42 @@ export function Sidebar() {
         href: `/dashboard/projects?p=${p.id}`,
       })),
   }));
+
+  // ---------- Tags: derived from prompt data, not user-managed ----------
+
+  const activeTag = onPrompts ? searchParams.get("tag") : null;
+
+  // stable desaturated dot color per tag name
+  const tagColor = (name: string) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return `hsl(${h} 30% 52%)`;
+  };
+
+  const facetCounts = new Map<string, number>(FACETS.map((f) => [f, 0]));
+  const tagCounts = new Map<string, number>();
+  for (const p of prompts) {
+    for (const f of promptFacets(p.body)) facetCounts.set(f, (facetCounts.get(f) ?? 0) + 1);
+    for (const t of p.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+  }
+  const usedTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  const tagNode = (name: string, count: number): TreeNode => {
+    const isActive = activeTag === name;
+    return {
+      id: `tag:${name}`,
+      label: name,
+      icon: <span className="h-1.5 w-1.5 rounded-full" style={{ background: tagColor(name) }} />,
+      // clicking an already-active tag clears the filter — toggle, not select
+      href: isActive ? "/dashboard" : `/dashboard?tag=${encodeURIComponent(name)}`,
+      badge: count > 0 ? String(count) : undefined,
+    };
+  };
+
+  const tagNodes: TreeNode[] = [
+    ...FACETS.map((f) => tagNode(f, facetCounts.get(f) ?? 0)),
+    ...usedTags.filter(([t]) => !(FACETS as readonly string[]).includes(t)).map(([t, c]) => tagNode(t, c)),
+  ];
 
   // ---------- mutations ----------
 
@@ -349,6 +388,17 @@ export function Sidebar() {
               }
             }}
             emptyLabel="No teams yet"
+          />
+
+          {/* Tags — derived, always visible, click to filter / click again to clear */}
+          <TreeSection
+            id="tags"
+            title="Tags"
+            titleHref="/dashboard"
+            nodes={tagNodes}
+            activeId={activeTag ? `tag:${activeTag}` : null}
+            onNavigate={navigate}
+            staticSection
           />
 
           <div className="mt-1 flex flex-col gap-0.5 border-t border-line pt-3">

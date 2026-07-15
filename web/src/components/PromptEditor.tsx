@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, ImagePlus, Star } from "lucide-react";
 import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
@@ -36,6 +37,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const savingRef = useRef(false);
 
   useEffect(() => {
@@ -126,6 +128,13 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
     }
   };
 
+  // "Saved ✓" fades out after 2s
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const t = setTimeout(() => setSaveState("idle"), 2000);
+    return () => clearTimeout(t);
+  }, [saveState]);
+
   useEffect(() => {
     if (!id || !loaded) return;
     if (!title.trim() || !body.trim()) return;
@@ -192,58 +201,99 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
     );
   }
 
+  const canSave = !!title.trim() && !!body.trim();
+  const kbdHint = (
+    <span className="rounded bg-white/15 px-1 font-mono text-[10px] font-semibold uppercase tracking-wide">
+      ⌘↵
+    </span>
+  );
+
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <button className="btn" onClick={() => void (id ? done() : router.push("/dashboard"))}>
-          ← Back
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
+      {/* top bar */}
+      <div className="flex items-center gap-3">
+        <button
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+          onClick={() => void (id ? done() : router.push("/dashboard"))}
+        >
+          <ArrowLeft size={15} /> Back
         </button>
-        <input
-          className="input flex-1 text-[15px] font-semibold"
-          placeholder="Prompt title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          autoFocus={!id}
-        />
+        <span className="flex-1" />
         {id && (
-          <span className="w-14 text-right text-xs font-semibold" aria-live="polite">
+          <span className="text-sm" aria-live="polite">
             {saveState === "saving" && <span className="text-dim">Saving…</span>}
-            {saveState === "saved" && <span className="text-accent">Saved ✓</span>}
-            {saveState === "error" && <span className="text-danger">Failed</span>}
+            {saveState === "saved" && <span className="text-success">Saved ✓</span>}
+            {saveState === "error" && <span className="text-danger">Save failed</span>}
           </span>
         )}
         {id ? (
-          <>
-            <button className="btn text-danger" onClick={() => void remove()}>
-              Delete
-            </button>
-            <button className="btn-primary px-4" onClick={() => void done()}>
-              Done <span className="kbd ml-1">⌘↵</span>
-            </button>
-          </>
+          confirmingDelete ? (
+            // inline confirm replaces the button pair — no modal
+            <span className="flex items-center gap-3 text-sm">
+              <span className="text-danger">Delete this prompt?</span>
+              <button className="font-medium text-danger hover:underline" onClick={() => void remove()}>
+                Delete
+              </button>
+              <button className="text-dim hover:text-ink" onClick={() => setConfirmingDelete(false)}>
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <>
+              {/* reachable but clearly secondary */}
+              <button
+                className="rounded-lg px-2 py-1.5 text-sm text-danger transition-colors hover:bg-danger/5"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete
+              </button>
+              <button className="btn-primary" onClick={() => void done()}>
+                Done {kbdHint}
+              </button>
+            </>
+          )
+        ) : canSave ? (
+          <button className="btn-primary" onClick={() => void create()}>
+            Save {kbdHint}
+          </button>
         ) : (
           <button
-            className="btn-primary px-4"
-            disabled={!title.trim() || !body.trim()}
-            onClick={() => void create()}
+            className="inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-full bg-tint px-5 text-sm font-medium text-dim/70"
+            disabled
           >
-            Save <span className="kbd ml-1">⌘↵</span>
+            Save{" "}
+            <span className="rounded bg-ink/[0.06] px-1 font-mono text-[10px] font-semibold uppercase tracking-wide">
+              ⌘↵
+            </span>
           </button>
         )}
       </div>
 
-      <div className="grid min-h-0 flex-[1.2] grid-cols-1 gap-3 md:grid-cols-2">
+      {/* the page's one Waldenburg moment — a headline that happens to be editable */}
+      <input
+        className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
+        placeholder="Untitled prompt"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus={!id}
+      />
+
+      {/* before / after — one comparison, not two disconnected boxes */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:gap-0">
         <OutputPane
-          label="BEFORE — output without this prompt"
-          accent={false}
+          label="Before"
+          sublabel="output without this prompt"
           text={outputBefore}
           onText={setOutputBefore}
           image={imageBefore}
           onImage={setImageBefore}
         />
+        <div className="hidden items-center px-3 md:flex" aria-hidden>
+          <ArrowRight size={16} className="text-dim/60" />
+        </div>
         <OutputPane
-          label="AFTER — output with this prompt"
-          accent
+          label="After"
+          sublabel="output with this prompt"
           text={outputAfter}
           onText={setOutputAfter}
           image={imageAfter}
@@ -251,26 +301,28 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
         />
       </div>
 
-      <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="border-b border-line px-3 py-1.5 text-xs font-semibold text-dim">
-          THE PROMPT
-        </div>
+      {/* the prompt itself — the primary surface, not a third identical box */}
+      <div className="flex min-h-0 flex-[1.4] flex-col">
+        <span className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+          The Prompt
+        </span>
         <textarea
-          className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
+          className="min-h-0 flex-1 resize-none rounded-xl bg-[#fafafa] p-6 font-mono text-[16px] leading-relaxed tracking-tight text-ink outline-none transition-shadow placeholder:text-dim/60 focus:ring-2 focus:ring-inset focus:ring-ink/10"
           placeholder="Your prompt…"
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
       </div>
 
+      {/* footer controls */}
       <div className="flex flex-wrap items-center gap-2">
         <input
-          className="input max-w-52"
+          className="input h-11 max-w-56"
           placeholder="Tags (comma separated)"
           value={tags}
           onChange={(e) => setTags(e.target.value)}
         />
-        <select className="input max-w-40" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+        <select className="input h-11 max-w-44" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
           <option value="">No folder</option>
           {folders.map((f) => (
             <option key={f.id} value={f.id}>
@@ -279,14 +331,14 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           ))}
         </select>
         <select
-          className="input max-w-40"
+          className="input h-11 max-w-44"
           value={visibility}
           onChange={(e) => setVisibility(e.target.value as Visibility)}
         >
           <option value="private">Private (closed)</option>
           <option value="public">Public (open source)</option>
         </select>
-        <select className="input max-w-40" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+        <select className="input h-11 max-w-44" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
           <option value="">No team</option>
           {teams.map((t) => (
             <option key={t.id} value={t.id}>
@@ -294,10 +346,18 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-sm text-dim">
-          <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-          Pin
-        </label>
+        {/* same star vocabulary as the sidebar's Pinned */}
+        <button
+          className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors ${
+            pinned
+              ? "bg-ink text-white"
+              : "border border-line-strong text-dim hover:bg-hover hover:text-ink"
+          }`}
+          aria-pressed={pinned}
+          onClick={() => setPinned((v) => !v)}
+        >
+          <Star size={14} className={pinned ? "fill-current" : ""} /> Pin
+        </button>
       </div>
     </div>
   );
@@ -305,14 +365,14 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
 
 function OutputPane({
   label,
-  accent,
+  sublabel,
   text,
   onText,
   image,
   onImage,
 }: {
   label: string;
-  accent: boolean;
+  sublabel: string;
   text: string;
   onText: (v: string) => void;
   image: string | null;
@@ -320,6 +380,7 @@ function OutputPane({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const pick = async (file: File) => {
     setUploading(true);
@@ -332,22 +393,47 @@ function OutputPane({
     }
   };
 
+  const imageFromDataTransfer = (dt: DataTransfer): File | null => {
+    for (const item of dt.items) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        return item.getAsFile();
+      }
+    }
+    return null;
+  };
+
   return (
     <div
-      className={`panel flex min-h-0 flex-col overflow-hidden ${accent ? "border-accent/40" : ""}`}
+      className={`flex min-h-0 flex-col overflow-hidden rounded-xl border bg-raised transition-colors ${
+        isDragOver ? "border-ink" : "border-line"
+      }`}
+      onDragOver={(e) => {
+        if (imageFromDataTransfer(e.dataTransfer) !== null || e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setIsDragOver(true);
+        }
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        setIsDragOver(false);
+        const f = imageFromDataTransfer(e.dataTransfer);
+        if (f) {
+          e.preventDefault();
+          void pick(f);
+        }
+      }}
     >
-      <div
-        className={`flex items-center border-b border-line px-3 py-1.5 text-xs font-semibold ${
-          accent ? "bg-tint text-accent" : "text-dim"
-        }`}
-      >
-        <span className="flex-1">{label}</span>
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <span className="flex-1 truncate text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+          {label} <span className="font-normal normal-case tracking-normal text-dim/70">— {sublabel}</span>
+        </span>
         <button
-          className="text-xs font-semibold text-accent hover:underline"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover disabled:opacity-50"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
         >
-          {uploading ? "Uploading…" : image ? "Replace image" : "+ Screenshot"}
+          <ImagePlus size={13} />
+          {uploading ? "Uploading…" : image ? "Replace" : "Screenshot"}
         </button>
         <input
           ref={fileRef}
@@ -362,11 +448,11 @@ function OutputPane({
         />
       </div>
       {image && (
-        <div className="relative border-b border-line">
+        <div className="relative mx-4 mt-2 overflow-hidden rounded-lg border border-line">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image} alt="output screenshot" className="max-h-40 w-full object-contain" />
           <button
-            className="absolute right-2 top-2 rounded bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+            className="absolute right-2 top-2 rounded-md bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
             onClick={() => onImage(null)}
           >
             Remove
@@ -374,10 +460,17 @@ function OutputPane({
         </div>
       )}
       <textarea
-        className="min-h-0 flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-relaxed text-ink outline-none placeholder:text-dim"
-        placeholder={image ? "Notes (optional)…" : "Paste text — or add a screenshot instead."}
+        className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-mono text-[13px] leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim/60"
+        placeholder={image ? "Notes (optional)…" : "Paste text, or drop a screenshot here"}
         value={text}
         onChange={(e) => onText(e.target.value)}
+        onPaste={(e) => {
+          const f = imageFromDataTransfer(e.clipboardData);
+          if (f) {
+            e.preventDefault();
+            void pick(f);
+          }
+        }}
       />
     </div>
   );

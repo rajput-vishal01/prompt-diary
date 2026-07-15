@@ -4,13 +4,48 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import type { Facet, Folder, Prompt } from "shared";
+import { Check, Copy, Globe, Lock, MoreHorizontal, Users } from "lucide-react";
+import type { Folder, Prompt } from "shared";
 import { FACETS, VISIBILITIES, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
+
+const emitChanged = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
+
+// known chat sources — same pill for every source, only the dot color differs,
+// desaturated on purpose (never a filled colored badge)
+const SOURCE_DOTS: Record<string, string> = {
+  chatgpt: "hsl(160 25% 50%)",
+  claude: "hsl(24 30% 55%)",
+  gemini: "hsl(217 30% 58%)",
+  perplexity: "hsl(190 25% 48%)",
+  poe: "hsl(260 22% 56%)",
+};
+
+const sourceOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
+
+function relativeTime(iso: string): string {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+  return `${Math.floor(s / 604800)}w ago`;
+}
+
+const excerptOf = (p: Prompt) => p.body.replace(/\s+/g, " ").trim();
+
+// icon carries visibility; the word lives in the tooltip only
+function VisibilityIcon({ p }: { p: Prompt }) {
+  if (p.visibility === "public")
+    return <Globe size={14} className="shrink-0 text-dim" aria-label="public"><title>public</title></Globe>;
+  if (p.teamId)
+    return <Users size={14} className="shrink-0 text-dim" aria-label="team"><title>shared with team</title></Users>;
+  return <Lock size={14} className="shrink-0 text-dim" aria-label="private"><title>private</title></Lock>;
+}
 
 export default function PromptsPage() {
   return (
@@ -25,15 +60,16 @@ function PromptsPageInner() {
   const searchParams = useSearchParams();
   const folderTab = searchParams.get("folder");
   const pinnedTab = searchParams.get("tab") === "pinned";
+  const activeTag = searchParams.get("tag"); // set from the sidebar Tags section
 
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [query, setQuery] = useState("");
   const [visFilter, setVisFilter] = useState("");
-  const [facetSel, setFacetSel] = useState<Facet[]>([]);
   const [view, setView] = useState<"list" | "cards">("list");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -90,11 +126,12 @@ function PromptsPageInner() {
       if (pinnedTab && !p.pinned) return false;
       if (folderTab && p.folderId !== folderTab) return false;
       if (visFilter && p.visibility !== visFilter) return false;
-      if (
-        facetSel.length > 0 &&
-        !facetSel.every((f) => facetsById.get(p.id)?.includes(f))
-      )
-        return false;
+      if (activeTag) {
+        // a sidebar tag is either a computed facet or a literal tag
+        const isFacet = (FACETS as readonly string[]).includes(activeTag);
+        if (isFacet && !facetsById.get(p.id)?.includes(activeTag as never)) return false;
+        if (!isFacet && !p.tags.includes(activeTag)) return false;
+      }
       if (!q) return true;
       return (
         p.title.toLowerCase().includes(q) ||
@@ -102,12 +139,7 @@ function PromptsPageInner() {
         p.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [prompts, query, pinnedTab, folderTab, visFilter, facetSel, facetsById]);
-
-  const toggleFacet = (f: Facet) =>
-    setFacetSel((prev) =>
-      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
-    );
+  }, [prompts, query, pinnedTab, folderTab, visFilter, activeTag, facetsById]);
 
   const setViewMode = (v: "list" | "cards") => {
     setView(v);
@@ -126,6 +158,45 @@ function PromptsPageInner() {
       method: "PATCH",
       body: { useCount: p.useCount + 1 },
     }).catch(() => {});
+  };
+
+  const duplicate = async (p: Prompt) => {
+    await api("/api/v1/prompts", {
+      method: "POST",
+      body: {
+        title: `${p.title.slice(0, 190)} (copy)`,
+        body: p.body,
+        tags: p.tags,
+        folderId: p.folderId,
+        visibility: "private",
+      },
+    });
+    toast("Duplicated");
+    reload();
+    emitChanged();
+  };
+
+  const moveToFolder = async (p: Prompt, folderId: string | null) => {
+    await api(`/api/v1/prompts/${p.id}`, { method: "PATCH", body: { folderId } });
+    toast(folderId ? "Moved" : "Removed from folder");
+    reload();
+  };
+
+  const remove = async (p: Prompt) => {
+    await api(`/api/v1/prompts/${p.id}`, { method: "DELETE" });
+    reload();
+    emitChanged();
+    toast(`Deleted "${p.title.slice(0, 40)}"`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void api(`/api/v1/prompts/${p.id}/restore`, { method: "POST" }).then(() => {
+            reload();
+            emitChanged();
+          });
+        },
+      },
+    });
   };
 
   const newHref = `/dashboard/new${folderTab ? `?folder=${folderTab}` : ""}`;
@@ -165,9 +236,7 @@ function PromptsPageInner() {
     const ordered = [...cluster].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const first = ordered[0];
     if (!first) return;
-    const site = first.tags.find((t) =>
-      ["chatgpt", "claude", "gemini", "perplexity", "poe"].includes(t),
-    );
+    const site = first.tags.find((t) => t in SOURCE_DOTS);
     const t = await api<{ id: string }>("/api/v1/threads", {
       method: "POST",
       body: {
@@ -180,13 +249,117 @@ function PromptsPageInner() {
     router.push(`/dashboard/t/${t.id}`);
   };
 
+  // hover-revealed icon actions shared by both views
+  const RowActions = ({ p, ghostBg }: { p: Prompt; ghostBg?: boolean }) => (
+    <span className="relative flex shrink-0 items-center gap-0.5">
+      <button
+        aria-label="Copy prompt"
+        title="Copy prompt"
+        className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
+        onClick={(e) => copy(p, e)}
+      >
+        {copiedId === p.id ? <Check size={15} className="text-success" /> : <Copy size={15} />}
+      </button>
+      <span className="relative">
+        <button
+          aria-label="More actions"
+          title="More"
+          className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${menuId === p.id ? "bg-ink/[0.06]" : ""} ${ghostBg ? "bg-raised/90" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuId((m) => (m === p.id ? null : p.id));
+          }}
+        >
+          <MoreHorizontal size={15} />
+        </button>
+        {menuId === p.id && (
+          <>
+            <span
+              className="fixed inset-0 z-40"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuId(null);
+              }}
+            />
+            <span
+              className="absolute right-0 top-9 z-50 flex w-44 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 shadow-soft"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
+                onClick={() => {
+                  setMenuId(null);
+                  void duplicate(p);
+                }}
+              >
+                Duplicate
+              </button>
+              <span className="mx-3 my-1 border-t border-line" />
+              <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-dim">
+                Move to folder
+              </span>
+              {p.folderId && (
+                <button
+                  className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
+                  onClick={() => {
+                    setMenuId(null);
+                    void moveToFolder(p, null);
+                  }}
+                >
+                  No folder
+                </button>
+              )}
+              {folders
+                .filter((f) => f.id !== p.folderId)
+                .map((f) => (
+                  <button
+                    key={f.id}
+                    className="flex items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
+                    onClick={() => {
+                      setMenuId(null);
+                      void moveToFolder(p, f.id);
+                    }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />
+                    <span className="truncate">{f.name}</span>
+                  </button>
+                ))}
+              <span className="mx-3 my-1 border-t border-line" />
+              <button
+                className="px-3 py-1.5 text-left text-sm text-danger hover:bg-hover"
+                onClick={() => {
+                  setMenuId(null);
+                  void remove(p);
+                }}
+              >
+                Delete
+              </button>
+            </span>
+          </>
+        )}
+      </span>
+    </span>
+  );
+
+  const sourceBadge = (p: Prompt) => {
+    const site = sourceOf(p);
+    if (!site) return null;
+    return (
+      <span className="chip shrink-0 gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: SOURCE_DOTS[site] }} />
+        {site}
+      </span>
+    );
+  };
+
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">
+      <div className="mb-4 flex items-baseline justify-between">
+        {/* the one Waldenburg moment on this page */}
+        <h1 className="font-display text-2xl font-light tracking-tight">
           {pinnedTab ? "Pinned" : (activeFolder?.name ?? "My Prompts")}
           {!isLoading && (
-            <span className="ml-2 text-sm font-normal tabular-nums text-dim">
+            <span className="ml-2.5 font-sans text-sm font-normal tabular-nums text-dim">
               {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
             </span>
           )}
@@ -197,7 +370,7 @@ function PromptsPageInner() {
       </div>
 
       {cluster && (
-        <div className="mb-3 flex items-center gap-3 rounded-[10px] border border-accent/40 bg-tint px-4 py-2.5 text-sm">
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-line-strong bg-tint px-4 py-2.5 text-sm">
           <span className="flex-1">
             <b>{cluster.length} saves</b> came from the same conversation — chain
             them into a thread?
@@ -211,59 +384,56 @@ function PromptsPageInner() {
         </div>
       )}
 
-      <div className="mb-3 flex gap-2">
-        <div className="relative flex-1">
-          <input
-            ref={searchRef}
-            className="input pr-8"
-            placeholder="Search prompts, tags…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <span className="kbd absolute right-2 top-1/2 -translate-y-1/2">/</span>
-        </div>
-        <select
-          className="input w-32"
-          value={visFilter}
-          onChange={(e) => setVisFilter(e.target.value)}
-        >
-          <option value="">All visibility</option>
-          {VISIBILITIES.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        {FACETS.map((f) => (
-          <button
-            key={f}
-            className={`chip cursor-pointer transition-colors ${
-              facetSel.includes(f)
-                ? "border-accent bg-tint text-accent"
-                : "text-dim hover:text-ink"
-            }`}
-            title={`Filter by ${f} style (detected from the prompt text)`}
-            onClick={() => toggleFacet(f)}
+      {/* search stays pinned while the list scrolls */}
+      <div className="sticky -top-8 z-10 -mx-1 bg-bg px-1 pb-3 pt-1">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              ref={searchRef}
+              className="input h-11 pr-8"
+              placeholder="Search prompts, tags…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <span className="kbd absolute right-3 top-1/2 -translate-y-1/2">/</span>
+          </div>
+          <select
+            className="input h-11 w-36"
+            value={visFilter}
+            onChange={(e) => setVisFilter(e.target.value)}
           >
-            {f}
-          </button>
-        ))}
-        <span className="ml-auto flex overflow-hidden rounded-[7px] border border-line">
-          {(["list", "cards"] as const).map((v) => (
+            <option value="">All visibility</option>
+            {VISIBILITIES.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <span className="flex h-11 items-center overflow-hidden rounded-lg border border-line-strong">
+            {(["list", "cards"] as const).map((v) => (
+              <button
+                key={v}
+                className={`h-full px-3.5 text-[13px] font-medium transition-colors ${
+                  view === v ? "bg-tint text-ink" : "text-dim hover:text-ink"
+                }`}
+                onClick={() => setViewMode(v)}
+              >
+                {v === "list" ? "List" : "Cards"}
+              </button>
+            ))}
+          </span>
+        </div>
+        {activeTag && (
+          <div className="mt-2.5">
             <button
-              key={v}
-              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                view === v ? "bg-tint text-accent" : "text-dim hover:text-ink"
-              }`}
-              onClick={() => setViewMode(v)}
+              className="chip gap-1.5 hover:bg-hover"
+              title="Clear tag filter"
+              onClick={() => router.push("/dashboard")}
             >
-              {v === "list" ? "List" : "Cards"}
+              Tag: {activeTag} <span className="text-dim">×</span>
             </button>
-          ))}
-        </span>
+          </div>
+        )}
       </div>
 
       <div
@@ -274,7 +444,7 @@ function PromptsPageInner() {
       >
         {isLoading &&
           Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="px-4 py-2.5">
+            <div key={i} className="px-4 py-5">
               <div className="skeleton h-4 w-2/5" />
             </div>
           ))}
@@ -291,7 +461,7 @@ function PromptsPageInner() {
               <li>
                 <span className="font-semibold text-ink">2 · Highlight any prompt</span>
                 <br />
-                On ChatGPT or Claude, select text → click the <span className="text-accent">Pd</span> bubble
+                On ChatGPT or Claude, select text → click the <span className="font-semibold">Pd</span> bubble
                 (or right-click → Save to Prompt Diary).
               </li>
               <li>
@@ -314,122 +484,83 @@ function PromptsPageInner() {
           </p>
         )}
 
+        {/* ---------- LIST: 64px two-line manuscript rows ---------- */}
         {!isLoading && view === "list" &&
-          filtered.map((p) => {
-            const folder = folders.find((f) => f.id === p.folderId);
-            return (
+          filtered.map((p) => (
+            <div
+              key={p.id}
+              className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+              onClick={() => router.push(`/dashboard/p/${p.id}`)}
+              title="Open"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  {p.pinned && <span className="text-xs text-brass">★</span>}
+                  <span className="truncate text-[16px] font-medium leading-6 text-ink">
+                    {p.title}
+                  </span>
+                </span>
+                <span className="block truncate text-sm leading-5 text-dim">
+                  {excerptOf(p)}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-3">
+                {sourceBadge(p)}
+                <span title={p.visibility === "public" ? "public" : p.teamId ? "shared with team" : "private"}>
+                  <VisibilityIcon p={p} />
+                </span>
+                {p.useCount > 0 && (
+                  <span
+                    className="text-[11px] font-semibold uppercase tabular-nums tracking-wide text-dim/70"
+                    title={`Copied ${p.useCount} time${p.useCount === 1 ? "" : "s"}`}
+                  >
+                    {p.useCount}×
+                  </span>
+                )}
+                <span className="hidden group-hover:flex">
+                  <RowActions p={p} />
+                </span>
+              </span>
+            </div>
+          ))}
+
+        {/* ---------- CARDS: manuscript excerpts ---------- */}
+        {!isLoading && view === "cards" && filtered.length > 0 && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((p) => (
               <div
                 key={p.id}
-                className="ledger-row group flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-hover"
+                className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
                 onClick={() => router.push(`/dashboard/p/${p.id}`)}
                 title="Open"
               >
-                {p.pinned && <span className="text-xs text-accent">★</span>}
-                <span className="truncate text-sm font-semibold">{p.title}</span>
-                <span
-                  className={`vis-badge shrink-0 ${
-                    p.visibility === "public" ? "text-accent" : "text-dim"
-                  }`}
-                >
-                  {p.visibility}
+                <span className="flex items-center gap-1.5 pr-8">
+                  {p.pinned && <span className="text-xs text-brass">★</span>}
+                  <span className="truncate text-[16px] font-medium text-ink">{p.title}</span>
                 </span>
-                {p.teamId && <span className="vis-badge shrink-0 text-amber">team</span>}
-                {folder && !folderTab && (
-                  <span
-                    className="shrink-0 text-xs font-semibold"
-                    style={{ color: folder.color }}
-                  >
-                    {folder.name}
+                {/* the manuscript excerpt — the one deliberate signature detail */}
+                <p className="line-clamp-3 rounded-md bg-[#fafafa] p-2 font-mono text-[15px] leading-relaxed tracking-tight text-body">
+                  {excerptOf(p)}
+                </p>
+                <div className="mt-auto flex items-center gap-1.5">
+                  {p.tags.slice(0, 3).map((t) => (
+                    <span key={t} className="chip">
+                      {t}
+                    </span>
+                  ))}
+                  <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-dim/70">
+                    <span title={p.visibility === "public" ? "public" : p.teamId ? "shared with team" : "private"}>
+                      <VisibilityIcon p={p} />
+                    </span>
+                    Edited {relativeTime(p.updatedAt)}
                   </span>
-                )}
-                {p.tags.slice(0, 3).map((t) => (
-                  <span key={t} className="chip shrink-0">
-                    {t}
-                  </span>
-                ))}
-                <span className="ml-auto flex shrink-0 items-center gap-2">
-                  {copiedId === p.id ? (
-                    <span className="text-xs font-bold text-accent">Copied</span>
-                  ) : (
-                    <button className="btn h-6 px-2 text-xs" onClick={(e) => copy(p, e)}>
-                      Copy
-                    </button>
-                  )}
-                  <span className="w-8 text-right text-xs tabular-nums text-dim">
-                    {p.useCount > 0 ? `${p.useCount}×` : ""}
-                  </span>
+                </div>
+                {/* hover-reveal copy — same interaction language as the list */}
+                <span className="absolute right-3 top-3 hidden group-hover:flex">
+                  <RowActions p={p} ghostBg />
                 </span>
               </div>
-            );
-          })}
-
-        {!isLoading && view === "cards" && filtered.length > 0 && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((p) => {
-              const folder = folders.find((f) => f.id === p.folderId);
-              const facets = facetsById.get(p.id) ?? [];
-              return (
-                <div
-                  key={p.id}
-                  className="ledger-row group flex cursor-pointer flex-col gap-2 rounded-[10px] border border-line bg-raised p-3.5 transition-colors hover:border-accent"
-                  onClick={() => router.push(`/dashboard/p/${p.id}`)}
-                  title="Open"
-                >
-                  <div className="flex items-center gap-2">
-                    {p.pinned && <span className="text-xs text-accent">★</span>}
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                      {p.title}
-                    </span>
-                    {copiedId === p.id ? (
-                      <span className="text-xs font-bold text-accent">Copied</span>
-                    ) : (
-                      <button
-                        className="btn h-6 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
-                        onClick={(e) => copy(p, e)}
-                      >
-                        Copy
-                      </button>
-                    )}
-                  </div>
-                  <p className="line-clamp-4 font-mono text-xs leading-relaxed text-dim">
-                    {p.body}
-                  </p>
-                  <div className="mt-auto flex flex-wrap items-center gap-1.5">
-                    {facets.map((f) => (
-                      <span key={f} className="chip border-accent/30 text-accent">
-                        {f}
-                      </span>
-                    ))}
-                    {p.tags.slice(0, 2).map((t) => (
-                      <span key={t} className="chip">
-                        {t}
-                      </span>
-                    ))}
-                    {folder && !folderTab && (
-                      <span
-                        className="text-xs font-semibold"
-                        style={{ color: folder.color }}
-                      >
-                        {folder.name}
-                      </span>
-                    )}
-                    <span className="ml-auto flex items-center gap-1.5">
-                      <span
-                        className={`vis-badge ${
-                          p.visibility === "public" ? "text-accent" : "text-dim"
-                        }`}
-                      >
-                        {p.visibility}
-                      </span>
-                      {p.teamId && <span className="vis-badge text-amber">team</span>}
-                      <span className="text-xs tabular-nums text-dim">
-                        {p.useCount > 0 ? `${p.useCount}×` : ""}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            ))}
           </div>
         )}
       </div>

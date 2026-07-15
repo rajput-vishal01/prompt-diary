@@ -38,6 +38,9 @@ export interface TreeSectionProps {
   onDropInto?: (dragId: string, targetId: string) => void; // nest / move
   onCreate?: (name: string) => void | Promise<void>; // section-header "+"
   emptyLabel?: string;
+  // static sections (Tags): small-caps label, no chevron, always expanded —
+  // present by default with zero setup, like Pinned
+  staticSection?: boolean;
 }
 
 type DropZone = { id: string; zone: "before" | "after" | "into" } | null;
@@ -347,6 +350,7 @@ export function TreeSection({
   onDropInto,
   onCreate,
   emptyLabel,
+  staticSection,
 }: TreeSectionProps) {
   const [sectionOpen, setSectionOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -490,10 +494,15 @@ export function TreeSection({
     },
   };
 
+  const isOpen = staticSection || sectionOpen;
+
   return (
     <div ref={rootRef} role="tree" aria-label={title}>
-      {/* section header */}
+      {/* section header — static sections get a small-caps label, no chevron */}
       <div className="group/head flex h-8 items-center gap-1 rounded-md pr-1.5 transition-colors duration-[120ms] hover:bg-ink/[0.04]">
+        {staticSection ? (
+          <span className="w-4 shrink-0" />
+        ) : (
         <button
           aria-label={`Toggle ${title}`}
           className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-dim hover:bg-ink/[0.06]"
@@ -504,11 +513,18 @@ export function TreeSection({
             className={`transition-transform duration-[180ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${sectionOpen ? "rotate-90" : ""}`}
           />
         </button>
+        )}
         <button
-          className={`relative min-w-0 flex-1 truncate text-left text-sm font-medium ${isTitleActive ? "text-ink" : "text-ink/80 hover:text-ink"}`}
+          className={`relative min-w-0 flex-1 truncate text-left ${
+            staticSection
+              ? "text-xs font-semibold uppercase tracking-[0.08em] text-dim"
+              : `text-sm font-medium ${isTitleActive ? "text-ink" : "text-ink/80 hover:text-ink"}`
+          }`}
           onClick={() => onNavigate(titleHref)}
         >
-          {isTitleActive && <span className="absolute -left-6 top-0.5 h-4 w-[3px] rounded-full bg-brass" />}
+          {isTitleActive && !staticSection && (
+            <span className="absolute -left-6 top-0.5 h-4 w-[3px] rounded-full bg-brass" />
+          )}
           {title}
         </button>
         {onCreate && (
@@ -525,7 +541,7 @@ export function TreeSection({
         )}
       </div>
 
-      {sectionOpen && (
+      {isOpen && (
         <div className="mb-1 mt-0.5">
           {nodes.map((node) => (
             <TreeRow key={node.id} node={node} depth={0} isLeaf={false} ctx={ctx} />
