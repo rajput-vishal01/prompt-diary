@@ -279,6 +279,41 @@ const messageSelector = MESSAGE_SELECTORS.find((m) =>
 
 const PD_MARKER = "pdSaveInjected";
 
+// ---------- estimated token usage ----------
+// every message we see (already deduped by PD_MARKER) adds chars÷4 tokens to
+// a local per-site/day counter; sync flushes it to the server. Estimates only.
+
+const SITE_KEY =
+  [
+    ["chatgpt", /chatgpt\.com|chat\.openai\.com/],
+    ["claude", /claude\.ai/],
+    ["gemini", /gemini\.google\.com/],
+    ["perplexity", /perplexity\.ai/],
+    ["poe", /poe\.com/],
+  ].find(([, re]) => (re as RegExp).test(location.hostname))?.[0] as
+    | string
+    | undefined;
+
+let pendingChars = 0;
+
+function recordMessageChars(count: number) {
+  pendingChars += count;
+}
+
+// batch writes: storage once every 5s instead of per message
+setInterval(() => {
+  if (!SITE_KEY || pendingChars === 0) return;
+  const tokens = Math.ceil(pendingChars / 4);
+  pendingChars = 0;
+  const key = `${new Date().toISOString().slice(0, 10)}|${SITE_KEY}`;
+  void chrome.storage.local.get("usagePending").then((res) => {
+    const pending = (res["usagePending"] as Record<string, number>) ?? {};
+    void chrome.storage.local.set({
+      usagePending: { ...pending, [key]: (pending[key] ?? 0) + tokens },
+    });
+  });
+}, 5000);
+
 function makeMessageButton(target: HTMLElement): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -343,8 +378,10 @@ function injectMessageButtons() {
     if (el.closest("[data-pd-save-injected='1']")) continue;
     // skip messages still streaming in (claude flags these)
     if (el.closest("[data-is-streaming='true']")) continue;
-    if ((el.innerText ?? "").trim().length < MIN_SELECTION) continue;
+    const textLength = (el.innerText ?? "").trim().length;
+    if (textLength < MIN_SELECTION) continue;
     el.dataset[PD_MARKER] = "1";
+    recordMessageChars(textLength); // counted exactly once per message
     el.appendChild(makeMessageButton(el));
   }
 }

@@ -10,6 +10,7 @@ import { dialog } from "@/components/Dialog";
 
 const NAV = [
   { href: "/dashboard/teams", label: "Teams" },
+  { href: "/dashboard/usage", label: "Usage" },
   { href: "/gallery", label: "Public Gallery" },
   { href: "/dashboard/profile", label: "Profile" },
 ];

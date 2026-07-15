@@ -174,6 +174,24 @@ export const ThreadUpdateSchema = z.object({
 });
 export type ThreadUpdate = z.infer<typeof ThreadUpdateSchema>;
 
+// ---------- estimated token usage ----------
+
+// deltas pushed by the extension; server increments. Everything here is an
+// ESTIMATE (message chars ÷ 4) — the UI must always say "estimated".
+export const UsagePushSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        site: z.string().min(1).max(30),
+        tokens: z.number().int().min(1).max(5_000_000),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+export type UsagePush = z.infer<typeof UsagePushSchema>;
+
 // ---------- sync ----------
 
 export const SyncPushSchema = z.object({

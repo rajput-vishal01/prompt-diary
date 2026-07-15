@@ -20,6 +20,13 @@ interface InviteRow {
   invitedByName: string;
 }
 
+interface TeamUsageRow {
+  userId: string;
+  name: string;
+  site: string;
+  tokens: number;
+}
+
 interface MembersData {
   members: { userId: string; role: string; name: string; email: string }[];
   invites: { id: string; email: string }[];
@@ -167,6 +174,7 @@ function TeamDetail({
   const { data: session } = useSession();
   const [members, setMembers] = useState<MembersData | null>(null);
   const [prompts, setPrompts] = useState<TeamPrompt[]>([]);
+  const [usage, setUsage] = useState<TeamUsageRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -175,6 +183,10 @@ function TeamDetail({
   const reloadDetail = () => {
     void api<MembersData>(`/api/v1/teams/${team.id}/members`).then(setMembers);
     void api<TeamPrompt[]>(`/api/v1/teams/${team.id}/prompts`).then(setPrompts);
+    if (team.role === "owner")
+      void api<TeamUsageRow[]>(`/api/v1/teams/${team.id}/usage`)
+        .then(setUsage)
+        .catch(() => {});
   };
 
   useEffect(reloadDetail, [team.id]);
@@ -347,6 +359,30 @@ function TeamDetail({
                 </button>
               </div>
               {message && <p className="text-xs text-accent">{message}</p>}
+            </div>
+          )}
+
+          {/* owner-only: estimated token spend per member, last 30 days */}
+          {isOwner && usage.length > 0 && (
+            <div className="px-4 py-3">
+              <h2 className="text-sm font-semibold">Token spend</h2>
+              <p className="mb-2 text-xs text-dim">
+                Estimated (message chars ÷ 4), last 30 days — not billing data.
+              </p>
+              <div className="divide-y divide-line">
+                {usage.map((u) => (
+                  <div
+                    key={`${u.userId}-${u.site}`}
+                    className="flex items-center gap-2 py-1.5 text-[13px]"
+                  >
+                    <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                    <span className="chip">{u.site}</span>
+                    <span className="tabular-nums text-dim">
+                      ~{u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

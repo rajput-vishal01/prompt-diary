@@ -31,6 +31,34 @@ async function flushPendingSteps(): Promise<void> {
   }
 }
 
+// estimated token counters accumulated by the content script ("day|site" → tokens);
+// pushed as deltas, then decremented so counts recorded mid-flush aren't lost
+async function flushPendingUsage(): Promise<void> {
+  const res = await chrome.storage.local.get("usagePending");
+  const pending = (res["usagePending"] as Record<string, number>) ?? {};
+  const entries = Object.entries(pending)
+    .map(([key, tokens]) => {
+      const [day, site] = key.split("|");
+      return { day: day ?? "", site: site ?? "", tokens };
+    })
+    .filter((e) => e.day && e.site && e.tokens > 0);
+  if (entries.length === 0) return;
+
+  try {
+    await api("/api/v1/usage", { method: "POST", body: { entries } });
+    const latest = await chrome.storage.local.get("usagePending");
+    const current = (latest["usagePending"] as Record<string, number>) ?? {};
+    const remaining: Record<string, number> = {};
+    for (const [key, tokens] of Object.entries(current)) {
+      const left = tokens - (pending[key] ?? 0);
+      if (left > 0) remaining[key] = left;
+    }
+    await chrome.storage.local.set({ usagePending: remaining });
+  } catch {
+    // keep the counters; next sync retries
+  }
+}
+
 interface SyncResult {
   prompts: Prompt[];
   folders: Folder[];
@@ -85,6 +113,7 @@ export async function syncNow(): Promise<{ synced: boolean; error?: string }> {
       lastSyncAt: result.syncedAt,
     });
     await flushPendingSteps(); // prompts now exist server-side — attach queued steps
+    await flushPendingUsage(); // push estimated token deltas
     return { synced: true };
   } catch (e) {
     return { synced: false, error: e instanceof Error ? e.message : "Sync failed" };

@@ -163,6 +163,22 @@ export const threadSteps = pgTable(
   (t) => [primaryKey({ columns: [t.threadId, t.promptId] })],
 );
 
+// ---- v2 P4: estimated token usage, one row per user/day/site ----
+// tokens are ESTIMATES (message chars ÷ 4) pushed as deltas by the extension
+
+export const usageDays = pgTable(
+  "usage_days",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    day: text("day").notNull(), // YYYY-MM-DD
+    site: text("site").notNull(), // chatgpt | claude | gemini | …
+    tokens: integer("tokens").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day, t.site] })],
+);
+
 export const folders = pgTable(
   "folders",
   {
