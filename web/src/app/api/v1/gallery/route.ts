@@ -8,7 +8,7 @@ const PAGE_SIZE = 50;
 
 // GET /api/v1/gallery?q=&page= — public ("open source") prompts. No auth.
 export async function GET(req: NextRequest) {
-  if (!rateLimit(rateLimitKey(req))) return jsonErr("Too many requests", 429);
+  if (!(await rateLimit(rateLimitKey(req)))) return jsonErr("Too many requests", 429);
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q");

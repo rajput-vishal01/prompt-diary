@@ -25,7 +25,7 @@ async function getPrompt(id: string) {
 // anonymous allowed: public prompts are world-readable (gallery detail view)
 export async function GET(req: NextRequest, { params }: Params) {
   const user = await getUser(req);
-  if (!rateLimit(rateLimitKey(req, user?.id))) {
+  if (!(await rateLimit(rateLimitKey(req, user?.id)))) {
     return jsonErr("Too many requests", 429);
   }
 

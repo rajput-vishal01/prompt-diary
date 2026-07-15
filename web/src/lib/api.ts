@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import { err, ok } from "shared";
 import { auth } from "./auth";
 
@@ -33,14 +35,32 @@ export const forbidden = () => jsonErr("Forbidden", 403);
 export const notFound = () => jsonErr("Not found", 404);
 
 // ---------- rate limiting ----------
-// ponytail: in-memory sliding window, per server instance. Move to
-// Redis/upstash if this ever runs on more than one instance and abuse shows up.
+// Upstash Redis when configured (multi-instance safe — required in prod once
+// share links / API keys make anonymous traffic real); in-memory sliding
+// window otherwise so dev/local needs zero setup.
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 120;
 const hits = new Map<string, number[]>();
 
-export function rateLimit(key: string): boolean {
+const upstash =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(MAX_REQUESTS, "60 s"),
+        prefix: "pd-rl",
+      })
+    : null;
+
+export async function rateLimit(key: string): Promise<boolean> {
+  if (upstash) {
+    try {
+      const { success } = await upstash.limit(key);
+      return success;
+    } catch {
+      return true; // Redis hiccup must not take the API down — fail open
+    }
+  }
   const now = Date.now();
   const windowStart = now - WINDOW_MS;
   const timestamps = (hits.get(key) ?? []).filter((t) => t > windowStart);
@@ -66,7 +86,7 @@ export async function guard(
   req: NextRequest,
 ): Promise<{ user: AuthedUser } | { response: NextResponse }> {
   const user = await getUser(req);
-  if (!rateLimit(rateLimitKey(req, user?.id))) {
+  if (!(await rateLimit(rateLimitKey(req, user?.id)))) {
     return { response: jsonErr("Too many requests", 429) };
   }
   if (!user) return { response: unauthorized() };
