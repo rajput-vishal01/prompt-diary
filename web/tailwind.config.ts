@@ -20,6 +20,7 @@ export default {
         "accent-deep": "#0c0a09", // press state
         tint: "#f0efed", // surface-strong: selected bg, badges
         amber: "#8a5a06", // team visibility (semantic)
+        brass: "#8B6F3E", // active-row indicator + team Member tag ONLY
         danger: "#dc2626",
         success: "#16a34a",
         "orb-mint": "#a7e5d3",

@@ -3,16 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Reorder } from "framer-motion";
+import { FileText, Folder as FolderIcon, FolderKanban, Star, Users } from "lucide-react";
 import type { Folder } from "shared";
 import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
-import { dialog } from "@/components/Dialog";
+import { toast } from "@/components/Toast";
+import { TreeSection, type TreeNode } from "@/components/TreeSection";
 
 interface ProjectRow {
   id: string;
   name: string;
   color: string;
+  teamId: string | null;
+  threadCount: number;
+}
+
+interface ThreadRow {
+  id: string;
+  title: string;
+  projectId: string | null;
+  stepCount: number;
 }
 
 interface TeamRow {
@@ -21,103 +31,15 @@ interface TeamRow {
   role: "owner" | "member";
 }
 
-// dashboard listens for this to refetch after sidebar mutations
+// dashboard pages listen for this to refetch after sidebar mutations
 export const FOLDERS_CHANGED_EVENT = "pd-folders-changed";
-const emitFoldersChanged = () =>
-  window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
+const emitChanged = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
 
-// which sections are expanded — Notion remembers, so do we
-const OPEN_KEY = "pd-sb-open";
-type OpenState = { prompts: boolean; projects: boolean; teams: boolean };
-const DEFAULT_OPEN: OpenState = { prompts: true, projects: true, teams: true };
-
-function loadOpen(): OpenState {
-  try {
-    return { ...DEFAULT_OPEN, ...JSON.parse(localStorage.getItem(OPEN_KEY) ?? "{}") };
-  } catch {
-    return DEFAULT_OPEN;
-  }
-}
-
-// ---------- tiny building blocks ----------
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className={`h-4 w-4 shrink-0 text-dim transition-transform duration-150 ${open ? "rotate-90" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  );
-}
-
-// hover ⋯ menu, Notion-style: appears on row hover, opens a small popover
-function RowMenu({
-  onRename,
-  onDelete,
-}: {
-  onRename: () => void;
-  onDelete: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span className="relative ml-auto shrink-0">
-      <button
-        aria-label="More actions"
-        className={`rounded-md px-1.5 py-0.5 text-dim opacity-0 transition-opacity hover:bg-line group-hover:opacity-100 ${open ? "bg-line opacity-100" : ""}`}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen((o) => !o);
-        }}
-      >
-        ⋯
-      </button>
-      {open && (
-        <>
-          <span
-            className="fixed inset-0 z-40"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen(false);
-            }}
-          />
-          <span className="absolute right-0 top-7 z-50 flex w-36 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 shadow-soft">
-            <button
-              className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                onRename();
-              }}
-            >
-              Rename
-            </button>
-            <button
-              className="px-3 py-1.5 text-left text-sm text-danger hover:bg-hover"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(false);
-                onDelete();
-              }}
-            >
-              Delete
-            </button>
-          </span>
-        </>
-      )}
-    </span>
-  );
-}
+// sidebar rail: fixed default, drag-resizable on the right edge
+const WIDTH_KEY = "pd-sb-width";
+const WIDTH_DEFAULT = 288;
+const WIDTH_MIN = 240;
+const WIDTH_MAX = 420;
 
 export function Sidebar() {
   const { data: session } = useSession();
@@ -126,159 +48,222 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [open, setOpen] = useState<OpenState>(DEFAULT_OPEN);
-  // ignore row clicks that were actually the tail end of a drag
-  const draggingRef = useRef(false);
-
-  useEffect(() => setOpen(loadOpen()), []);
-  const toggle = (key: keyof OpenState) =>
-    setOpen((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem(OPEN_KEY, JSON.stringify(next));
-      return next;
-    });
-
-  const reloadFolders = useCallback(
-    () => api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {}),
-    [],
-  );
-  const reloadProjects = useCallback(
-    () => api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {}),
-    [],
-  );
-  const reloadTeams = useCallback(
-    () => api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {}),
-    [],
-  );
+  const [width, setWidth] = useState(WIDTH_DEFAULT);
+  const resizing = useRef(false);
 
   useEffect(() => {
-    if (session) {
-      void reloadFolders();
-      void reloadProjects();
-      void reloadTeams();
-    }
-  }, [session, reloadFolders, reloadProjects, reloadTeams]);
+    const saved = Number(localStorage.getItem(WIDTH_KEY));
+    if (saved >= WIDTH_MIN && saved <= WIDTH_MAX) setWidth(saved);
+  }, []);
 
-  // other pages mutate folders/projects/teams too — stay in sync
+  const reload = useCallback(() => {
+    void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
+    void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
+    void api<ThreadRow[]>("/api/v1/threads").then(setThreads).catch(() => {});
+    void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
+  }, []);
+
   useEffect(() => {
-    const onChanged = () => {
-      void reloadFolders();
-      void reloadProjects();
-      void reloadTeams();
-    };
+    if (session) reload();
+  }, [session, reload]);
+
+  useEffect(() => {
+    const onChanged = () => reload();
     window.addEventListener(FOLDERS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, onChanged);
-  }, [reloadFolders, reloadProjects, reloadTeams]);
+  }, [reload]);
+
+  // right-edge drag resize
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    resizing.current = true;
+    const move = (ev: PointerEvent) => {
+      if (!resizing.current) return;
+      const w = Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, ev.clientX));
+      setWidth(w);
+    };
+    const up = () => {
+      resizing.current = false;
+      setWidth((w) => {
+        localStorage.setItem(WIDTH_KEY, String(w));
+        return w;
+      });
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
 
   if (!session) return null;
 
   const onPrompts = pathname === "/dashboard";
   const activeFolder = onPrompts ? searchParams.get("folder") : null;
   const activeTab = onPrompts ? searchParams.get("tab") : null;
-  const activeProject =
-    pathname === "/dashboard/projects" ? searchParams.get("p") : null;
-  const activeTeam =
-    pathname === "/dashboard/teams" ? searchParams.get("t") : null;
+  const activeProject = pathname === "/dashboard/projects" ? searchParams.get("p") : null;
+  const activeThread = pathname.startsWith("/dashboard/t/") ? pathname.split("/").pop() : null;
+  const activeTeam = pathname === "/dashboard/teams" ? searchParams.get("t") : null;
 
-  // ---------- folder actions ----------
+  const navigate = (href: string) => router.push(href);
 
-  const newFolder = async () => {
-    const name = await dialog.prompt({ title: "New folder", placeholder: "Folder name", submitLabel: "Create" });
-    if (!name?.trim()) return;
-    const folder = await api<Folder>("/api/v1/folders", {
-      method: "POST",
-      body: { name: name.trim() },
+  // ---------- My Prompts: Pinned pseudo-folder (fixed) + folders ----------
+
+  const promptNodes: TreeNode[] = [
+    {
+      id: "pinned",
+      label: "Pinned",
+      icon: <Star className={activeTab === "pinned" ? "fill-brass text-brass" : ""} />,
+      href: "/dashboard?tab=pinned",
+      fixed: true,
+    },
+    ...folders.map((f) => ({
+      id: f.id,
+      label: f.name,
+      icon: <FolderIcon style={{ color: f.color }} />,
+      href: `/dashboard?folder=${f.id}`,
+      canRename: true,
+      canDelete: true,
+      canDrag: true,
+      onAdd: () => router.push(`/dashboard/new?folder=${f.id}`),
+    })),
+  ];
+
+  // ---------- Projects: threads nested one level deep ----------
+
+  const threadLeaf = (t: ThreadRow): TreeNode => ({
+    id: t.id,
+    label: t.title,
+    icon: <FileText />,
+    href: `/dashboard/t/${t.id}`,
+    // looping badge only when active — no empty badges
+    badge: t.stepCount >= 3 ? <span className="chip">looping</span> : undefined,
+    canRename: true,
+    canDelete: true,
+    canDrag: true, // draggable INTO another project
+  });
+
+  const projectNodes: TreeNode[] = projects.map((p) => ({
+    id: p.id,
+    label: p.name,
+    icon: <FolderKanban style={{ color: p.color }} />,
+    href: `/dashboard/projects?p=${p.id}`,
+    badge: p.threadCount > 0 ? String(p.threadCount) : undefined,
+    children: threads.filter((t) => t.projectId === p.id).map(threadLeaf),
+    childCount: p.threadCount,
+    canRename: true,
+    canDelete: true,
+    canDrag: true,
+    acceptsDrop: true, // drop a thread onto a project to move it
+    onAddChild: async (name: string) => {
+      await api("/api/v1/threads", { method: "POST", body: { title: name, projectId: p.id } });
+      emitChanged();
+    },
+  }));
+
+  // ---------- Teams: membership visible inline, team projects nested ----------
+
+  const teamNodes: TreeNode[] = teams.map((t) => ({
+    id: t.id,
+    label: t.name,
+    icon: <Users />,
+    href: `/dashboard/teams?t=${t.id}`,
+    // "you're in this team" is never hidden behind a click
+    badge: (
+      <span className="font-medium capitalize text-brass">{t.role}</span>
+    ),
+    children: projects
+      .filter((p) => p.teamId === t.id)
+      .map((p) => ({
+        id: `team-${p.id}`,
+        label: p.name,
+        icon: <FolderKanban style={{ color: p.color }} />,
+        href: `/dashboard/projects?p=${p.id}`,
+      })),
+  }));
+
+  // ---------- mutations ----------
+
+  const renameItem = (kind: "folders" | "projects" | "threads") =>
+    async (node: TreeNode, name: string) => {
+      const id = node.id;
+      const body = kind === "threads" ? { title: name } : { name };
+      await api(`/api/v1/${kind}/${id}`, { method: "PATCH", body });
+      emitChanged();
+    };
+
+  const deleteFolderNode = async (node: TreeNode) => {
+    const f = folders.find((x) => x.id === node.id);
+    await api(`/api/v1/folders/${node.id}`, { method: "DELETE" });
+    emitChanged();
+    if (activeFolder === node.id) router.push("/dashboard");
+    toast(`Deleted “${node.label}”`, {
+      action: f && {
+        label: "Undo",
+        onClick: () => {
+          void api("/api/v1/folders", { method: "POST", body: { id: f.id, name: f.name, color: f.color } })
+            .then(emitChanged);
+        },
+      },
     });
-    await reloadFolders();
-    emitFoldersChanged();
-    router.push(`/dashboard?folder=${folder.id}`);
   };
 
-  const renameFolder = async (f: Folder) => {
-    const name = await dialog.prompt({ title: "Rename folder", initial: f.name });
-    if (!name?.trim() || name.trim() === f.name) return;
-    await api(`/api/v1/folders/${f.id}`, { method: "PATCH", body: { name: name.trim() } });
-    await reloadFolders();
-    emitFoldersChanged();
+  const deleteProjectNode = async (node: TreeNode) => {
+    const p = projects.find((x) => x.id === node.id);
+    await api(`/api/v1/projects/${node.id}`, { method: "DELETE" });
+    emitChanged();
+    if (activeProject === node.id) router.push("/dashboard/projects");
+    toast(`Deleted “${node.label}”`, {
+      action: p && {
+        label: "Undo",
+        onClick: () => {
+          // recreates the project; threads keep living under "All threads"
+          void api("/api/v1/projects", { method: "POST", body: { name: p.name, color: p.color } })
+            .then(emitChanged);
+        },
+      },
+    });
   };
 
-  const deleteFolder = async (f: Folder) => {
-    if (!(await dialog.confirm({ title: `Delete folder “${f.name}”?`, body: "Prompts inside are kept.", danger: true }))) return;
-    await api(`/api/v1/folders/${f.id}`, { method: "DELETE" });
-    await reloadFolders();
-    emitFoldersChanged();
-    if (activeFolder === f.id) router.push("/dashboard");
+  const deleteThreadNode = async (node: TreeNode) => {
+    await api(`/api/v1/threads/${node.id}`, { method: "DELETE" });
+    emitChanged();
+    toast(`Deleted “${node.label}”`);
   };
 
-  // persist a drag-reorder: each row's new index becomes its sortOrder
-  const persistOrder = (kind: "folders" | "projects", ids: string[]) => {
-    for (let i = 0; i < ids.length; i++) {
-      void api(`/api/v1/${kind}/${ids[i]}`, { method: "PATCH", body: { sortOrder: i } }).catch(() => {});
+  const persistOrder = (kind: "folders" | "projects") => (ids: string[]) => {
+    // optimistic local order, then persist each row's index
+    if (kind === "folders") {
+      const byId = new Map(folders.map((f) => [f.id, f]));
+      setFolders(ids.map((i) => byId.get(i)!).filter(Boolean));
+    } else {
+      const byId = new Map(projects.map((p) => [p.id, p]));
+      setProjects(ids.map((i) => byId.get(i)!).filter(Boolean));
     }
+    ids.forEach((id, i) => {
+      void api(`/api/v1/${kind}/${id}`, { method: "PATCH", body: { sortOrder: i } }).catch(() => {});
+    });
   };
 
-  // ---------- project actions ----------
-
-  const newProject = async () => {
-    const name = await dialog.prompt({ title: "New project", placeholder: "Project name", submitLabel: "Create" });
-    if (!name?.trim()) return;
-    await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
-    await reloadProjects();
-    emitFoldersChanged();
+  const moveThreadToProject = async (threadId: string, projectId: string) => {
+    await api(`/api/v1/threads/${threadId}`, { method: "PATCH", body: { projectId } });
+    emitChanged();
+    toast("Thread moved");
   };
 
-  const renameProject = async (p: ProjectRow) => {
-    const name = await dialog.prompt({ title: "Rename project", initial: p.name });
-    if (!name?.trim() || name.trim() === p.name) return;
-    await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
-    await reloadProjects();
-    emitFoldersChanged();
-  };
-
-  const deleteProject = async (p: ProjectRow) => {
-    if (!(await dialog.confirm({ title: `Delete project “${p.name}”?`, body: "Its threads are kept.", danger: true }))) return;
-    await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
-    await reloadProjects();
-    emitFoldersChanged();
-    if (activeProject === p.id) router.push("/dashboard/projects");
-  };
-
-  // ---------- team actions ----------
-
-  const newTeam = async () => {
-    const name = await dialog.prompt({ title: "New team", placeholder: "Team name", submitLabel: "Create" });
-    if (!name?.trim()) return;
-    try {
-      const t = await api<TeamRow>("/api/v1/teams", { method: "POST", body: { name: name.trim() } });
-      await reloadTeams();
-      router.push(`/dashboard/teams?t=${t.id}`);
-    } catch (e) {
-      await dialog.confirm({
-        title: "Could not create team",
-        body: e instanceof Error ? e.message : "Something went wrong.",
-      });
-    }
-  };
-
-  // ---------- styles ----------
-
-  const rowCls = (active: boolean) =>
-    `group flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[15px] transition-colors ${
-      active ? "bg-tint font-medium text-ink" : "text-dim hover:bg-hover hover:text-ink"
-    }`;
-
-  const sectionCls = (active: boolean) =>
-    `group flex flex-1 items-center gap-1.5 rounded-lg px-2 py-2 text-[15px] font-medium transition-colors ${
-      active ? "bg-tint text-ink" : "text-ink hover:bg-hover"
-    }`;
-
-  const rowClick = (href: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (draggingRef.current) return; // drag release, not a click
-    router.push(href);
-  };
+  const flatItem = (href: string, label: string) => (
+    <Link
+      key={href}
+      href={href}
+      className={`flex h-8 items-center rounded-md px-2 text-sm transition-colors duration-[120ms] ${
+        pathname === href ? "bg-ink/[0.06] font-medium text-ink" : "text-dim hover:bg-ink/[0.04] hover:text-ink"
+      }`}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <>
@@ -291,207 +276,104 @@ export function Sidebar() {
         ☰
       </button>
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-ink/30 md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-30 bg-ink/30 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
       <aside
+        style={{ width }}
         className={`${
-          mobileOpen ? "fixed inset-y-0 left-0 z-40 flex w-80" : "hidden"
-        } shrink-0 flex-col border-r border-line bg-raised p-4 md:static md:flex md:w-[35%] md:min-w-[300px]`}
-        onClick={() => setMobileOpen(false)}
+          mobileOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
+        } relative shrink-0 flex-col border-r border-line bg-raised px-3 py-4 md:static md:flex`}
       >
-        <Link href="/" className="mb-6 px-2 font-display text-[22px] font-light tracking-tight">
+        <Link href="/" className="mb-5 px-2 font-display text-xl font-light tracking-tight">
           Prompt Diary
         </Link>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
-          {/* ---------- My Prompts ---------- */}
-          <div className="flex items-center">
-            <button className="rounded-md p-1 hover:bg-hover" aria-label="Toggle prompts" onClick={() => toggle("prompts")}>
-              <Chevron open={open.prompts} />
-            </button>
-            <Link
-              href="/dashboard"
-              className={sectionCls(onPrompts && !activeFolder && !activeTab)}
-            >
-              My Prompts
-            </Link>
-          </div>
-          {open.prompts && (
-            <div className="mb-2 ml-4 flex flex-col gap-0.5 border-l border-line pl-2">
-              <Link href="/dashboard?tab=pinned" className={rowCls(activeTab === "pinned")}>
-                <span className="text-sm">★</span> Pinned
-              </Link>
-              <Reorder.Group
-                axis="y"
-                values={folders.map((f) => f.id)}
-                onReorder={(ids: string[]) => {
-                  const byId = new Map(folders.map((f) => [f.id, f]));
-                  setFolders(ids.map((id) => byId.get(id)!).filter(Boolean));
-                }}
-                className="flex flex-col gap-0.5"
-              >
-                {folders.map((f) => (
-                  <Reorder.Item
-                    key={f.id}
-                    value={f.id}
-                    onDragStart={() => (draggingRef.current = true)}
-                    onDragEnd={() => {
-                      setTimeout(() => (draggingRef.current = false), 50);
-                      persistOrder("folders", folders.map((x) => x.id));
-                    }}
-                    whileDrag={{ scale: 1.02, backgroundColor: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", borderRadius: 8 }}
-                  >
-                    <a
-                      href={`/dashboard?folder=${f.id}`}
-                      className={`${rowCls(activeFolder === f.id)} cursor-grab active:cursor-grabbing`}
-                      onClick={rowClick(`/dashboard?folder=${f.id}`)}
-                    >
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: f.color }} />
-                      <span className="truncate">{f.name}</span>
-                      <RowMenu onRename={() => void renameFolder(f)} onDelete={() => void deleteFolder(f)} />
-                    </a>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
-              <button className={`${rowCls(false)} text-dim`} onClick={() => void newFolder()}>
-                <span className="text-sm">+</span> New folder
-              </button>
-            </div>
-          )}
+        <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+          <TreeSection
+            id="prompts"
+            title="My Prompts"
+            titleHref="/dashboard"
+            nodes={promptNodes}
+            activeId={activeTab === "pinned" ? "pinned" : activeFolder}
+            isTitleActive={onPrompts && !activeFolder && !activeTab}
+            onNavigate={navigate}
+            onRename={renameItem("folders")}
+            onDelete={deleteFolderNode}
+            onReorder={persistOrder("folders")}
+            onCreate={async (name) => {
+              const folder = await api<Folder>("/api/v1/folders", { method: "POST", body: { name } });
+              emitChanged();
+              router.push(`/dashboard?folder=${folder.id}`);
+            }}
+            emptyLabel="No folders yet"
+          />
 
-          {/* ---------- Projects ---------- */}
-          <div className="flex items-center">
-            <button className="rounded-md p-1 hover:bg-hover" aria-label="Toggle projects" onClick={() => toggle("projects")}>
-              <Chevron open={open.projects} />
-            </button>
-            <Link
-              href="/dashboard/projects"
-              className={sectionCls(pathname === "/dashboard/projects" && !activeProject)}
-            >
-              Projects
-            </Link>
-          </div>
-          {open.projects && (
-            <div className="mb-2 ml-4 flex flex-col gap-0.5 border-l border-line pl-2">
-              <Reorder.Group
-                axis="y"
-                values={projects.map((p) => p.id)}
-                onReorder={(ids: string[]) => {
-                  const byId = new Map(projects.map((p) => [p.id, p]));
-                  setProjects(ids.map((id) => byId.get(id)!).filter(Boolean));
-                }}
-                className="flex flex-col gap-0.5"
-              >
-                {projects.map((p) => (
-                  <Reorder.Item
-                    key={p.id}
-                    value={p.id}
-                    onDragStart={() => (draggingRef.current = true)}
-                    onDragEnd={() => {
-                      setTimeout(() => (draggingRef.current = false), 50);
-                      persistOrder("projects", projects.map((x) => x.id));
-                    }}
-                    whileDrag={{ scale: 1.02, backgroundColor: "#ffffff", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", borderRadius: 8 }}
-                  >
-                    <a
-                      href={`/dashboard/projects?p=${p.id}`}
-                      className={`${rowCls(activeProject === p.id)} cursor-grab active:cursor-grabbing`}
-                      onClick={rowClick(`/dashboard/projects?p=${p.id}`)}
-                    >
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
-                      <span className="truncate">{p.name}</span>
-                      <RowMenu onRename={() => void renameProject(p)} onDelete={() => void deleteProject(p)} />
-                    </a>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
-              <button className={`${rowCls(false)} text-dim`} onClick={() => void newProject()}>
-                <span className="text-sm">+</span> New project
-              </button>
-            </div>
-          )}
+          <TreeSection
+            id="projects"
+            title="Projects"
+            titleHref="/dashboard/projects"
+            nodes={projectNodes}
+            activeId={activeThread ?? activeProject}
+            isTitleActive={pathname === "/dashboard/projects" && !activeProject}
+            onNavigate={navigate}
+            onRename={(node, name) =>
+              renameItem(threads.some((t) => t.id === node.id) ? "threads" : "projects")(node, name)
+            }
+            onDelete={(node) =>
+              threads.some((t) => t.id === node.id) ? deleteThreadNode(node) : deleteProjectNode(node)
+            }
+            onReorder={persistOrder("projects")}
+            onDropInto={moveThreadToProject}
+            onCreate={async (name) => {
+              await api("/api/v1/projects", { method: "POST", body: { name } });
+              emitChanged();
+            }}
+            emptyLabel="No projects yet"
+          />
 
-          {/* ---------- Teams (your memberships, role inline) ---------- */}
-          <div className="flex items-center">
-            <button className="rounded-md p-1 hover:bg-hover" aria-label="Toggle teams" onClick={() => toggle("teams")}>
-              <Chevron open={open.teams} />
-            </button>
-            <Link
-              href="/dashboard/teams"
-              className={sectionCls(pathname === "/dashboard/teams" && !activeTeam)}
-            >
-              Teams
-            </Link>
-          </div>
-          {open.teams && (
-            <div className="mb-2 ml-4 flex flex-col gap-0.5 border-l border-line pl-2">
-              {teams.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/dashboard/teams?t=${t.id}`}
-                  className={rowCls(activeTeam === t.id)}
-                >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-tint text-xs font-semibold">
-                    {t.name.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="truncate">{t.name}</span>
-                  <span className={`ml-auto shrink-0 text-xs ${t.role === "owner" ? "text-amber" : "text-dim"}`}>
-                    {t.role}
-                  </span>
-                </Link>
-              ))}
-              {teams.length === 0 && (
-                <span className="px-3 py-1 text-sm text-dim">No teams yet</span>
-              )}
-              <button className={`${rowCls(false)} text-dim`} onClick={() => void newTeam()}>
-                <span className="text-sm">+</span> New team
-              </button>
-            </div>
-          )}
+          <TreeSection
+            id="teams"
+            title="Teams"
+            titleHref="/dashboard/teams"
+            nodes={teamNodes}
+            activeId={activeTeam}
+            isTitleActive={pathname === "/dashboard/teams" && !activeTeam}
+            onNavigate={navigate}
+            onCreate={async (name) => {
+              try {
+                const t = await api<TeamRow>("/api/v1/teams", { method: "POST", body: { name } });
+                emitChanged();
+                router.push(`/dashboard/teams?t=${t.id}`);
+              } catch (e) {
+                toast(e instanceof Error ? e.message : "Could not create team", { kind: "error" });
+              }
+            }}
+            emptyLabel="No teams yet"
+          />
 
-          {/* ---------- flat items ---------- */}
-          {[
-            { href: "/dashboard/usage", label: "Usage" },
-            { href: "/gallery", label: "Public Gallery" },
-            { href: "/dashboard/profile", label: "Profile" },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-lg px-3 py-2 text-[15px] ${
-                pathname === item.href
-                  ? "bg-tint font-medium text-ink"
-                  : "text-dim hover:bg-hover hover:text-ink"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          <div className="mt-1 flex flex-col gap-0.5 border-t border-line pt-3">
+            {flatItem("/dashboard/usage", "Usage")}
+            {flatItem("/gallery", "Public Gallery")}
+            {flatItem("/dashboard/profile", "Profile")}
+          </div>
         </nav>
 
-        <div className="mt-auto flex items-center gap-3 border-t border-line px-1 pt-3">
+        <div className="mt-auto flex items-center gap-2.5 border-t border-line px-1 pt-3">
           {session.user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={session.user.image}
               alt=""
-              className="h-9 w-9 shrink-0 rounded-full border border-line object-cover"
+              className="h-8 w-8 shrink-0 rounded-full border border-line object-cover"
             />
           ) : (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint text-sm font-bold text-ink">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint text-sm font-bold text-ink">
               {(session.user.name || session.user.email).charAt(0).toUpperCase()}
             </span>
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">
-              {session.user.name}
-            </span>
-            <span className="block truncate text-xs text-dim">
-              {session.user.email}
-            </span>
+            <span className="block truncate text-sm font-semibold">{session.user.name}</span>
+            <span className="block truncate text-xs text-dim">{session.user.email}</span>
           </span>
           <button
             className="text-xs font-semibold text-dim hover:text-danger"
@@ -501,6 +383,15 @@ export function Sidebar() {
             Exit
           </button>
         </div>
+
+        {/* drag-to-resize edge */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          className="absolute -right-0.5 top-0 hidden h-full w-1.5 cursor-col-resize hover:bg-ink/10 md:block"
+          onPointerDown={startResize}
+        />
       </aside>
     </>
   );

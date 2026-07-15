@@ -33,7 +33,12 @@ export default function DashboardLayout({
       <Suspense>
         <Sidebar />
       </Suspense>
-      <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">{children}</main>
+      {/* content sits in a comfortable centered column, not edge-to-edge */}
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto h-full max-w-[1040px] px-6 py-6 text-[15px] md:px-12 md:py-8">
+          {children}
+        </div>
+      </main>
       <CommandPalette />
     </div>
   );
