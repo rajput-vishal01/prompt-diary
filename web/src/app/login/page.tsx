@@ -36,12 +36,12 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
-      {/* soft blue glow rising from the bottom, fading to nothing by mid-page */}
-      <div aria-hidden className="auth-glow" />
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"
-      >
+  {/* soft blue glow rising from the bottom, fading to nothing by mid-page */}
+  <div aria-hidden className="auth-glow z-0" />
+  <form
+    onSubmit={submit}
+    className="relative z-10 w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"
+  >
         <Link href="/" className="block text-center font-display text-2xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>
         </Link>
