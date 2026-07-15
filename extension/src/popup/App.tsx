@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import {
   addFolder,
@@ -78,6 +79,8 @@ export function App() {
   const [recording, setRecording] = useState<ThreadRef | null>(null);
   const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
   const [newThreadTitle, setNewThreadTitle] = useState("");
+  // navigation tree lives behind "⋯" as a temporary overlay, never a column
+  const [manageOpen, setManageOpen] = useState(false);
   // window.prompt is unreliable in MV3 popups — inline ask overlay instead
   const [ask, setAsk] = useState<{
     title: string;
@@ -91,11 +94,12 @@ export function App() {
     onConfirm: () => void;
   } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const reload = () => void getVault().then(setVaultState);
 
   // launcher behavior: typing ANYWHERE in the popup lands in the search box —
-  // clicking a row/button steals focus, and search must never "stop working"
+  // clicking a chip/row steals focus, and search must never "stop working"
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
@@ -166,6 +170,13 @@ export function App() {
       return b.updatedAt.localeCompare(a.updatedAt);
     });
   }, [vault, filter, query, recents]);
+
+  // the arrow-key cursor must stay on screen — it IS the core interaction
+  useEffect(() => {
+    listRef.current
+      ?.querySelector(".row.selected")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selected, prompts]);
 
   if (!vault) return null;
 
@@ -264,118 +275,25 @@ export function App() {
     });
   };
 
+  const isFolderActive = (id: string) =>
+    filter !== "all" && filter !== "pinned" && filter.folderId === id;
+
   return (
     <div className="app" style={{ position: "relative" }}>
-      <aside className="sidebar">
-        <div className="brand">
-          Prompt<span>Diary</span>
-        </div>
-        <button
-          className={`nav-item ${filter === "all" ? "active" : ""}`}
-          onClick={() => setFilter("all")}
-        >
-          <span className="label">All prompts</span>
-        </button>
-        <button
-          className={`nav-item ${filter === "pinned" ? "active" : ""}`}
-          onClick={() => setFilter("pinned")}
-        >
-          <span className="label">Pinned</span>
-        </button>
-
-        <div className="sidebar-section">Folders</div>
-        {vault.folders.map((f) => (
-          <button
-            key={f.id}
-            className={`nav-item ${
-              filter !== "all" && filter !== "pinned" && filter.folderId === f.id
-                ? "active"
-                : ""
-            }`}
-            onClick={() => setFilter({ folderId: f.id })}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              void handleDeleteFolder(f);
-            }}
-            title={`${f.name} (right-click to delete)`}
-          >
-            <span className="dot" style={{ background: f.color }} />
-            <span className="label">{f.name}</span>
+      {/* ---------- header: wordmark → search → filter chips ---------- */}
+      <div className="header">
+        <div className="brand-row">
+          <span className="brand">PromptDiary</span>
+          <button className="btn primary small" onClick={() => setEditing("new")}>
+            <Plus size={13} /> New
           </button>
-        ))}
-        <button className="nav-item add-folder" onClick={() => void handleNewFolder()}>
-          + New folder
-        </button>
+        </div>
 
-        {auth && (
-          <>
-            <div className="sidebar-section">Threads</div>
-            <button
-              className="nav-item"
-              style={recording ? { color: "var(--danger)", fontWeight: 700 } : undefined}
-              title={
-                recording
-                  ? `Recording to “${recording.title}” — click to stop`
-                  : "Record saves into a thread"
-              }
-              onClick={() => {
-                if (recording) {
-                  void setActiveThread(null).then(() => setRecording(null));
-                } else {
-                  void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
-                }
-              }}
-            >
-              <span className="label">
-                {recording ? `◉ ${recording.title}` : "○ Record"}
-              </span>
-            </button>
-            <button
-              className="nav-item add-folder"
-              onClick={() => {
-                setAskValue("");
-                setAsk({
-                  title: "New thread",
-                  placeholder: "Thread title",
-                  onSubmit: (title) =>
-                    void createThread(title).then((t) => {
-                      void setActiveThread(t);
-                      setRecording(t);
-                      setSyncMsg(`Recording → ${t.title}`);
-                      setTimeout(() => setSyncMsg(null), 2000);
-                    }),
-                });
-              }}
-            >
-              + New thread
-            </button>
-            <button
-              className="nav-item add-folder"
-              onClick={() => {
-                setAskValue("");
-                setAsk({
-                  title: "New project",
-                  placeholder: "Project name",
-                  onSubmit: (name) =>
-                    void createProject(name).then(() => {
-                      setSyncMsg("Project created");
-                      setTimeout(() => setSyncMsg(null), 2000);
-                    }),
-                });
-              }}
-            >
-              + New project
-            </button>
-          </>
-        )}
-      </aside>
-
-      <main className="main">
-        <div className="topbar">
+        <div className="search-wrap">
           <input
             ref={searchRef}
             className="search"
-            placeholder="Search — ↑↓ then ↵ inserts where you were typing"
+            placeholder="Search prompts…"
             value={query}
             autoFocus
             onChange={(e) => {
@@ -398,37 +316,83 @@ export function App() {
               }
             }}
           />
-          <button className="btn primary" onClick={() => setEditing("new")}>
-            + New
+          {/* persistent hint — arrow nav stays active while typing */}
+          <span className="kbd-hint" aria-hidden>
+            ↑↓ ↵
+          </span>
+        </div>
+
+        {/* navigation = one 28px chip row, not a permanent column */}
+        <div className="chips">
+          <button
+            className={`chip ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </button>
+          <button
+            className={`chip ${filter === "pinned" ? "active" : ""}`}
+            onClick={() => setFilter("pinned")}
+          >
+            ★ Pinned
+          </button>
+          {vault.folders.map((f) => (
+            <button
+              key={f.id}
+              className={`chip ${isFolderActive(f.id) ? "active" : ""}`}
+              onClick={() => setFilter(isFolderActive(f.id) ? "all" : { folderId: f.id })}
+            >
+              <span className="dot" style={{ background: f.color }} />
+              {f.name}
+            </button>
+          ))}
+          {recording && (
+            <button
+              className="chip recording"
+              title={`Recording to “${recording.title}” — click to stop`}
+              onClick={() => void setActiveThread(null).then(() => setRecording(null))}
+            >
+              ◉ {recording.title}
+            </button>
+          )}
+          <button
+            className="chip manage"
+            title="Folders & threads"
+            onClick={() => setManageOpen(true)}
+          >
+            <MoreHorizontal size={14} />
           </button>
         </div>
+      </div>
 
-        <div className="list">
-          {prompts.length === 0 ? (
-            <div className="empty">
-              <strong>No prompts here yet.</strong>
-              <br />
-              Highlight text on any page → right-click →{" "}
-              <em>Save to Prompt Diary</em>, or click <em>+ New</em>.
-            </div>
-          ) : (
-            prompts.map((p, i) => (
-              <PromptCard
-                key={p.id}
-                isSelected={i === selected}
-                prompt={p}
-                folders={vault.folders}
-                onCopy={() => void handleCopy(p)}
-                onEdit={() => setEditing(p)}
-                onTogglePin={() => {
-                  void updatePrompt(p.id, { pinned: !p.pinned }).then(reload);
-                }}
-              />
-            ))
-          )}
-        </div>
+      {/* ---------- results ---------- */}
+      <div className="list" ref={listRef}>
+        {prompts.length === 0 ? (
+          <div className="empty">
+            <strong>No prompts here yet.</strong>
+            <br />
+            Highlight text on any page → right-click →{" "}
+            <em>Save to Prompt Diary</em>, or click <em>+ New</em>.
+          </div>
+        ) : (
+          prompts.map((p, i) => (
+            <PromptCard
+              key={p.id}
+              isSelected={i === selected}
+              prompt={p}
+              onCopy={() => void handleCopy(p)}
+              onEdit={() => setEditing(p)}
+              onTogglePin={() => {
+                void updatePrompt(p.id, { pinned: !p.pinned }).then(reload);
+              }}
+            />
+          ))
+        )}
+      </div>
 
-        <div className="footer">
+      {/* ---------- footer: left group / right group ---------- */}
+      <div className="footer">
+        <div className="footer-left">
           <span className={`status-dot ${auth ? "online" : ""}`} />
           <span>
             {syncMsg ??
@@ -436,20 +400,21 @@ export function App() {
                 ? `${auth.email} · ${vault.prompts.length} prompts`
                 : `Local vault · ${vault.prompts.length} prompts`)}
           </span>
-          <span className="spacer" />
+        </div>
+        <div className="footer-right">
           <button
-            className="link-btn"
+            className="kbd-badge"
             title="Change the keyboard shortcut (opens Chrome's shortcut settings)"
             onClick={() => {
               void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
             }}
           >
-            ⌨ {hotkey}
+            {hotkey}
           </button>
           {auth ? (
             <>
-              <button className="link-btn" onClick={() => void handleSync()}>
-                Sync
+              <button className="icon-btn" title="Sync now" onClick={() => void handleSync()}>
+                <RefreshCw size={13} />
               </button>
               <button
                 className="link-btn"
@@ -469,7 +434,120 @@ export function App() {
             </button>
           )}
         </div>
-      </main>
+      </div>
+
+      {/* ---------- "⋯" management overlay: the tree, temporarily ---------- */}
+      {manageOpen && (
+        <div className="editor">
+          <h2>Folders & threads</h2>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <div className="manage-section">Folders</div>
+            {vault.folders.map((f) => (
+              <button
+                key={f.id}
+                className="manage-item"
+                onClick={() => {
+                  setFilter({ folderId: f.id });
+                  setManageOpen(false);
+                }}
+              >
+                <span className="dot" style={{ background: f.color }} />
+                <span className="label">{f.name}</span>
+                <span
+                  className="x"
+                  title="Delete folder"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setManageOpen(false);
+                    void handleDeleteFolder(f);
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            ))}
+            <button
+              className="manage-item muted"
+              onClick={() => {
+                setManageOpen(false);
+                handleNewFolder();
+              }}
+            >
+              + New folder
+            </button>
+
+            {auth && (
+              <>
+                <div className="manage-section">Threads</div>
+                <button
+                  className="manage-item"
+                  style={recording ? { color: "var(--danger)", fontWeight: 600 } : undefined}
+                  title={
+                    recording
+                      ? `Recording to “${recording.title}” — click to stop`
+                      : "Record saves into a thread"
+                  }
+                  onClick={() => {
+                    if (recording) {
+                      void setActiveThread(null).then(() => setRecording(null));
+                    } else {
+                      setManageOpen(false);
+                      void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
+                    }
+                  }}
+                >
+                  <span className="label">
+                    {recording ? `◉ Recording — ${recording.title}` : "○ Record to thread"}
+                  </span>
+                </button>
+                <button
+                  className="manage-item muted"
+                  onClick={() => {
+                    setManageOpen(false);
+                    setAskValue("");
+                    setAsk({
+                      title: "New thread",
+                      placeholder: "Thread title",
+                      onSubmit: (title) =>
+                        void createThread(title).then((t) => {
+                          void setActiveThread(t);
+                          setRecording(t);
+                          setSyncMsg(`Recording → ${t.title}`);
+                          setTimeout(() => setSyncMsg(null), 2000);
+                        }),
+                    });
+                  }}
+                >
+                  + New thread
+                </button>
+                <button
+                  className="manage-item muted"
+                  onClick={() => {
+                    setManageOpen(false);
+                    setAskValue("");
+                    setAsk({
+                      title: "New project",
+                      placeholder: "Project name",
+                      onSubmit: (name) =>
+                        void createProject(name).then(() => {
+                          setSyncMsg("Project created");
+                          setTimeout(() => setSyncMsg(null), 2000);
+                        }),
+                    });
+                  }}
+                >
+                  + New project
+                </button>
+              </>
+            )}
+          </div>
+          <div className="actions">
+            <button className="btn" onClick={() => setManageOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {ask && (
         <div className="editor">
@@ -541,7 +619,7 @@ export function App() {
             {recPicker.map((t) => (
               <button
                 key={t.id}
-                className="nav-item"
+                className="manage-item"
                 style={{ marginBottom: 2 }}
                 onClick={() => {
                   void setActiveThread(t).then(() => {

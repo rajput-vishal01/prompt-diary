@@ -123,6 +123,7 @@ export async function addFolder(name: string, color = "#6366f1"): Promise<Folder
     userId: LOCAL_USER,
     name,
     color,
+    sortOrder: 0, // sidebar drag order lives on the web; local folders append
     createdAt: now(),
     updatedAt: now(),
   };
