@@ -10,3 +10,4 @@ out/
 *.tsbuildinfo
 .turbo/
 coverage/
+graphify-out
