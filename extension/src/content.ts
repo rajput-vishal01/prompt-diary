@@ -4,6 +4,15 @@
 //  1. selection bubble — select any text, click Pd, it's in the vault
 //  2. composer button — docked at the chatbox, saves your draft pre-send
 
+import {
+  LIMITS,
+  PLAN_LABELS,
+  limitState,
+  pruneWindow,
+  resetEta,
+  type Plan,
+} from "./lib/limits";
+
 const MIN_SELECTION = 10;
 const TITLE_MAX = 60;
 
@@ -60,6 +69,64 @@ style.textContent = `
     font: 600 12.5px/1 system-ui, sans-serif;
     display: none;
   }
+  .pd-limit {
+    position: fixed;
+    z-index: 2147483646;
+    right: 16px;
+    bottom: 16px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    color: #0c0a09;
+    border: 1px solid #e7e5e4;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font: 500 11.5px/1.4 system-ui, sans-serif;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    user-select: none;
+    min-width: 150px;
+  }
+  .pd-limit-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pd-limit-head .pd-mark { font-size: 12px; }
+  .pd-limit-count { margin-left: auto; font-variant-numeric: tabular-nums; color: #57534e; }
+  .pd-limit-bar {
+    height: 4px;
+    border-radius: 9999px;
+    background: #f0efed;
+    overflow: hidden;
+  }
+  .pd-limit-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: #292524;
+    width: 0%;
+    transition: width 300ms ease-out;
+  }
+  .pd-limit.warn .pd-limit-fill { background: #8a5a06; }
+  .pd-limit.over .pd-limit-fill { background: #dc2626; }
+  .pd-limit-note { color: #57534e; font-size: 10.5px; display: none; }
+  .pd-limit.over .pd-limit-note { display: block; color: #dc2626; font-weight: 600; }
+  .pd-limit-panel { display: none; flex-direction: column; gap: 6px; border-top: 1px solid #e7e5e4; padding-top: 7px; margin-top: 2px; }
+  .pd-limit.open .pd-limit-panel { display: flex; }
+  .pd-limit-plans { display: flex; gap: 4px; }
+  .pd-limit-plan {
+    flex: 1;
+    border: 1px solid #d6d3d1;
+    background: transparent;
+    color: #57534e;
+    border-radius: 9999px;
+    padding: 3px 0;
+    font: 500 10.5px/1 system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .pd-limit-plan.active { background: #292524; border-color: #292524; color: #fff; }
+  .pd-limit-est { color: #a8a29e; font-size: 10px; }
 `;
 shadow.appendChild(style);
 
@@ -237,10 +304,13 @@ function dockComposerButton() {
 }
 
 // SPAs mount the chatbox late, move it around, and stream messages in —
-// one cheap tick handles composer re-docking and new-message buttons
+// one cheap tick handles composer re-docking, new-message buttons, and the
+// usage-limit widget
 setInterval(() => {
   if (finder) dockComposerButton();
   injectMessageButtons();
+  trackUserMessages();
+  updateLimitWidget();
 }, 600);
 if (finder) window.addEventListener("resize", dockComposerButton);
 
@@ -315,6 +385,138 @@ function roleOf(el: HTMLElement): "user" | "assistant" | undefined {
     return el.closest("user-query") ? "user" : "assistant";
   }
   return undefined;
+}
+
+// ---------- usage-limit widget ----------
+// We already estimate usage; this puts it ON the page: user messages are
+// counted in the site's rolling window and compared against plan limits
+// (estimated — vendors don't publish exact numbers). Three states: ok,
+// nearing (≥70%), likely reached.
+
+// user-turn selectors (the save-button selector misses Gemini's user turns)
+const USER_MSG_SELECTORS: Record<string, string> = {
+  chatgpt: "[data-message-author-role='user']",
+  claude: "div[data-testid='user-message']",
+  gemini: "user-query",
+};
+
+let msgLog: number[] = []; // in-window user-message timestamps for this site
+let sitePlan: Plan = "free";
+// hydrating an old conversation mounts historical messages — a grace period
+// after load/SPA-navigation keeps them from counting as new sends
+let graceUntil = Date.now() + 3000;
+let lastPath = location.pathname;
+
+if (SITE_KEY_FOR_CAPTURE) {
+  void chrome.storage.local.get(["usageMsgLog", "sitePlans"]).then((res) => {
+    const log = (res["usageMsgLog"] as Record<string, number[]> | undefined) ?? {};
+    msgLog = log[SITE_KEY_FOR_CAPTURE!] ?? [];
+    const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
+    sitePlan = plans[SITE_KEY_FOR_CAPTURE!] ?? "free";
+    buildLimitWidget();
+  });
+}
+
+function persistMsgLog() {
+  void chrome.storage.local.get("usageMsgLog").then((res) => {
+    const log = (res["usageMsgLog"] as Record<string, number[]> | undefined) ?? {};
+    log[SITE_KEY_FOR_CAPTURE!] = msgLog;
+    void chrome.storage.local.set({ usageMsgLog: log });
+  });
+}
+
+function trackUserMessages() {
+  if (!SITE_KEY_FOR_CAPTURE) return;
+  if (location.pathname !== lastPath) {
+    lastPath = location.pathname;
+    graceUntil = Date.now() + 3000; // SPA nav — old messages about to mount
+  }
+  const sel = USER_MSG_SELECTORS[SITE_KEY_FOR_CAPTURE];
+  if (!sel) return;
+  let logged = false;
+  for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+    if (el.dataset["pdMsgSeen"]) continue;
+    el.dataset["pdMsgSeen"] = "1";
+    if (Date.now() < graceUntil) continue; // hydration, not a new send
+    msgLog.push(Date.now());
+    logged = true;
+  }
+  if (logged) {
+    const { windowHours } = LIMITS[SITE_KEY_FOR_CAPTURE]![sitePlan];
+    msgLog = pruneWindow(msgLog, windowHours, Date.now());
+    persistMsgLog();
+  }
+}
+
+// widget DOM (inside the same closed shadow root)
+const limitBox = document.createElement("div");
+limitBox.className = "pd-limit";
+shadow.appendChild(limitBox);
+
+function buildLimitWidget() {
+  if (!SITE_KEY_FOR_CAPTURE) return;
+  limitBox.innerHTML = `
+    <div class="pd-limit-head">
+      <span class="pd-mark">Pd</span>
+      <span class="pd-limit-label"></span>
+      <span class="pd-limit-count"></span>
+    </div>
+    <div class="pd-limit-bar"><div class="pd-limit-fill"></div></div>
+    <div class="pd-limit-note"></div>
+    <div class="pd-limit-panel">
+      <div class="pd-limit-plans"></div>
+      <span class="pd-limit-est">Estimated from observed messages — not an official meter.</span>
+    </div>`;
+  const plansEl = limitBox.querySelector(".pd-limit-plans")!;
+  (Object.keys(PLAN_LABELS) as Plan[]).forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "pd-limit-plan";
+    b.dataset["plan"] = p;
+    b.textContent = PLAN_LABELS[p];
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sitePlan = p;
+      void chrome.storage.local.get("sitePlans").then((res) => {
+        const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
+        plans[SITE_KEY_FOR_CAPTURE!] = p;
+        void chrome.storage.local.set({ sitePlans: plans });
+      });
+      updateLimitWidget();
+    });
+    plansEl.appendChild(b);
+  });
+  limitBox.addEventListener("click", () => limitBox.classList.toggle("open"));
+  limitBox.style.display = "flex";
+  updateLimitWidget();
+}
+
+function updateLimitWidget() {
+  if (!SITE_KEY_FOR_CAPTURE || limitBox.style.display === "none") return;
+  const { windowHours, maxMessages } = LIMITS[SITE_KEY_FOR_CAPTURE]![sitePlan];
+  msgLog = pruneWindow(msgLog, windowHours, Date.now());
+  const count = msgLog.length;
+  const state = limitState(count, maxMessages);
+  limitBox.classList.remove("warn", "over");
+  if (state !== "ok") limitBox.classList.add(state);
+
+  const label = limitBox.querySelector<HTMLElement>(".pd-limit-label");
+  const countEl = limitBox.querySelector<HTMLElement>(".pd-limit-count");
+  const fill = limitBox.querySelector<HTMLElement>(".pd-limit-fill");
+  const note = limitBox.querySelector<HTMLElement>(".pd-limit-note");
+  if (!label || !countEl || !fill || !note) return;
+
+  label.textContent = `${windowHours}h window`;
+  countEl.textContent = maxMessages === null ? `${count} msgs · ∞` : `${count}/${maxMessages} msgs`;
+  fill.style.width =
+    maxMessages === null ? "4%" : `${Math.min(100, (count / maxMessages) * 100)}%`;
+  const eta = resetEta(msgLog, windowHours, Date.now());
+  note.textContent =
+    state === "over"
+      ? `Limit likely reached${eta ? ` · frees up in ${eta}` : ""}`
+      : "";
+  limitBox.querySelectorAll<HTMLElement>(".pd-limit-plan").forEach((b) => {
+    b.classList.toggle("active", b.dataset["plan"] === sitePlan);
+  });
 }
 
 function captureTranscript():
