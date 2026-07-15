@@ -3,6 +3,7 @@ import { Inter, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import { DialogHost } from "@/components/Dialog";
+import { Cursor } from "@/components/Cursor";
 
 const sans = Inter({
   subsets: ["latin"],
@@ -44,6 +45,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <DialogHost />
+        <Cursor />
       </body>
     </html>
   );

@@ -35,7 +35,9 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      {/* soft blue glow rising from the bottom, fading to nothing by mid-page */}
+      <div aria-hidden className="auth-glow" />
       <form
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"

@@ -51,6 +51,18 @@ body {
   .orb {
     @apply pointer-events-none absolute rounded-full opacity-70 blur-3xl;
   }
+
+  /* auth pages: sky-blue glow rising from the bottom edge, gone by mid-page */
+  .auth-glow {
+    @apply pointer-events-none absolute inset-x-0 bottom-0 h-[50vh];
+    background: linear-gradient(
+      to top,
+      rgba(168, 200, 232, 0.28) 0%,
+      rgba(168, 200, 232, 0.1) 55%,
+      rgba(168, 200, 232, 0) 100%
+    );
+    animation: auth-glow-breathe 7s ease-in-out infinite;
+  }
 }
 
 ::selection {
@@ -70,6 +82,57 @@ body {
   50% {
     opacity: 0.45;
   }
+}
+
+@keyframes auth-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* custom cursor: ink dot + trailing ring (desktop pointers only) */
+.has-cursor,
+.has-cursor * {
+  cursor: none !important;
+}
+.has-cursor input,
+.has-cursor textarea {
+  cursor: text !important; /* keep the I-beam where people type */
+}
+
+.pd-cursor-dot,
+.pd-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 9999px;
+  opacity: 0; /* revealed on first mousemove */
+}
+.pd-cursor-dot {
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: #0c0a09;
+}
+/* GSAP owns the wrapper's transform; the inner visual scales on hover so the
+   two transforms never fight */
+.pd-cursor-ring .pd-cursor-ring-visual {
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1px solid rgba(12, 10, 9, 0.35);
+  border-radius: 9999px;
+  transition: transform 200ms ease-out, border-color 200ms ease-out;
+}
+.pd-cursor-ring.is-hover .pd-cursor-ring-visual {
+  transform: scale(1.5);
+  border-color: rgba(12, 10, 9, 0.6);
 }
 
 /* slow atmospheric drift for landing orbs */
