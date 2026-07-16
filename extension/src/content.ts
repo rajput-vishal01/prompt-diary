@@ -613,10 +613,22 @@ function restorePos() {
       const c = clampPos(p.x, p.y);
       applyPos(c.x, c.y);
     } else {
+      // default: bottom-right but lifted well off the bottom edge so the panel
+      // has room to expand downward without overflowing off-screen
       const r = limitBox.getBoundingClientRect();
-      applyPos(window.innerWidth - (r.width || 160) - 16, window.innerHeight - (r.height || 60) - 16);
+      applyPos(window.innerWidth - (r.width || 160) - 20, window.innerHeight - (r.height || 60) - 96);
     }
   });
+}
+
+// after the panel expands, the box is taller/wider — shift it up/left so the
+// whole thing stays on screen instead of overflowing below the viewport
+function fitInView() {
+  const r = limitBox.getBoundingClientRect();
+  const c = clampPos(r.left, r.top);
+  if (Math.round(c.x) !== Math.round(r.left) || Math.round(c.y) !== Math.round(r.top)) {
+    applyPos(c.x, c.y);
+  }
 }
 
 function makeDraggable() {
@@ -697,7 +709,9 @@ function buildLimitWidget() {
   });
   // click toggles the plan panel — but not when the click ends a drag
   limitBox.addEventListener("click", () => {
-    if (!dragMoved) limitBox.classList.toggle("open");
+    if (dragMoved) return;
+    limitBox.classList.toggle("open");
+    fitInView(); // opening makes it taller — keep the whole panel on screen
   });
   limitBox.style.display = "flex";
   makeDraggable();
