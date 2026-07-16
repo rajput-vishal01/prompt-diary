@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, CircleDot, HelpCircle, MoreHorizontal, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowLeftRight, CircleDot, HelpCircle, Plus, RefreshCw, X } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import {
   buildHandoffText,
@@ -86,9 +86,9 @@ export function App() {
   const [recording, setRecording] = useState<ThreadRef | null>(null);
   const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
   const [newThreadTitle, setNewThreadTitle] = useState("");
-  // navigation tree lives behind "⋯" as a temporary overlay, never a column
-  const [manageOpen, setManageOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  // guided tour: one feature per step, arrows pointing at the real controls
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const [tourRect, setTourRect] = useState<DOMRect | null>(null);
   // context transfer: one handoff slot + whether this tab can be captured
   const [handoff, setHandoffState] = useState<Handoff | null>(null);
   const [canCapture, setCanCapture] = useState(false);
@@ -134,10 +134,10 @@ export function App() {
     void getRecents().then(setRecents);
     void getActiveThread().then(setRecording);
     void getHandoff().then(setHandoffState);
-    // first open ever → show the guide once, so nobody has to guess what
+    // first open ever → run the tour once, so nobody has to guess what
     // Record / threads / Transfer mean
     void chrome.storage.local.get("helpSeen").then((res) => {
-      if (!res["helpSeen"]) setHelpOpen(true);
+      if (!res["helpSeen"]) setTourStep(0);
     });
     // the Transfer chip only appears on sites we can actually capture
     void chrome.tabs
@@ -170,6 +170,64 @@ export function App() {
     chrome.storage.onChanged.addListener(onChange);
     return () => chrome.storage.onChanged.removeListener(onChange);
   }, []);
+
+  // ---------- guided tour ----------
+  // each step highlights ONE control with a pulsing ring + bouncing arrow
+
+  const TOUR: Array<{ title: string; text: string; target?: string }> = [
+    {
+      title: "Save prompts from any AI chat",
+      text: "On ChatGPT, Claude & co: select text and click the Pd bubble, hit “Pd · Save” under any message, or right-click → Save to Prompt Diary. Everything lands here.",
+    },
+    {
+      title: "Find it, hit ↵, it's in the chatbox",
+      text: `Open this popup with ${hotkey || "Alt+P"}, type to search, ↑↓ to pick, ↵ to insert straight into the field you were typing in — on any website. Clicking a row copies it.`,
+      target: "search",
+    },
+    {
+      title: "Write one from scratch",
+      text: "“+ New” opens the editor — title, prompt, tags, folder, visibility.",
+      target: "new",
+    },
+    {
+      title: "Folders keep it tidy",
+      text: "Group prompts by topic. Click a folder to filter, “+ New folder” to add one, right-click a folder to delete it.",
+      target: "folders",
+    },
+    {
+      title: "Record a thread — your prompt recipe",
+      text: "A thread is the chain of prompts that produced one great result. Hit Record, pick or create a thread, and every save becomes its next step automatically. Projects on the dashboard shelve threads across different AIs.",
+      target: "record",
+    },
+    {
+      title: "Move a conversation to another model",
+      text: "Deep in a chat but want a different AI? Hit ⇄ Transfer to capture the conversation, open the other model, and Insert — it continues where you left off.",
+      target: "transfer",
+    },
+    {
+      title: "Know your limits before you hit them",
+      text: "The small Pd meter on AI sites counts your sends against that model's rate limit (estimated). Amber = getting close, red = likely maxed, with a reset countdown. Click it to set your plan. That's the tour!",
+    },
+  ];
+
+  // measure the highlighted control whenever the step changes
+  useEffect(() => {
+    if (tourStep === null) {
+      setTourRect(null);
+      return;
+    }
+    const step = TOUR[tourStep];
+    const el = step?.target
+      ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`)
+      : null;
+    setTourRect(el ? el.getBoundingClientRect() : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourStep, auth]);
+
+  const endTour = () => {
+    setTourStep(null);
+    void chrome.storage.local.set({ helpSeen: true });
+  };
 
   const prompts = useMemo(() => {
     if (!vault) return [];
@@ -341,26 +399,111 @@ export function App() {
 
   return (
     <div className="app" style={{ position: "relative" }}>
-      {/* ---------- header: wordmark → search → filter chips ---------- */}
-      <div className="header">
-        <div className="brand-row">
-          <span className="brand">PromptDiary</span>
-          <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      {/* ---------- sidebar: folders + threads, always visible ---------- */}
+      <aside className="sidebar">
+        <div className="brand">PromptDiary</div>
+        <button
+          className={`nav-item ${filter === "all" ? "active" : ""}`}
+          onClick={() => setFilter("all")}
+        >
+          All prompts
+        </button>
+        <button
+          className={`nav-item ${filter === "pinned" ? "active" : ""}`}
+          onClick={() => setFilter("pinned")}
+        >
+          ★ Pinned
+        </button>
+
+        <div className="sidebar-section">Folders</div>
+        <div data-tour="folders">
+          {vault.folders.map((f) => (
             <button
-              className="icon-btn"
-              title="How Prompt Diary works"
-              aria-label="Help"
-              onClick={() => setHelpOpen(true)}
+              key={f.id}
+              className={`nav-item ${isFolderActive(f.id) ? "active" : ""}`}
+              title={`${f.name} — right-click to delete`}
+              onClick={() => setFilter(isFolderActive(f.id) ? "all" : { folderId: f.id })}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                void handleDeleteFolder(f);
+              }}
             >
-              <HelpCircle size={15} />
+              <span className="dot" style={{ background: f.color }} />
+              <span className="label">{f.name}</span>
             </button>
-            <button className="btn primary small" onClick={() => setEditing("new")}>
-              <Plus size={13} /> New
-            </button>
-          </span>
+          ))}
+          <button className="nav-item add" onClick={handleNewFolder}>
+            + New folder
+          </button>
         </div>
 
-        <div className="search-wrap">
+        {auth && (
+          <>
+            <div className="sidebar-section">Threads</div>
+            <button
+              className={`nav-item ${recording ? "recording" : ""}`}
+              data-tour="record"
+              title={
+                recording
+                  ? `Recording to “${recording.title}” — every save becomes its next step. Click to stop.`
+                  : "Record saves into a thread — each save becomes the next step of a recipe"
+              }
+              onClick={() => {
+                if (recording) {
+                  void setActiveThread(null).then(() => setRecording(null));
+                } else {
+                  void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
+                }
+              }}
+            >
+              <CircleDot size={12} />
+              <span className="label">{recording ? recording.title : "Record"}</span>
+            </button>
+            <button
+              className="nav-item add"
+              onClick={() => {
+                setAskValue("");
+                setAsk({
+                  title: "New thread",
+                  placeholder: "Thread title",
+                  onSubmit: (title) =>
+                    void createThread(title).then((t) => {
+                      void setActiveThread(t);
+                      setRecording(t);
+                      setSyncMsg(`Recording → ${t.title}`);
+                      setTimeout(() => setSyncMsg(null), 2000);
+                    }),
+                });
+              }}
+            >
+              + New thread
+            </button>
+            <button
+              className="nav-item add"
+              onClick={() => {
+                setAskValue("");
+                setAsk({
+                  title: "New project",
+                  placeholder: "Project name",
+                  onSubmit: (name) =>
+                    void createProject(name).then(() => {
+                      setSyncMsg("Project created");
+                      setTimeout(() => setSyncMsg(null), 2000);
+                    }),
+                });
+              }}
+            >
+              + New project
+            </button>
+          </>
+        )}
+      </aside>
+
+      <div className="main">
+      {/* ---------- header: search + actions ---------- */}
+      <div className="header">
+        <div className="search-row">
+        <div className="search-wrap" data-tour="search">
           <input
             ref={searchRef}
             className="search"
@@ -392,66 +535,28 @@ export function App() {
             ↑↓ ↵
           </span>
         </div>
-
-        {/* navigation = one 28px chip row, not a permanent column */}
-        <div className="chips">
+        {canCapture && (
           <button
-            className={`chip ${filter === "all" ? "active" : ""}`}
-            onClick={() => setFilter("all")}
+            className="icon-btn"
+            data-tour="transfer"
+            title="Capture this conversation's context to continue it on another AI"
+            aria-label="Transfer context"
+            onClick={() => void captureContext()}
           >
-            All
+            <ArrowLeftRight size={15} />
           </button>
-          <button
-            className={`chip ${filter === "pinned" ? "active" : ""}`}
-            onClick={() => setFilter("pinned")}
-          >
-            ★ Pinned
-          </button>
-          {vault.folders.map((f) => (
-            <button
-              key={f.id}
-              className={`chip ${isFolderActive(f.id) ? "active" : ""}`}
-              onClick={() => setFilter(isFolderActive(f.id) ? "all" : { folderId: f.id })}
-            >
-              <span className="dot" style={{ background: f.color }} />
-              {f.name}
-            </button>
-          ))}
-          {canCapture && (
-            <button
-              className="chip"
-              title="Capture this conversation's context to continue it on another AI"
-              onClick={() => void captureContext()}
-            >
-              <ArrowLeftRight size={12} /> Transfer
-            </button>
-          )}
-          {/* record-to-thread is a core flow — always one click away */}
-          {auth &&
-            (recording ? (
-              <button
-                className="chip recording"
-                title={`Recording to “${recording.title}” — every save becomes its next step. Click to stop.`}
-                onClick={() => void setActiveThread(null).then(() => setRecording(null))}
-              >
-                ◉ {recording.title}
-              </button>
-            ) : (
-              <button
-                className="chip"
-                title="Record saves into a thread — each save becomes the next step of a recipe"
-                onClick={() => void getThreads().then(setRecPicker).catch(() => setRecPicker([]))}
-              >
-                <CircleDot size={12} /> Record
-              </button>
-            ))}
-          <button
-            className="chip manage"
-            title="Folders & threads"
-            onClick={() => setManageOpen(true)}
-          >
-            <MoreHorizontal size={14} />
-          </button>
+        )}
+        <button
+          className="icon-btn"
+          title="How Prompt Diary works"
+          aria-label="Help"
+          onClick={() => setTourStep(0)}
+        >
+          <HelpCircle size={15} />
+        </button>
+        <button className="btn primary small" data-tour="new" onClick={() => setEditing("new")}>
+          <Plus size={13} /> New
+        </button>
         </div>
       </div>
 
@@ -552,187 +657,68 @@ export function App() {
           )}
         </div>
       </div>
+      </div>
 
-      {/* ---------- "⋯" management overlay: the tree, temporarily ---------- */}
-      {manageOpen && (
-        <div className="editor">
-          <h2>Folders & threads</h2>
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            <div className="manage-section">Folders</div>
-            {vault.folders.map((f) => (
-              <button
-                key={f.id}
-                className="manage-item"
-                onClick={() => {
-                  setFilter({ folderId: f.id });
-                  setManageOpen(false);
+      {/* ---------- guided tour: ring + arrow on the real control ---------- */}
+      {tourStep !== null && TOUR[tourStep] && (
+        <>
+          {tourRect && (
+            <>
+              <div
+                className="tour-ring"
+                style={{
+                  left: tourRect.left - 6,
+                  top: tourRect.top - 6,
+                  width: tourRect.width + 12,
+                  height: tourRect.height + 12,
+                }}
+              />
+              <div
+                className="tour-arrow"
+                style={{
+                  left: tourRect.left + tourRect.width / 2 - 10,
+                  // arrow above the target, or below it when the target is
+                  // near the top edge (search bar) so it never clips
+                  ...(tourRect.top > 60
+                    ? { top: tourRect.top - 34 }
+                    : { top: tourRect.bottom + 8, transform: "rotate(180deg)" }),
                 }}
               >
-                <span className="dot" style={{ background: f.color }} />
-                <span className="label">{f.name}</span>
-                <span
-                  className="x"
-                  title="Delete folder"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setManageOpen(false);
-                    void handleDeleteFolder(f);
-                  }}
-                >
-                  ×
-                </span>
-              </button>
-            ))}
-            <button
-              className="manage-item muted"
-              onClick={() => {
-                setManageOpen(false);
-                handleNewFolder();
-              }}
-            >
-              + New folder
+                ▼
+              </div>
+            </>
+          )}
+          <div className="tour-card" key={tourStep}>
+            <button className="tour-skip" title="Skip tour" onClick={endTour}>
+              <X size={13} />
             </button>
-
-            {auth && (
-              <>
-                <div className="manage-section">Threads</div>
-                <button
-                  className="manage-item"
-                  style={recording ? { color: "var(--danger)", fontWeight: 600 } : undefined}
-                  title={
-                    recording
-                      ? `Recording to “${recording.title}” — click to stop`
-                      : "Record saves into a thread"
-                  }
-                  onClick={() => {
-                    if (recording) {
-                      void setActiveThread(null).then(() => setRecording(null));
-                    } else {
-                      setManageOpen(false);
-                      void getThreads().then(setRecPicker).catch(() => setRecPicker([]));
-                    }
-                  }}
-                >
-                  <span className="label">
-                    {recording ? `◉ Recording — ${recording.title}` : "○ Record to thread"}
-                  </span>
-                </button>
-                <button
-                  className="manage-item muted"
-                  onClick={() => {
-                    setManageOpen(false);
-                    setAskValue("");
-                    setAsk({
-                      title: "New thread",
-                      placeholder: "Thread title",
-                      onSubmit: (title) =>
-                        void createThread(title).then((t) => {
-                          void setActiveThread(t);
-                          setRecording(t);
-                          setSyncMsg(`Recording → ${t.title}`);
-                          setTimeout(() => setSyncMsg(null), 2000);
-                        }),
-                    });
-                  }}
-                >
-                  + New thread
-                </button>
-                <button
-                  className="manage-item muted"
-                  onClick={() => {
-                    setManageOpen(false);
-                    setAskValue("");
-                    setAsk({
-                      title: "New project",
-                      placeholder: "Project name",
-                      onSubmit: (name) =>
-                        void createProject(name).then(() => {
-                          setSyncMsg("Project created");
-                          setTimeout(() => setSyncMsg(null), 2000);
-                        }),
-                    });
-                  }}
-                >
-                  + New project
-                </button>
-              </>
-            )}
+            <div className="tour-title">{TOUR[tourStep].title}</div>
+            <div className="tour-text">{TOUR[tourStep].text}</div>
+            <div className="tour-foot">
+              <div className="tour-dots">
+                {TOUR.map((_, i) => (
+                  <span key={i} className={`tour-dot ${i === tourStep ? "on" : ""}`} />
+                ))}
+              </div>
+              <div className="tour-btns">
+                {tourStep > 0 && (
+                  <button className="btn" onClick={() => setTourStep(tourStep - 1)}>
+                    Back
+                  </button>
+                )}
+                {tourStep < TOUR.length - 1 ? (
+                  <button className="btn primary" onClick={() => setTourStep(tourStep + 1)}>
+                    Next
+                  </button>
+                ) : (
+                  <button className="btn primary" onClick={endTour}>
+                    Done
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="actions">
-            <button className="btn" onClick={() => setManageOpen(false)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ---------- "?" — how everything works, in one screen ---------- */}
-      {helpOpen && (
-        <div className="editor">
-          <h2>How Prompt Diary works</h2>
-          <div style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}>
-            <div className="manage-section">Save prompts</div>
-            <p className="help-p">
-              On any AI site: <b>select text</b> and click the <b>Pd</b> bubble, use the{" "}
-              <b>Pd · Save</b> button under a message, or right-click → <i>Save to Prompt Diary</i>.
-              Saves land here and sync to your dashboard.
-            </p>
-
-            <div className="manage-section">Reuse them</div>
-            <p className="help-p">
-              Open this popup (<b>{hotkey || "Alt+P"}</b>), type to search, <b>↑↓</b> to pick,{" "}
-              <b>↵</b> to insert straight into the chatbox you were typing in — on any website.
-              Clicking a row copies it instead.
-            </p>
-
-            <div className="manage-section">Folders</div>
-            <p className="help-p">
-              Folders organize prompts by topic (like bookmarks folders). Filter with the chips
-              above the list; manage them under <b>⋯</b>.
-            </p>
-
-            <div className="manage-section">Threads &amp; projects</div>
-            <p className="help-p">
-              A <b>thread</b> is a recipe: the ordered chain of prompts that produced one great
-              result — not the whole chat, just the steps that mattered. A <b>project</b> is a
-              shelf that groups threads across different AIs (e.g. emails in ChatGPT + images in
-              Gemini for one launch). Build and reorder them on the dashboard under{" "}
-              <i>Projects</i>.
-            </p>
-
-            <div className="manage-section">Record</div>
-            <p className="help-p">
-              Hit <b>◉ Record</b> and pick (or create) a thread — from then on, <b>every prompt
-              you save becomes the next step</b> of that thread automatically. Click the red chip
-              to stop. Perfect for capturing a working session as a reusable recipe.
-            </p>
-
-            <div className="manage-section">Transfer context</div>
-            <p className="help-p">
-              Deep in a conversation but want a different model? Hit <b>⇄ Transfer</b> on the
-              chat, open the other AI, and <b>Insert</b> — the transcript carries over so the new
-              model continues where the old one left off.
-            </p>
-
-            <div className="manage-section">Usage meter</div>
-            <p className="help-p">
-              The small <b>Pd</b> box on AI sites counts your sends against that model&apos;s rate
-              limit (estimated). It turns amber when you&apos;re close and red when you&apos;ve
-              likely hit it — click it to set your plan.
-            </p>
-          </div>
-          <div className="actions">
-            <button
-              className="btn primary"
-              onClick={() => {
-                setHelpOpen(false);
-                void chrome.storage.local.set({ helpSeen: true });
-              }}
-            >
-              Got it
-            </button>
-          </div>
-        </div>
+        </>
       )}
 
       {ask && (
