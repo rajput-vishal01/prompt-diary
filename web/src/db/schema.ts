@@ -198,6 +198,22 @@ export const usageMessages = pgTable(
   (t) => [index("usage_messages_user_site_at_idx").on(t.userId, t.site, t.at)],
 );
 
+// gallery bookmarks — a reading list, NOT a copy ("add to my diary" clones;
+// a bookmark just remembers)
+export const galleryBookmarks = pgTable(
+  "gallery_bookmarks",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    promptId: text("prompt_id")
+      .notNull()
+      .references(() => prompts.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.promptId] })],
+);
+
 export const folders = pgTable(
   "folders",
   {
