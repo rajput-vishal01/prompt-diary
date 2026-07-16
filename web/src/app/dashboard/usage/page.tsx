@@ -59,30 +59,40 @@ export default function UsagePage() {
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-1 flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold">Usage</h1>
+        <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+          Usage
+        </h1>
         {!isLoading && total > 0 && (
-          <span className="text-sm tabular-nums text-dim">
-            ~{formatTokens(total)} tokens · last {DAYS_SHOWN} days
+          <span className="font-display text-2xl font-light tabular-nums text-ink">
+            ~{formatTokens(total)}
+            <span className="ml-2 font-sans text-sm text-dim">
+              tokens · last {DAYS_SHOWN} days
+            </span>
           </span>
         )}
       </div>
-      <p className="mb-5 text-sm text-dim">
-        Estimated from message length (characters ÷ 4) on chats where the
-        extension is active — not billing data.
+      <p className="mb-6 text-sm text-dim">
+        What you&apos;re sending to each model, day by day.
       </p>
 
       {isLoading && <div className="skeleton h-48 w-full" />}
 
       {!isLoading && total === 0 && (
-        <div className="panel px-6 py-14 text-center text-sm leading-relaxed text-dim">
-          Nothing recorded yet. Browse ChatGPT, Claude or Gemini with the
-          extension installed — observed messages are estimated locally and
-          appear here after the next sync.
+        <div className="py-20 text-center">
+          <p className="font-display text-xl font-light text-ink">Nothing recorded yet</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-dim">
+            Browse ChatGPT, Claude or any AI chat with the extension installed —
+            observed messages are estimated locally and appear here after the
+            next sync.
+          </p>
         </div>
       )}
 
       {!isLoading && total > 0 && (
         <div className="panel p-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+            Daily tokens by model
+          </p>
           {/* stacked day bars — pure CSS, no chart lib */}
           <div className="flex h-48 items-end gap-1.5">
             {days.map(({ day, perSite }) => {
@@ -109,15 +119,16 @@ export default function UsagePage() {
               );
             })}
           </div>
-          <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-dim">
+          <div className="mt-1.5 flex justify-between text-[11px] font-semibold uppercase tabular-nums tracking-[0.08em] text-dim">
             <span>{days[0]?.day.slice(5)}</span>
             <span>{days[days.length - 1]?.day.slice(5)}</span>
           </div>
-          <div className="mt-4 flex flex-wrap gap-3 border-t border-line pt-3">
+          {/* per-site legend as chips */}
+          <div className="mt-4 flex flex-wrap gap-1.5 border-t border-line pt-3">
             {sites.map((s) => (
-              <span key={s} className="flex items-center gap-1.5 text-[13px]">
+              <span key={s} className="chip gap-1.5">
                 <span
-                  className="h-2.5 w-2.5 rounded-[3px]"
+                  className="h-2 w-2 rounded-full"
                   style={{ background: colorOf(s) }}
                 />
                 {s}
@@ -129,6 +140,12 @@ export default function UsagePage() {
           </div>
         </div>
       )}
+
+      {/* the honesty footnote — everything on this page is a ballpark */}
+      <p className="mt-3 text-xs text-dim/80">
+        Estimated from message length (characters ÷ 4) on chats where the
+        extension is active — not billing data.
+      </p>
     </div>
   );
 }
