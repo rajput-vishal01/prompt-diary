@@ -42,12 +42,17 @@ export function Toaster() {
         <div
           key={t.id}
           role="status"
-          className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lg"
+          // the ink pill — the app's one dark surface
+          className="pointer-events-auto flex items-center gap-3 rounded-full bg-ink py-2.5 pl-4 pr-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(12,10,9,0.25)]"
         >
-          <span className={t.kind === "error" ? "text-red-300" : ""}>{t.message}</span>
+          <span aria-hidden className={t.kind === "error" ? "text-red-300" : "text-[#6fcf97]"}>
+            {t.kind === "error" ? "✕" : "✓"}
+          </span>
+          <span>{t.message}</span>
           {t.action && (
             <button
-              className="font-bold text-[#7ed8ae] hover:underline"
+              // kbd-badge-styled action — reads as "press me", not a link
+              className="rounded-md bg-white/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white transition-colors hover:bg-white/25"
               onClick={() => {
                 t.action?.onClick();
                 setItems((prev) => prev.filter((x) => x.id !== t.id));

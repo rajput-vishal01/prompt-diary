@@ -97,12 +97,14 @@ export function DialogHost() {
       onMouseDown={cancel}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-line bg-raised p-5 shadow-[0_16px_48px_rgba(19,39,30,0.22)]"
+        className="w-full max-w-sm rounded-xl border border-line bg-raised p-5 shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
         role="dialog"
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <h2 className="text-[15px] font-bold">{pending.opts.title}</h2>
+        <h2 className="font-display text-xl font-light tracking-[-0.01em] text-ink">
+          {pending.opts.title}
+        </h2>
 
         {pending.kind === "prompt" ? (
           <form

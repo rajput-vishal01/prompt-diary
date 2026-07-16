@@ -14,10 +14,23 @@ type Item =
 const ACTIONS: Array<{ label: string; go: string }> = [
   { label: "New prompt", go: "/dashboard/new" },
   { label: "My Prompts", go: "/dashboard" },
+  { label: "Projects", go: "/dashboard/projects" },
   { label: "Teams", go: "/dashboard/teams" },
+  { label: "Usage", go: "/dashboard/usage" },
   { label: "Public Gallery", go: "/gallery" },
   { label: "Profile", go: "/dashboard/profile" },
 ];
+
+// same desaturated source language as the list rows — never a filled color
+const SOURCE_DOTS: Record<string, string> = {
+  chatgpt: "hsl(160 25% 50%)",
+  claude: "hsl(24 30% 55%)",
+  gemini: "hsl(217 30% 58%)",
+  perplexity: "hsl(190 25% 48%)",
+  poe: "hsl(260 22% 56%)",
+};
+
+const siteOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
 
 export function CommandPalette() {
   const router = useRouter();
@@ -97,28 +110,34 @@ export function CommandPalette() {
       onMouseDown={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-xl border border-line bg-raised shadow-[0_16px_48px_rgba(19,39,30,0.22)]"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-line bg-raised shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <input
-          ref={inputRef}
-          className="w-full border-b border-line bg-transparent px-4 py-3 text-[14px] outline-none placeholder:text-dim"
-          placeholder="Search prompts, folders, actions…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setSel((s) => Math.min(s + 1, items.length - 1));
-            } else if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setSel((s) => Math.max(s - 1, 0));
-            } else if (e.key === "Enter" && items[sel]) {
-              e.preventDefault();
-              run(items[sel], e.shiftKey);
-            }
-          }}
-        />
+        {/* 44px launcher input with a persistent kbd hint — the popup's language */}
+        <div className="relative border-b border-line">
+          <input
+            ref={inputRef}
+            className="h-11 w-full bg-transparent pl-4 pr-16 text-[14px] outline-none placeholder:text-dim"
+            placeholder="Search prompts, folders, actions…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSel((s) => Math.min(s + 1, items.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSel((s) => Math.max(s - 1, 0));
+              } else if (e.key === "Enter" && items[sel]) {
+                e.preventDefault();
+                run(items[sel], e.shiftKey);
+              }
+            }}
+          />
+          <span className="kbd pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+            ↑↓ ↵
+          </span>
+        </div>
         <div className="max-h-72 overflow-y-auto py-1">
           {items.length === 0 && (
             <p className="px-4 py-6 text-center text-sm text-dim">No matches.</p>
@@ -126,8 +145,11 @@ export function CommandPalette() {
           {items.map((item, i) => (
             <button
               key={i}
-              className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm ${
-                i === sel ? "bg-tint text-accent" : "text-ink hover:bg-hover"
+              // the 2px ink selection bar — same cursor vocabulary as every list
+              className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors duration-[120ms] ${
+                i === sel
+                  ? "bg-[#fafafa] text-ink shadow-[inset_2px_0_0_#0c0a09]"
+                  : "text-ink hover:bg-hover"
               }`}
               onMouseEnter={() => setSel(i)}
               onClick={() => run(item, false)}
@@ -135,6 +157,15 @@ export function CommandPalette() {
               {item.kind === "prompt" && (
                 <>
                   <span className="truncate font-medium">{item.prompt.title}</span>
+                  {siteOf(item.prompt) && (
+                    <span className="chip shrink-0 gap-1.5">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: SOURCE_DOTS[siteOf(item.prompt)!] }}
+                      />
+                      {siteOf(item.prompt)}
+                    </span>
+                  )}
                   <span className="ml-auto shrink-0 text-xs text-dim">copy ↵</span>
                 </>
               )}
