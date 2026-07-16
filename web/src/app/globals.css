@@ -88,6 +88,21 @@ body {
   }
 }
 
+/* loading wordmark — a slow, calm breath rather than a spinner */
+.pd-breathe {
+  animation: pd-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes pd-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes auth-glow-breathe {
   0%,
   100% {
