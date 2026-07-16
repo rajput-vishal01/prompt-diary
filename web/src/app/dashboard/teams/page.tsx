@@ -2,9 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ArrowLeft, Copy } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { dialog } from "@/components/Dialog";
+import { toast } from "@/components/Toast";
 
 interface TeamRow {
   id: string;
@@ -12,6 +14,7 @@ interface TeamRow {
   ownerId: string;
   role: "owner" | "member";
   createdAt: string;
+  memberCount: number;
 }
 
 interface InviteRow {
@@ -43,6 +46,16 @@ interface TeamPrompt {
   authorName: string;
 }
 
+// brass is reserved for exactly two things app-wide: the active-row indicator
+// and team role tags — this is the role tag
+function RoleTag({ role }: { role: string }) {
+  return (
+    <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-brass">
+      {role}
+    </span>
+  );
+}
+
 export default function TeamsPage() {
   return (
     <Suspense>
@@ -57,7 +70,6 @@ function TeamsPageInner() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [selected, setSelected] = useState<TeamRow | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const reload = () => {
     void api<TeamRow[]>("/api/v1/teams").then((rows) => {
@@ -81,53 +93,54 @@ function TeamsPageInner() {
   const createTeam = async () => {
     const name = await dialog.prompt({ title: "New team", placeholder: "Team name", submitLabel: "Create" });
     if (!name?.trim()) return;
-    setError(null);
     try {
       await api("/api/v1/teams", { method: "POST", body: { name: name.trim() } });
       reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create team");
+      toast(e instanceof Error ? e.message : "Could not create team", { kind: "error" });
     }
   };
 
   const answerInvite = async (id: string, action: "accept" | "decline") => {
-    setError(null);
     try {
       await api(`/api/v1/invites/${id}`, { method: "POST", body: { action } });
       reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update invite");
+      toast(e instanceof Error ? e.message : "Could not update invite", { kind: "error" });
     }
   };
 
   if (selected) {
     return (
-      <TeamDetail
-        team={selected}
-        onBack={() => setSelected(null)}
-        onChanged={reload}
-      />
+      <TeamDetail team={selected} onBack={() => setSelected(null)} onChanged={reload} />
     );
   }
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Teams</h1>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+            Teams
+          </h1>
+          <p className="mt-1 text-sm text-dim">
+            Shared prompt libraries — set a prompt&apos;s visibility to
+            “Team” to publish it to everyone here.
+          </p>
+        </div>
         <button className="btn-primary" onClick={() => void createTeam()}>
           + New team
         </button>
       </div>
 
-      {error && <p className="mb-4 text-sm text-danger">{error}</p>}
-
+      {/* pending invites — a banner strip, not a card */}
       {invites.length > 0 && (
-        <div className="mb-6 divide-y divide-line overflow-hidden rounded-[10px] border border-accent/40 bg-tint">
+        <div className="mb-6 divide-y divide-line overflow-hidden rounded-xl bg-tint">
           {invites.map((inv) => (
             <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
-              <p className="flex-1 text-sm">
-                <span className="font-semibold">{inv.invitedByName}</span>{" "}
-                invited you to <span className="font-semibold">{inv.teamName}</span>
+              <p className="flex-1 text-sm text-ink">
+                <span className="font-semibold">{inv.invitedByName}</span> invited
+                you to <span className="font-semibold">{inv.teamName}</span>
               </p>
               <button
                 className="btn-primary px-3 py-1 text-xs"
@@ -149,31 +162,32 @@ function TeamsPageInner() {
       {teams.length === 0 ? (
         <p className="py-16 text-center text-sm text-dim">
           No teams yet. Create one and invite teammates — they accept the
-          invite from this page, then you share prompts by setting their
-          visibility to “Team”.
+          invite from this page.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        /* two-line 64px rows — the same ledger language as My Prompts */
+        <div className="panel divide-y divide-line">
           {teams.map((t) => (
             <button
               key={t.id}
-              className="card group cursor-pointer text-left transition-colors hover:border-accent"
+              className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 text-left transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
               onClick={() => setSelected(t)}
             >
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-tint font-display text-lg font-light text-ink">
-                  {t.name.charAt(0).toUpperCase()}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint font-display text-base font-light text-ink">
+                {t.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[16px] font-medium leading-6 text-ink">
+                  {t.name}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{t.name}</span>
-                  <span className="block text-xs capitalize text-dim">
-                    {t.role}
-                  </span>
+                <span className="block text-sm leading-5 text-dim">
+                  {t.memberCount} {t.memberCount === 1 ? "member" : "members"}
                 </span>
-                <span className="text-dim transition-transform group-hover:translate-x-0.5 group-hover:text-accent">
-                  →
-                </span>
-              </div>
+              </span>
+              <RoleTag role={t.role} />
+              <span className="text-dim transition-transform duration-[120ms] group-hover:translate-x-0.5 group-hover:text-ink">
+                →
+              </span>
             </button>
           ))}
         </div>
@@ -198,6 +212,7 @@ function TeamDetail({
   const [inviteEmail, setInviteEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const isOwner = team.role === "owner";
 
   const reloadDetail = () => {
@@ -232,6 +247,7 @@ function TeamDetail({
       method: "DELETE",
       body: { userId },
     });
+    setConfirmingRemove(null);
     if (userId === session?.user.id) {
       onChanged();
       onBack();
@@ -254,16 +270,23 @@ function TeamDetail({
     setTimeout(() => setCopiedId(null), 1200);
   };
 
+  const spendTotal = usage.reduce((sum, u) => sum + u.tokens, 0);
+
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center gap-4">
-        <button className="btn" onClick={onBack}>
-          ← All teams
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+          onClick={onBack}
+        >
+          <ArrowLeft size={15} /> Teams
         </button>
-        <h1 className="flex-1 truncate text-2xl font-bold">{team.name}</h1>
+        <h1 className="min-w-0 flex-1 truncate font-display text-2xl font-light tracking-[-0.01em] text-ink">
+          {team.name}
+        </h1>
         {isOwner && (
           <button
-            className="text-xs text-danger hover:underline"
+            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-colors hover:bg-danger/5"
             onClick={() => void deleteTeam()}
           >
             Delete team
@@ -271,139 +294,158 @@ function TeamDetail({
         )}
       </div>
 
-      <div className="grid items-start gap-6 md:grid-cols-[1.4fr_1fr]">
-        {/* shared prompt library */}
-        <div className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-raised">
-          <div className="px-4 py-3">
-            <h2 className="text-sm font-semibold">Shared prompts</h2>
-          </div>
-          {prompts.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-dim">
-              Nothing shared yet. Set a prompt's visibility to “Team” to
-              publish it here.
-            </p>
-          )}
-          {prompts.map((p) => (
-            <div key={p.id} className="group px-4 py-3 transition-colors hover:bg-hover">
-              <div className="flex items-baseline gap-2">
-                <span className="flex-1 truncate text-sm font-semibold">
-                  {p.title}
-                </span>
-                {copiedId === p.id && (
-                  <span className="text-xs font-bold text-accent">Copied</span>
-                )}
-                <button
-                  className="btn px-2 py-0.5 text-xs opacity-0 transition-opacity group-hover:opacity-100"
-                  onClick={() => copy(p)}
-                >
-                  Copy
-                </button>
-              </div>
-              <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed text-dim">
-                {p.body}
+      <div className="grid items-start gap-8 md:grid-cols-[1.4fr_1fr]">
+        {/* shared prompt library — manuscript rows */}
+        <section>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+            Shared prompts
+          </p>
+          <div className="panel divide-y divide-line">
+            {prompts.length === 0 && (
+              <p className="px-4 py-10 text-center text-sm text-dim">
+                Nothing shared yet. Set a prompt&apos;s visibility to “Team” to
+                publish it here.
               </p>
-              <p className="mt-2 flex items-center gap-3 text-xs text-dim">
-                {p.visibility === "public" && (
-                  <span className="vis-badge text-accent">public</span>
-                )}
-                <span>
+            )}
+            {prompts.map((p) => (
+              <div
+                key={p.id}
+                className="group px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">
+                    {p.title}
+                  </span>
+                  <button
+                    aria-label="Copy prompt"
+                    title={copiedId === p.id ? "Copied!" : "Copy prompt"}
+                    className="hidden h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink group-hover:flex"
+                    onClick={() => copy(p)}
+                  >
+                    <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
+                  </button>
+                </div>
+                <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">
+                  {p.body}
+                </p>
+                <p className="mt-1.5 text-xs text-dim/80">
                   by {p.authorName}
-                  {p.useCount > 0 && (
-                    <span className="tabular-nums"> · {p.useCount}×</span>
-                  )}
-                </span>
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* members */}
-        <div className="divide-y divide-line overflow-hidden rounded-[10px] border border-line bg-raised">
-          <div className="px-4 py-3">
-            <h2 className="text-sm font-semibold">
-              Members
-              {members && (
-                <span className="ml-1.5 tabular-nums text-dim">
-                  ({members.members.length})
-                </span>
-              )}
-            </h2>
-          </div>
-          {members?.members.map((m) => (
-            <div key={m.userId} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-semibold text-accent">
-                {m.name.charAt(0).toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{m.name}</span>
-                <span className="block truncate text-xs text-dim">{m.email}</span>
-              </span>
-              <span className="text-xs capitalize text-dim">{m.role}</span>
-              {isOwner && m.userId !== session?.user.id && (
-                <button
-                  className="text-xs text-danger hover:underline"
-                  onClick={() => void removeMember(m.userId)}
-                >
-                  remove
-                </button>
-              )}
-              {!isOwner && m.userId === session?.user.id && (
-                <button
-                  className="text-xs text-danger hover:underline"
-                  onClick={() => void removeMember(m.userId)}
-                >
-                  leave
-                </button>
-              )}
-            </div>
-          ))}
-          {members && members.invites.length > 0 && (
-            <div className="px-4 py-2.5 text-xs text-dim">
-              Invited, awaiting acceptance:{" "}
-              {members.invites.map((i) => i.email).join(", ")}
-            </div>
-          )}
-          {isOwner && (
-            <div className="space-y-2 px-4 py-3">
-              <div className="flex gap-2">
-                <input
-                  className="input"
-                  type="email"
-                  placeholder="teammate@email.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void invite()}
-                />
-                <button className="btn-primary" onClick={() => void invite()}>
-                  Invite
-                </button>
+                  {p.useCount > 0 && <span className="tabular-nums"> · {p.useCount}×</span>}
+                  {p.visibility === "public" && <span> · also public</span>}
+                </p>
               </div>
-              {message && <p className="text-xs text-accent">{message}</p>}
+            ))}
+          </div>
+        </section>
+
+        <div className="space-y-8">
+          {/* members */}
+          <section>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+              Members{members && <span className="tabular-nums"> · {members.members.length}</span>}
+            </p>
+            <div className="panel divide-y divide-line">
+              {members?.members.map((m) => {
+                const isSelf = m.userId === session?.user.id;
+                const canRemove = (isOwner && !isSelf) || (!isOwner && isSelf);
+                return (
+                  <div
+                    key={m.userId}
+                    className="group flex h-16 items-center gap-3 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-semibold text-ink">
+                      {m.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-ink">
+                        {m.name}
+                        {isSelf && <span className="font-normal text-dim"> (you)</span>}
+                      </span>
+                      <span className="block truncate text-xs text-dim">{m.email}</span>
+                    </span>
+                    <RoleTag role={m.role} />
+                    {canRemove &&
+                      (confirmingRemove === m.userId ? (
+                        <span className="flex shrink-0 items-center gap-2 text-xs">
+                          <button
+                            className="font-medium text-danger hover:underline"
+                            onClick={() => void removeMember(m.userId)}
+                          >
+                            {isSelf ? "Leave" : "Remove"}
+                          </button>
+                          <button
+                            className="text-dim hover:text-ink"
+                            onClick={() => setConfirmingRemove(null)}
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          className="hidden shrink-0 text-xs text-danger hover:underline group-hover:block"
+                          onClick={() => setConfirmingRemove(m.userId)}
+                        >
+                          {isSelf ? "leave" : "remove"}
+                        </button>
+                      ))}
+                  </div>
+                );
+              })}
+              {members && members.invites.length > 0 && (
+                <div className="px-4 py-2.5 text-xs text-dim">
+                  Invited, awaiting acceptance: {members.invites.map((i) => i.email).join(", ")}
+                </div>
+              )}
+              {isOwner && (
+                <div className="space-y-2 px-4 py-3">
+                  <div className="flex gap-2">
+                    <input
+                      className="input"
+                      type="email"
+                      placeholder="teammate@email.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && void invite()}
+                    />
+                    <button className="btn-primary" onClick={() => void invite()}>
+                      Invite
+                    </button>
+                  </div>
+                  {message && <p className="text-xs text-dim">{message}</p>}
+                </div>
+              )}
             </div>
-          )}
+          </section>
 
           {/* owner-only: estimated token spend per member, last 30 days */}
           {isOwner && usage.length > 0 && (
-            <div className="px-4 py-3">
-              <h2 className="text-sm font-semibold">Token spend</h2>
-              <p className="mb-2 text-xs text-dim">
-                Estimated (message chars ÷ 4), last 30 days — not billing data.
+            <section>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+                Token spend
               </p>
-              <div className="divide-y divide-line">
-                {usage.map((u) => (
-                  <div
-                    key={`${u.userId}-${u.site}`}
-                    className="flex items-center gap-2 py-1.5 text-sm"
-                  >
-                    <span className="min-w-0 flex-1 truncate">{u.name}</span>
-                    <span className="chip">{u.site}</span>
-                    <span className="tabular-nums text-dim">
-                      ~{u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens}
-                    </span>
-                  </div>
-                ))}
+              <div className="panel px-4 py-3">
+                <p className="font-display text-2xl font-light tabular-nums text-ink">
+                  ~{spendTotal >= 1000 ? `${(spendTotal / 1000).toFixed(1)}k` : spendTotal}
+                </p>
+                <p className="mb-3 text-xs text-dim">
+                  estimated tokens, last 30 days — not billing data
+                </p>
+                <div className="divide-y divide-line">
+                  {usage.map((u) => (
+                    <div
+                      key={`${u.userId}-${u.site}`}
+                      className="flex items-center gap-2 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-ink">{u.name}</span>
+                      <span className="chip">{u.site}</span>
+                      <span className="tabular-nums text-dim">
+                        ~{u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>

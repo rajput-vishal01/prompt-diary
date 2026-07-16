@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { TeamCreateSchema } from "shared";
 import { db } from "@/db";
 import { teamMembers, teams } from "@/db/schema";
@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
       ownerId: teams.ownerId,
       createdAt: teams.createdAt,
       role: teamMembers.role,
+      memberCount: sql<number>`(select count(*) from ${teamMembers} tm where tm.team_id = ${teams.id})`.mapWith(Number),
     })
     .from(teamMembers)
     .innerJoin(teams, eq(teamMembers.teamId, teams.id))
