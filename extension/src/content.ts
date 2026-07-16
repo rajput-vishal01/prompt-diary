@@ -874,27 +874,44 @@ setInterval(() => {
   });
 }, 5000);
 
+// idle label = the same Georgia-italic "Pd" mark as the composer pill, so the
+// message button reads as the brand and stays legible on any chat background
+const PD_SAVE_LABEL =
+  '<span style="font-family:Georgia,serif;font-style:italic;font-weight:700;color:#0c0a09">Pd</span>' +
+  '<span style="color:#0c0a09">Save</span>';
+
 function makeMessageButton(target: HTMLElement): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset["pdBtn"] = "1"; // transcript capture hides these before reading innerText
-  btn.textContent = "Pd · Save";
+  btn.innerHTML = PD_SAVE_LABEL;
   btn.title = "Save this message to Prompt Diary";
+  // white pill (matches the .pd-composer / .pd-bubble look) — a solid light
+  // surface with its own border + shadow reads on light AND dark chat UIs;
+  // the old transparent+dark-ink style vanished on dark sites like ChatGPT
   Object.assign(btn.style, {
     display: "inline-flex",
     alignItems: "center",
+    gap: "5px",
     marginTop: "6px",
     padding: "3px 9px",
     font: "600 11px/1.4 system-ui, sans-serif",
-    color: "#292524",
-    background: "transparent",
-    border: "1px solid rgba(41, 37, 36, 0.35)",
-    borderRadius: "6px",
+    color: "#0c0a09",
+    background: "#ffffff",
+    border: "1px solid #e7e5e4",
+    borderRadius: "8px",
     cursor: "pointer",
-    opacity: "0.7",
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.14)",
+    opacity: "0.95",
   } satisfies Partial<CSSStyleDeclaration>);
-  btn.addEventListener("mouseenter", () => (btn.style.opacity = "1"));
-  btn.addEventListener("mouseleave", () => (btn.style.opacity = "0.7"));
+  btn.addEventListener("mouseenter", () => {
+    btn.style.opacity = "1";
+    btn.style.background = "#f0efed";
+  });
+  btn.addEventListener("mouseleave", () => {
+    btn.style.opacity = "0.95";
+    btn.style.background = "#ffffff";
+  });
   btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -922,8 +939,8 @@ function makeMessageButton(target: HTMLElement): HTMLButtonElement {
             : "Saved ✓";
         btn.style.opacity = "1";
         setTimeout(() => {
-          btn.textContent = "Pd · Save";
-          btn.style.opacity = "0.7";
+          btn.innerHTML = PD_SAVE_LABEL;
+          btn.style.opacity = "0.95";
         }, 2000);
       },
     );
