@@ -228,10 +228,59 @@ export default function ProfilePage() {
         </p>
       </Section>
 
+      <PlanSection />
+
       <DangerZone email={session.user.email} />
 
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
+  );
+}
+
+// renders nothing unless the deployment has billing configured — dev and
+// self-hosted installs never see a Plan section
+function PlanSection() {
+  const [status, setStatus] = useState<{ enabled: boolean; active: boolean; plan: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/v1/billing/status")
+      .then((r) => r.json())
+      .then((d) => setStatus(d.data ?? null))
+      .catch(() => {});
+  }, []);
+
+  if (!status?.enabled) return null;
+
+  const goToBilling = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/v1/billing/checkout", { method: "POST" });
+      const d = await r.json();
+      if (d.data?.url) window.location.href = d.data.url;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section label="Plan">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-ink">
+            {status.active ? "Pro" : "Free"}
+          </p>
+          <p className="mt-0.5 text-xs text-dim">
+            {status.active
+              ? "Team usage analytics unlocked. Manage or cancel any time."
+              : "Upgrade to unlock team usage analytics."}
+          </p>
+        </div>
+        <button className="btn-primary shrink-0" disabled={busy} onClick={() => void goToBilling()}>
+          {busy ? "…" : status.active ? "Manage billing" : "Upgrade to Pro"}
+        </button>
+      </div>
+    </Section>
   );
 }
 

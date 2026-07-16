@@ -213,6 +213,7 @@ function TeamDetail({
   const [message, setMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
+  const [usageGated, setUsageGated] = useState(false);
   const isOwner = team.role === "owner";
 
   const reloadDetail = () => {
@@ -220,8 +221,14 @@ function TeamDetail({
     void api<TeamPrompt[]>(`/api/v1/teams/${team.id}/prompts`).then(setPrompts);
     if (team.role === "owner")
       void api<TeamUsageRow[]>(`/api/v1/teams/${team.id}/usage`)
-        .then(setUsage)
-        .catch(() => {});
+        .then((rows) => {
+          setUsage(rows);
+          setUsageGated(false);
+        })
+        .catch((e: unknown) => {
+          // 402 = analytics is behind the Pro plan on this deployment
+          if (e instanceof Error && e.message.includes("Pro plan")) setUsageGated(true);
+        });
   };
 
   useEffect(reloadDetail, [team.id]);
@@ -416,6 +423,32 @@ function TeamDetail({
               )}
             </div>
           </section>
+
+          {/* owner-only quiet upgrade prompt — analytics is Pro-gated here */}
+          {isOwner && usageGated && (
+            <section>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+                Token spend
+              </p>
+              <div className="panel px-4 py-4">
+                <p className="text-sm leading-relaxed text-dim">
+                  Per-member usage analytics is part of the Pro plan.
+                </p>
+                <button
+                  className="btn-primary mt-3"
+                  onClick={() =>
+                    void api<{ url: string }>("/api/v1/billing/checkout", { method: "POST" })
+                      .then(({ url }) => {
+                        window.location.href = url;
+                      })
+                      .catch(() => toast("Could not open checkout", { kind: "error" }))
+                  }
+                >
+                  Upgrade to Pro
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* owner-only: estimated token spend per member, last 30 days */}
           {isOwner && usage.length > 0 && (

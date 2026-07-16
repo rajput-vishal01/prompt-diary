@@ -198,6 +198,21 @@ export const usageMessages = pgTable(
   (t) => [index("usage_messages_user_site_at_idx").on(t.userId, t.site, t.at)],
 );
 
+// one row per user — their current (or last) subscription state, mirrored
+// from the billing provider's webhooks. Absence of a row = free tier.
+export const subscriptions = pgTable("subscriptions", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().default("polar"),
+  customerId: text("customer_id"),
+  subscriptionId: text("subscription_id"),
+  status: text("status").notNull().default("none"), // active | canceled | …
+  plan: text("plan").notNull().default("pro"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // gallery bookmarks — a reading list, NOT a copy ("add to my diary" clones;
 // a bookmark just remembers)
 export const galleryBookmarks = pgTable(
