@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Copy } from "lucide-react";
 import { api } from "@/lib/client-api";
@@ -450,34 +451,35 @@ function TeamDetail({
             </section>
           )}
 
-          {/* owner-only: estimated token spend per member, last 30 days */}
+          {/* owner-only: headline spend + the door to the full dashboard */}
           {isOwner && usage.length > 0 && (
             <section>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
-                Token spend
-              </p>
-              <div className="panel px-4 py-3">
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+                  Token spend
+                </p>
+                <Link
+                  href={`/dashboard/teams/${team.id}/usage`}
+                  className="text-xs font-medium text-dim transition-colors hover:text-ink"
+                >
+                  Full dashboard →
+                </Link>
+              </div>
+              <Link
+                href={`/dashboard/teams/${team.id}/usage`}
+                className="panel block px-4 py-3 transition-colors hover:border-line-strong"
+                title="Open the usage dashboard"
+              >
                 <p className="font-display text-2xl font-light tabular-nums text-ink">
                   ~{spendTotal >= 1000 ? `${(spendTotal / 1000).toFixed(1)}k` : spendTotal}
                 </p>
-                <p className="mb-3 text-xs text-dim">
+                <p className="text-xs text-dim">
                   estimated tokens, last 30 days — not billing data
                 </p>
-                <div className="divide-y divide-line">
-                  {usage.map((u) => (
-                    <div
-                      key={`${u.userId}-${u.site}`}
-                      className="flex items-center gap-2 py-1.5 text-sm"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-ink">{u.name}</span>
-                      <span className="chip">{u.site}</span>
-                      <span className="tabular-nums text-dim">
-                        ~{u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                <p className="mt-2 text-xs text-dim/80">
+                  Daily trends, member leaderboard, and model split in the dashboard.
+                </p>
+              </Link>
             </section>
           )}
         </div>
