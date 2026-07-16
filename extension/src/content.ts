@@ -606,6 +606,19 @@ function applyPos(x: number, y: number) {
   limitBox.style.bottom = "auto";
 }
 
+// default: anchor to the bottom-right by right/bottom (NOT top/left). This is
+// the key trick — a bottom-anchored box grows UPWARD when the panel expands,
+// so it's always fully visible instead of spilling off the bottom edge. Margins
+// keep it off the very corner.
+function applyDefaultPos() {
+  limitBox.style.right = "24px";
+  limitBox.style.bottom = "28px";
+  limitBox.style.left = "auto";
+  limitBox.style.top = "auto";
+}
+
+const isTopAnchored = () => !!limitBox.style.top && limitBox.style.top !== "auto";
+
 function restorePos() {
   void chrome.storage.local.get("pdLimitPos").then((res) => {
     const p = res["pdLimitPos"] as { x: number; y: number } | undefined;
@@ -613,17 +626,16 @@ function restorePos() {
       const c = clampPos(p.x, p.y);
       applyPos(c.x, c.y);
     } else {
-      // default: bottom-right but lifted well off the bottom edge so the panel
-      // has room to expand downward without overflowing off-screen
-      const r = limitBox.getBoundingClientRect();
-      applyPos(window.innerWidth - (r.width || 160) - 20, window.innerHeight - (r.height || 60) - 96);
+      applyDefaultPos();
     }
   });
 }
 
-// after the panel expands, the box is taller/wider — shift it up/left so the
-// whole thing stays on screen instead of overflowing below the viewport
+// A dragged (top-anchored) widget grows downward, so after it expands shift it
+// up/left to stay on screen. The default is bottom-anchored and grows upward,
+// so it never needs this.
 function fitInView() {
+  if (!isTopAnchored()) return;
   const r = limitBox.getBoundingClientRect();
   const c = clampPos(r.left, r.top);
   if (Math.round(c.x) !== Math.round(r.left) || Math.round(c.y) !== Math.round(r.top)) {
@@ -717,6 +729,9 @@ function buildLimitWidget() {
   makeDraggable();
   restorePos();
   window.addEventListener("resize", () => {
+    // bottom-anchored default reflows itself via CSS; only re-clamp a dragged
+    // (top-anchored) widget so it can't end up off-screen after a resize
+    if (!isTopAnchored()) return;
     const r = limitBox.getBoundingClientRect();
     const c = clampPos(r.left, r.top);
     applyPos(c.x, c.y);
