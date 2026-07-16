@@ -156,6 +156,8 @@ export const ThreadSchema = z.object({
   title: z.string().min(1).max(200),
   finalOutput: z.string().max(50_000).nullable().default(null),
   finalImage: ImageUrlSchema.nullable().default(null),
+  // recipes share as a whole page (/r/[id]) — no team tier for threads
+  visibility: z.enum(["private", "public"]).catch("private").default("private"),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -172,6 +174,7 @@ export const ThreadUpdateSchema = z.object({
   projectId: z.string().nullable().optional(),
   finalOutput: z.string().max(50_000).nullable().optional(),
   finalImage: ImageUrlSchema.nullable().optional(),
+  visibility: z.enum(["private", "public"]).optional(),
   promptIds: z.array(z.string()).max(50).optional(), // full reorder/replace
 });
 export type ThreadUpdate = z.infer<typeof ThreadUpdateSchema>;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, Link2, X } from "lucide-react";
 import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
@@ -20,6 +20,7 @@ interface ThreadDetail {
   projectId: string | null;
   finalOutput: string | null;
   finalImage: string | null;
+  visibility: "private" | "public";
   steps: Step[];
 }
 
@@ -162,6 +163,33 @@ export default function ThreadPage() {
             </option>
           ))}
         </select>
+        <select
+          className="input h-9 max-w-32"
+          title="Public recipes get a share page anyone can view"
+          value={thread.visibility}
+          onChange={(e) => {
+            const v = e.target.value as "private" | "public";
+            setThread({ ...thread, visibility: v });
+            // reload after the round-trip — publishing can 403 on unverified
+            // email, and the select must snap back rather than lie
+            void patch({ visibility: v }).then(reload);
+          }}
+        >
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+        {thread.visibility === "public" && (
+          <button
+            className="btn"
+            title="Anyone with the link can view this recipe"
+            onClick={() => {
+              void navigator.clipboard.writeText(`${location.origin}/r/${thread.id}`);
+              toast("Share link copied");
+            }}
+          >
+            <Link2 size={13} /> Share
+          </button>
+        )}
         <button className="btn" onClick={copyAll}>
           <Copy size={13} /> Copy all
         </button>

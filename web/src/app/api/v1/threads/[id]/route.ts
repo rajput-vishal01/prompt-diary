@@ -4,7 +4,17 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { ThreadUpdateSchema } from "shared";
 import { db } from "@/db";
 import { prompts, threads, threadSteps } from "@/db/schema";
-import { guard, jsonErr, jsonOk, notFound } from "@/lib/api";
+import {
+  getUser,
+  guard,
+  jsonErr,
+  jsonOk,
+  needsVerification,
+  notFound,
+  rateLimit,
+  rateLimitKey,
+} from "@/lib/api";
+import { loadThreadForViewer } from "@/lib/threads";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,27 +24,18 @@ async function ownThread(id: string, userId: string) {
   });
 }
 
-// GET — the recipe: thread + its steps as full prompts, in order
+// GET — the recipe: thread + its steps as full prompts, in order.
+// Anonymous allowed: public threads are world-readable (/r/[id] share pages).
 export async function GET(req: NextRequest, { params }: Params) {
-  const g = await guard(req);
-  if ("response" in g) return g.response;
+  const user = await getUser(req);
+  if (!(await rateLimit(rateLimitKey(req, user?.id)))) {
+    return jsonErr("Too many requests", 429);
+  }
 
   const { id } = await params;
-  const thread = await ownThread(id, g.user.id);
-  if (!thread) return notFound();
-
-  const steps = await db
-    .select({
-      order: threadSteps.order,
-      note: threadSteps.note,
-      prompt: prompts,
-    })
-    .from(threadSteps)
-    .innerJoin(prompts, eq(threadSteps.promptId, prompts.id))
-    .where(eq(threadSteps.threadId, id))
-    .orderBy(asc(threadSteps.order));
-
-  return jsonOk({ ...thread, steps });
+  const result = await loadThreadForViewer(id, user?.id ?? null);
+  if (!result) return notFound(); // private + not yours reads as missing
+  return jsonOk(result);
 }
 
 // PATCH — title / project / final output / full step reorder
@@ -49,6 +50,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const parsed = ThreadUpdateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonErr(parsed.error.message, 400);
   const input = parsed.data;
+
+  // publishing a recipe = publishing content, same gate as prompts
+  if (
+    input.visibility === "public" &&
+    thread.visibility !== "public" &&
+    !g.user.emailVerified
+  ) {
+    return needsVerification();
+  }
 
   if (input.promptIds) {
     const mine = await db
@@ -76,6 +86,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.projectId !== undefined && { projectId: input.projectId }),
       ...(input.finalOutput !== undefined && { finalOutput: input.finalOutput }),
       ...(input.finalImage !== undefined && { finalImage: input.finalImage }),
+      ...(input.visibility !== undefined && { visibility: input.visibility }),
       updatedAt: new Date(),
     })
     .where(eq(threads.id, id))

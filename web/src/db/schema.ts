@@ -140,6 +140,8 @@ export const threads = pgTable(
     title: text("title").notNull(),
     finalOutput: text("final_output"),
     finalImage: text("final_image"),
+    // recipes can be published to /r/[id] — only private|public used (no team)
+    visibility: visibilityEnum("visibility").notNull().default("private"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

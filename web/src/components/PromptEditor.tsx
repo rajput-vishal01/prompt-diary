@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, ImagePlus, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImagePlus, Link2, Star } from "lucide-react";
 import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
@@ -346,6 +346,18 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
             </option>
           ))}
         </select>
+        {visibility === "public" && id && (
+          <button
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line-strong px-4 text-sm font-medium text-dim transition-colors hover:bg-hover hover:text-ink"
+            title="Anyone with the link can view this prompt"
+            onClick={() => {
+              void navigator.clipboard.writeText(`${location.origin}/p/${id}`);
+              toast("Share link copied");
+            }}
+          >
+            <Link2 size={14} /> Share link
+          </button>
+        )}
         {/* same star vocabulary as the sidebar's Pinned */}
         <button
           className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors ${

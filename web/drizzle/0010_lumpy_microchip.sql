@@ -1,0 +1,1 @@
+ALTER TABLE "threads" ADD COLUMN "visibility" "visibility" DEFAULT 'private' NOT NULL;

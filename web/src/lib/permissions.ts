@@ -38,6 +38,18 @@ export async function canAccessPrompt(
   return false;
 }
 
+/**
+ * Threads only have private|public — read is owner or public, write is owner.
+ * Pure (no team tier), so it stays synchronous and trivially testable.
+ */
+export function canReadThread(
+  userId: string | null,
+  thread: { userId: string; visibility: string },
+): boolean {
+  if (userId !== null && thread.userId === userId) return true;
+  return thread.visibility === "public";
+}
+
 export async function isTeamOwner(
   userId: string,
   teamId: string,
