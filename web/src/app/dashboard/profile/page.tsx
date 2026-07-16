@@ -4,11 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { uploadImage } from "@/lib/upload";
 import { authClient, useSession } from "@/lib/auth-client";
 
+// section anatomy is deliberate: hairline top border + caption label. Later
+// sections (API keys, danger zone) slot in without touching the others.
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-line pt-5">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+        {label}
+      </p>
+      {children}
+    </section>
+  );
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [verifySent, setVerifySent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -43,12 +61,11 @@ export default function ProfilePage() {
   if (!session) return null;
   const verified = session.user.emailVerified;
 
+  // borderless headline input — commit on blur, same as the thread title
   const saveName = async () => {
     if (!name.trim() || name.trim() === session.user.name) return;
-    setSaving(true);
     setError(null);
     const res = await authClient.updateUser({ name: name.trim() });
-    setSaving(false);
     if (res.error) {
       setError(res.error.message ?? "Could not save");
       return;
@@ -71,11 +88,19 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Profile</h1>
+    <div className="mx-auto max-w-2xl space-y-6 pb-10">
+      <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+        Profile
+      </h1>
 
-      <div className="card space-y-4">
-        <div className="flex items-center gap-4">
+      {/* identity — avatar + editable headline name */}
+      <div className="flex items-center gap-5 pb-1">
+        <button
+          className="group relative shrink-0 rounded-full"
+          title="Change photo"
+          disabled={avatarUploading}
+          onClick={() => avatarRef.current?.click()}
+        >
           {session.user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -84,82 +109,66 @@ export default function ProfilePage() {
               className="h-16 w-16 rounded-full border border-line object-cover"
             />
           ) : (
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint text-xl font-bold text-accent">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint font-display text-2xl font-light text-ink">
               {(session.user.name || session.user.email).charAt(0).toUpperCase()}
             </span>
           )}
-          <div>
-            <button
-              className="btn"
-              disabled={avatarUploading}
-              onClick={() => avatarRef.current?.click()}
-            >
-              {avatarUploading ? "Uploading…" : "Change photo"}
-            </button>
+          <span className="absolute inset-0 hidden items-center justify-center rounded-full bg-ink/50 text-[10px] font-semibold uppercase tracking-wide text-white group-hover:flex">
+            {avatarUploading ? "…" : "Change"}
+          </span>
+        </button>
+        <input
+          ref={avatarRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void changeAvatar(f);
+            e.target.value = "";
+          }}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-3">
             <input
-              ref={avatarRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void changeAvatar(f);
-                e.target.value = "";
-              }}
-            />
-            <p className="mt-1 text-xs text-dim">Square images look best. Max 5MB.</p>
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="profile-name" className="mb-1 block text-xs font-semibold text-dim">
-            Username
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="profile-name"
-              className="input"
+              className="w-full min-w-0 border-b border-transparent bg-transparent pb-0.5 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
               value={name}
-              onChange={(e) => setName(e.target.value)}
               maxLength={100}
+              placeholder="Your name"
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => void saveName()}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             />
-            <button
-              className="btn-primary"
-              disabled={saving || !name.trim() || name.trim() === session.user.name}
-              onClick={() => void saveName()}
-            >
-              {saving ? "…" : saved ? "Saved ✓" : "Save"}
-            </button>
+            {saved && <span className="shrink-0 text-sm text-success">Saved ✓</span>}
           </div>
-          <p className="mt-1 text-xs text-dim">
-            Shown on your public and team prompts.
-          </p>
-        </div>
-
-        <div className="border-t border-line pt-4">
-          <p className="mb-1 text-xs font-semibold text-dim">Email</p>
-          <p className="text-sm">
+          <p className="mt-1 text-sm text-dim">
             {session.user.email}
             {verified ? (
-              <span className="ml-2 font-semibold text-accent">verified ✓</span>
+              <span className="ml-2 text-[11px] font-semibold uppercase tracking-wide text-success">
+                verified ✓
+              </span>
             ) : (
-              <span className="ml-2 font-semibold text-amber">unverified</span>
+              <span className="ml-2 text-[11px] font-semibold uppercase tracking-wide text-amber">
+                unverified
+              </span>
             )}
+          </p>
+          <p className="mt-0.5 text-xs text-dim/80">
+            Your name appears on public and team prompts.
           </p>
         </div>
       </div>
 
       {!verified && (
-        <div className="card space-y-3 border-accent/40 bg-tint">
-          <h2 className="font-semibold">Verify your email</h2>
-          <p className="text-sm leading-relaxed text-dim">
+        <div className="space-y-3 rounded-xl bg-tint p-4">
+          <p className="text-sm leading-relaxed text-body">
             Publishing public prompts, creating teams, and accepting team
-            invites require a verified email. We'll send a verification link
-            to <span className="font-semibold text-ink">{session.user.email}</span> —
-            click it and you'll land back here, verified.
+            invites require a verified email. We&apos;ll send a link to{" "}
+            <span className="font-semibold text-ink">{session.user.email}</span>{" "}
+            — click it and you&apos;ll land back here, verified.
           </p>
           {verifySent ? (
-            <p className="text-sm font-semibold text-accent">
+            <p className="text-sm font-medium text-success">
               Sent — check your inbox (and spam folder).
             </p>
           ) : (
@@ -170,8 +179,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="card space-y-3">
-        <h2 className="font-semibold">Keyboard shortcuts</h2>
+      <Section label="Keyboard shortcuts">
         <div className="grid gap-1.5 text-sm">
           <p className="flex justify-between">
             <span className="text-dim">Command palette</span>
@@ -194,11 +202,11 @@ export default function ProfilePage() {
             <span><span className="kbd">Alt</span> <span className="kbd">P</span></span>
           </p>
         </div>
-        <div className="border-t border-line pt-2 text-[13px] leading-relaxed text-dim">
+        <p className="mt-3 border-t border-line pt-3 text-[13px] leading-relaxed text-dim">
           To change the extension hotkey, Chrome requires you to do it in the
-          browser itself (extensions can't rebind their own keys):{" "}
+          browser itself:{" "}
           <button
-            className="font-mono font-semibold text-accent hover:underline"
+            className="font-mono font-medium text-ink hover:underline"
             onClick={() => {
               void navigator.clipboard.writeText("chrome://extensions/shortcuts");
             }}
@@ -208,18 +216,17 @@ export default function ProfilePage() {
           </button>{" "}
           — click to copy, paste it in the address bar. Or click the{" "}
           <span className="font-semibold text-ink">⌨</span> in the extension
-          popup's footer to jump straight there.
-        </div>
-      </div>
+          popup&apos;s footer.
+        </p>
+      </Section>
 
-      <div className="card space-y-2">
-        <h2 className="font-semibold">Chrome extension</h2>
-        <p className="text-sm text-dim">
+      <Section label="Chrome extension">
+        <p className="text-sm leading-relaxed text-dim">
           Install the Prompt Diary extension, sign in with the same account,
           and your vault syncs automatically. Highlight any text → right-click
           → “Save to Prompt Diary”.
         </p>
-      </div>
+      </Section>
 
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
