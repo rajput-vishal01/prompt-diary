@@ -131,7 +131,7 @@ export default function ProfilePage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <input
-              className="w-full min-w-0 border-b border-transparent bg-transparent pb-0.5 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
+              className="w-full min-w-0 border-b border-transparent bg-transparent pb-0.5 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
               value={name}
               maxLength={100}
               placeholder="Your name"
@@ -153,7 +153,7 @@ export default function ProfilePage() {
               </span>
             )}
           </p>
-          <p className="mt-0.5 text-xs text-dim/80">
+          <p className="mt-0.5 text-xs text-dim">
             Your name appears on public and team prompts.
           </p>
         </div>
@@ -349,7 +349,7 @@ function DangerZone({ email }: { email: string }) {
           <div>
             <label className="mb-1 block text-xs font-semibold text-dim" htmlFor="del-password">
               Password{" "}
-              <span className="font-normal text-dim/80">
+              <span className="font-normal text-dim">
                 (leave empty if you signed in with Google)
               </span>
             </label>

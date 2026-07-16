@@ -191,7 +191,7 @@ function TreeRow({
         {node.canDrag && !node.fixed && (
           <span
             draggable
-            className="w-0 shrink-0 cursor-grab overflow-hidden text-dim/60 opacity-0 transition-all duration-[120ms] group-hover/row:w-3 group-hover/row:opacity-100"
+            className="w-0 shrink-0 cursor-grab overflow-hidden text-dim opacity-0 transition-all duration-[120ms] group-hover/row:w-3 group-hover/row:opacity-100"
             onClick={(e) => e.stopPropagation()}
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = "move";

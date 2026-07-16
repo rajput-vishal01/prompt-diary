@@ -75,7 +75,7 @@ export default async function PublicPromptPage({ params }: Params) {
           </span>
           <CopyButton text={p.body} label="Copy prompt" />
         </div>
-        <pre className="whitespace-pre-wrap rounded-xl bg-[#fafafa] p-5 font-mono text-sm leading-relaxed tracking-tight text-ink">
+        <pre className="whitespace-pre-wrap rounded-xl bg-soft p-5 font-mono text-sm leading-relaxed tracking-tight text-ink">
           {p.body}
         </pre>
       </div>

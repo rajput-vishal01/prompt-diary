@@ -70,6 +70,9 @@ function PromptsPageInner() {
   const [view, setView] = useState<"list" | "cards">("list");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  // the ⋯ menu lives inside an overflow-y-auto panel — near the bottom it
+  // must open upward or it clips below the scroller (and the viewport)
+  const [menuOpensUp, setMenuOpensUp] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -267,6 +270,7 @@ function PromptsPageInner() {
           className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${menuId === p.id ? "bg-ink/[0.06]" : ""} ${ghostBg ? "bg-raised/90" : ""}`}
           onClick={(e) => {
             e.stopPropagation();
+            setMenuOpensUp(e.currentTarget.getBoundingClientRect().bottom > window.innerHeight - 300);
             setMenuId((m) => (m === p.id ? null : p.id));
           }}
         >
@@ -282,7 +286,9 @@ function PromptsPageInner() {
               }}
             />
             <span
-              className="absolute right-0 top-9 z-50 flex w-44 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 shadow-soft"
+              className={`absolute right-0 z-50 flex max-h-72 w-44 flex-col overflow-y-auto rounded-lg border border-line bg-raised py-1 shadow-soft ${
+                menuOpensUp ? "bottom-9" : "top-9"
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -489,7 +495,7 @@ function PromptsPageInner() {
           filtered.map((p) => (
             <div
               key={p.id}
-              className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+              className="ledger-row group relative flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
               onClick={() => router.push(`/dashboard/p/${p.id}`)}
               title="Open"
             >
@@ -511,15 +517,17 @@ function PromptsPageInner() {
                 </span>
                 {p.useCount > 0 && (
                   <span
-                    className="text-[11px] font-semibold uppercase tabular-nums tracking-wide text-dim/70"
+                    className="text-[11px] font-semibold uppercase tabular-nums tracking-wide text-dim"
                     title={`Copied ${p.useCount} time${p.useCount === 1 ? "" : "s"}`}
                   >
                     {p.useCount}×
                   </span>
                 )}
-                <span className="hidden group-hover:flex">
-                  <RowActions p={p} />
-                </span>
+              </span>
+              {/* absolute overlay on the hover bg — appearing must not shift
+                  the meta cluster or re-truncate the title (checklist C) */}
+              <span className="absolute bottom-0 right-4 top-0 hidden items-center bg-soft pl-2 group-hover:flex">
+                <RowActions p={p} />
               </span>
             </div>
           ))}
@@ -539,7 +547,7 @@ function PromptsPageInner() {
                   <span className="truncate text-[16px] font-medium text-ink">{p.title}</span>
                 </span>
                 {/* the manuscript excerpt — the one deliberate signature detail */}
-                <p className="line-clamp-3 rounded-md bg-[#fafafa] p-2 font-mono text-[15px] leading-relaxed tracking-tight text-body">
+                <p className="line-clamp-3 rounded-md bg-soft p-2 font-mono text-[15px] leading-relaxed tracking-tight text-body">
                   {excerptOf(p)}
                 </p>
                 <div className="mt-auto flex items-center gap-1.5">
@@ -548,7 +556,7 @@ function PromptsPageInner() {
                       {t}
                     </span>
                   ))}
-                  <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-dim/70">
+                  <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-dim">
                     <span title={p.visibility === "public" ? "public" : p.teamId ? "shared with team" : "private"}>
                       <VisibilityIcon p={p} />
                     </span>

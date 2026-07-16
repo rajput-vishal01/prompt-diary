@@ -36,7 +36,9 @@ body {
     @apply rounded-xl border border-line bg-raised;
   }
   .chip {
-    @apply inline-flex items-center rounded-full border border-transparent bg-tint px-2.5 py-0.5 text-xs font-medium text-ink;
+    /* max-w + ellipsis: user text (tags) is schema-capped at 50 chars but a
+       50-char chip still outgrows a phone-width card — clip, never overflow */
+    @apply inline-flex max-w-full items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-transparent bg-tint px-2.5 py-0.5 text-xs font-medium text-ink;
   }
   .vis-badge {
     @apply inline-flex items-center gap-1.5 text-[11px] font-semibold before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:content-[''];

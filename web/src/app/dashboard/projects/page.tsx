@@ -210,7 +210,7 @@ function ProjectsPageInner() {
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.color }} />
             {p.name}
-            <span className={`tabular-nums ${selected === p.id ? "text-white/70" : "text-dim/70"}`}>
+            <span className={`tabular-nums ${selected === p.id ? "text-white/70" : "text-dim"}`}>
               {p.threadCount}
             </span>
           </button>
@@ -249,7 +249,7 @@ function ProjectsPageInner() {
             return (
               <div
                 key={t.id}
-                className="group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                className="group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
                 onClick={() => router.push(`/dashboard/t/${t.id}`)}
                 title="Open"
               >
@@ -277,10 +277,10 @@ function ProjectsPageInner() {
                       {project.name}
                     </span>
                   )}
-                  <span className="text-xs tabular-nums text-dim/70">
+                  <span className="text-xs tabular-nums text-dim">
                     {t.stepCount} {t.stepCount === 1 ? "step" : "steps"}
                   </span>
-                  <span className="row-passive text-xs text-dim/70 group-hover:hidden">
+                  <span className="row-passive text-xs text-dim group-hover:hidden">
                     {relativeTime(t.updatedAt)}
                   </span>
                   <span className="hidden items-center gap-0.5 group-hover:flex">

@@ -373,21 +373,24 @@ button {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  color: var(--dim);
-  opacity: 0.75;
+  color: var(--dim); /* full token — diluted dim drops below 4.5:1 (AA) */
 }
 
+/* hover actions OVERLAY the passive meta (absolute, on the hover wash) —
+   appearing must never re-truncate the title or shift the row */
 .row-actions {
   display: none;
   gap: 2px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-left: 6px;
+  background: var(--soft);
 }
 
 .row:hover .row-actions {
   display: flex;
-}
-
-.row:hover .row-passive {
-  display: none;
 }
 
 .icon-btn {

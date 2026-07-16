@@ -321,7 +321,7 @@ export function Sidebar() {
         style={{ width }}
         className={`${
           mobileOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
-        } relative shrink-0 flex-col border-r border-line bg-raised px-3 py-4 md:static md:flex`}
+        } shrink-0 flex-col border-r border-line bg-raised px-3 py-4 md:relative md:flex`}
       >
         <Link href="/" className="mb-5 px-2 font-display text-xl font-light tracking-tight">
           Prompt Diary

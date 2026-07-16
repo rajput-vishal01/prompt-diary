@@ -10,6 +10,7 @@ export default {
       colors: {
         bg: "#f5f5f5", // canvas
         raised: "#ffffff", // surface-card
+        soft: "#fafafa", // manuscript wash + row hover (mirrors the extension's --soft)
         hover: "#efedec",
         line: "#e7e5e4", // hairline
         "line-strong": "#d6d3d1",

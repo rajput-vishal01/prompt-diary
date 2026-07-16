@@ -76,7 +76,7 @@ export default async function PublicThreadPage({ params }: Params) {
         )}
         {t.steps.map((s, i) => (
           <div key={s.prompt.id} className="flex gap-4 px-4 py-4">
-            <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim/70">
+            <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim">
               {String(i + 1).padStart(2, "0")}
             </span>
             <div className="min-w-0 flex-1">
@@ -91,7 +91,7 @@ export default async function PublicThreadPage({ params }: Params) {
                 )}
               </div>
               {!s.redacted && "body" in s.prompt && (
-                <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-[#fafafa] p-3 font-mono text-xs leading-relaxed tracking-tight text-body">
+                <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-soft p-3 font-mono text-xs leading-relaxed tracking-tight text-body">
                   {(s.prompt as { body: string }).body}
                 </pre>
               )}
@@ -111,7 +111,7 @@ export default async function PublicThreadPage({ params }: Params) {
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
             Final output — what this recipe produced
           </p>
-          <div className="overflow-hidden rounded-xl bg-[#fafafa]">
+          <div className="overflow-hidden rounded-xl bg-soft">
             {t.finalImage && (
               // eslint-disable-next-line @next/next/no-img-element
               <img

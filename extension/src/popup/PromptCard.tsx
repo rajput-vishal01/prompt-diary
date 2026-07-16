@@ -86,6 +86,7 @@ export function PromptCard({
           <button
             className={`icon-btn ${prompt.pinned ? "starred" : ""}`}
             title={prompt.pinned ? "Unpin" : "Pin"}
+            aria-label={prompt.pinned ? "Unpin prompt" : "Pin prompt"}
             onClick={(e) => {
               e.stopPropagation();
               onTogglePin();
@@ -96,6 +97,7 @@ export function PromptCard({
           <button
             className="icon-btn"
             title="Edit"
+            aria-label="Edit prompt"
             onClick={(e) => {
               e.stopPropagation();
               onEdit();

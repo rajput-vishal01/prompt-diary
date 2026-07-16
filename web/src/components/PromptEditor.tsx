@@ -258,7 +258,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           </button>
         ) : (
           <button
-            className="inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-full bg-tint px-5 text-sm font-medium text-dim/70"
+            className="inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-full bg-tint px-5 text-sm font-medium text-dim"
             disabled
           >
             Save{" "}
@@ -271,7 +271,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
 
       {/* the page's one Waldenburg moment — a headline that happens to be editable */}
       <input
-        className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
+        className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
         placeholder="Untitled prompt"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -289,7 +289,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           onImage={setImageBefore}
         />
         <div className="hidden items-center px-3 md:flex" aria-hidden>
-          <ArrowRight size={16} className="text-dim/60" />
+          <ArrowRight size={16} className="text-dim" />
         </div>
         <OutputPane
           label="After"
@@ -307,7 +307,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           The Prompt
         </span>
         <textarea
-          className="min-h-0 flex-1 resize-none rounded-xl bg-[#fafafa] p-6 font-mono text-[16px] leading-relaxed tracking-tight text-ink outline-none transition-shadow placeholder:text-dim/60 focus:ring-2 focus:ring-inset focus:ring-ink/10"
+          className="min-h-0 flex-1 resize-none rounded-xl bg-soft p-6 font-mono text-[16px] leading-relaxed tracking-tight text-ink outline-none transition-shadow placeholder:text-dim focus:ring-2 focus:ring-inset focus:ring-ink/10"
           placeholder="Your prompt…"
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -437,7 +437,7 @@ function OutputPane({
     >
       <div className="flex items-center gap-2 px-4 pt-3">
         <span className="flex-1 truncate text-xs font-semibold uppercase tracking-[0.08em] text-dim">
-          {label} <span className="font-normal normal-case tracking-normal text-dim/70">— {sublabel}</span>
+          {label} <span className="font-normal normal-case tracking-normal text-dim">— {sublabel}</span>
         </span>
         <button
           className="flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover disabled:opacity-50"
@@ -472,7 +472,7 @@ function OutputPane({
         </div>
       )}
       <textarea
-        className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-mono text-[13px] leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim/60"
+        className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-mono text-[13px] leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim"
         placeholder={image ? "Notes (optional)…" : "Paste text, or drop a screenshot here"}
         value={text}
         onChange={(e) => onText(e.target.value)}

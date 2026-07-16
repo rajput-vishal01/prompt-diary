@@ -142,7 +142,7 @@ export default function UsagePage() {
       )}
 
       {/* the honesty footnote — everything on this page is a ballpark */}
-      <p className="mt-3 text-xs text-dim/80">
+      <p className="mt-3 text-xs text-dim">
         Estimated from message length (characters ÷ 4) on chats where the
         extension is active — not billing data.
       </p>

@@ -260,7 +260,7 @@ export default function TeamUsageDashboard() {
               <section className="panel p-5">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
                   Daily tokens by model
-                  {selectedName && <span className="normal-case tracking-normal text-dim/70"> — {selectedName}</span>}
+                  {selectedName && <span className="normal-case tracking-normal text-dim"> — {selectedName}</span>}
                 </p>
                 {total === 0 ? (
                   <p className="py-14 text-center text-sm text-dim">
@@ -374,11 +374,11 @@ export default function TeamUsageDashboard() {
                       <button
                         key={m.userId}
                         className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-[120ms] ease-out ${
-                          selected ? "bg-[#fafafa] shadow-[inset_2px_0_0_#0c0a09]" : "hover:bg-[#fafafa]"
+                          selected ? "bg-soft shadow-[inset_2px_0_0_#0c0a09]" : "hover:bg-soft"
                         }`}
                         onClick={() => setSelectedMember(selected ? null : m.userId)}
                       >
-                        <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-dim/70">
+                        <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-dim">
                           {String(i + 1).padStart(2, "0")}
                         </span>
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-semibold text-ink">
@@ -401,7 +401,7 @@ export default function TeamUsageDashboard() {
                               }}
                             />
                           </span>
-                          <span className="mt-1 block text-[11px] text-dim/80">
+                          <span className="mt-1 block text-[11px] text-dim">
                             {m.tokens > 0 ? (
                               <>
                                 {Math.round((m.tokens / Math.max(1, teamTotal)) * 100)}% of team
@@ -427,12 +427,12 @@ export default function TeamUsageDashboard() {
                   <div className="panel divide-y divide-line">
                     {topPrompts.map((p, i) => (
                       <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                        <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-dim/70">
+                        <span className="w-5 shrink-0 font-mono text-xs tabular-nums text-dim">
                           {String(i + 1).padStart(2, "0")}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-ink">{p.title}</span>
-                          <span className="block text-[11px] text-dim/80">by {p.authorName}</span>
+                          <span className="block text-[11px] text-dim">by {p.authorName}</span>
                         </span>
                         <span className="shrink-0 text-xs font-semibold uppercase tabular-nums tracking-wide text-dim">
                           {p.useCount}×
@@ -446,7 +446,7 @@ export default function TeamUsageDashboard() {
           </div>
 
           {/* the honesty footnote — same wording as every usage surface */}
-          <p className="mt-4 text-xs text-dim/80">
+          <p className="mt-4 text-xs text-dim">
             Estimated from message length (characters ÷ 4) on chats where the
             extension is active — not billing data. Prompt reuse counts come from
             copy actions on shared prompts.
@@ -469,10 +469,11 @@ function BackBar({
   return (
     <div className="flex items-center gap-3">
       <button
-        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+        className="flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
         onClick={() => router.push(`/dashboard/teams?t=${id}`)}
       >
-        <ArrowLeft size={15} /> {teamName || "Team"}
+        <ArrowLeft size={15} className="shrink-0" />
+        <span className="max-w-52 truncate">{teamName || "Team"}</span>
       </button>
     </div>
   );
@@ -485,7 +486,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
       <p className="mt-0.5 truncate font-display text-2xl font-light tabular-nums text-ink">
         {value}
       </p>
-      {sub && <p className="text-[11px] text-dim/80">{sub}</p>}
+      {sub && <p className="text-[11px] text-dim">{sub}</p>}
     </div>
   );
 }

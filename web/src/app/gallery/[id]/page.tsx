@@ -208,7 +208,7 @@ export default function GalleryDetailPage() {
             <span className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
               The prompt
             </span>
-            <pre className="min-h-40 flex-1 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[#fafafa] p-5 font-mono text-sm leading-relaxed tracking-tight text-ink">
+            <pre className="min-h-40 flex-1 overflow-y-auto whitespace-pre-wrap rounded-xl bg-soft p-5 font-mono text-sm leading-relaxed tracking-tight text-ink">
               {prompt.body}
             </pre>
           </div>

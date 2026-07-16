@@ -148,7 +148,7 @@ export function CommandPalette() {
               // the 2px ink selection bar — same cursor vocabulary as every list
               className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors duration-[120ms] ${
                 i === sel
-                  ? "bg-[#fafafa] text-ink shadow-[inset_2px_0_0_#0c0a09]"
+                  ? "bg-soft text-ink shadow-[inset_2px_0_0_#0c0a09]"
                   : "text-ink hover:bg-hover"
               }`}
               onMouseEnter={() => setSel(i)}

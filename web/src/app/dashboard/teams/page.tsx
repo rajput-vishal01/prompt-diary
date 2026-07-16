@@ -171,7 +171,7 @@ function TeamsPageInner() {
           {teams.map((t) => (
             <button
               key={t.id}
-              className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 text-left transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+              className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 text-left transition-colors duration-[120ms] ease-out hover:bg-soft"
               onClick={() => setSelected(t)}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint font-display text-base font-light text-ink">
@@ -318,7 +318,7 @@ function TeamDetail({
             {prompts.map((p) => (
               <div
                 key={p.id}
-                className="group px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                className="group px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-soft"
               >
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">
@@ -336,7 +336,7 @@ function TeamDetail({
                 <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">
                   {p.body}
                 </p>
-                <p className="mt-1.5 text-xs text-dim/80">
+                <p className="mt-1.5 text-xs text-dim">
                   by {p.authorName}
                   {p.useCount > 0 && <span className="tabular-nums"> · {p.useCount}×</span>}
                   {p.visibility === "public" && <span> · also public</span>}
@@ -359,7 +359,7 @@ function TeamDetail({
                 return (
                   <div
                     key={m.userId}
-                    className="group flex h-16 items-center gap-3 px-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                    className="group flex h-16 items-center gap-3 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-semibold text-ink">
                       {m.name.charAt(0).toUpperCase()}
@@ -476,7 +476,7 @@ function TeamDetail({
                 <p className="text-xs text-dim">
                   estimated tokens, last 30 days — not billing data
                 </p>
-                <p className="mt-2 text-xs text-dim/80">
+                <p className="mt-2 text-xs text-dim">
                   Daily trends, member leaderboard, and model split in the dashboard.
                 </p>
               </Link>

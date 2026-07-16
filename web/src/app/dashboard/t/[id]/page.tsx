@@ -134,8 +134,9 @@ export default function ThreadPage() {
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col gap-4">
-      {/* top bar — ghost back, autosave, quiet actions */}
-      <div className="flex items-center gap-3">
+      {/* top bar — ghost back, autosave, quiet actions; wraps at phone widths
+          so Delete never renders past the viewport edge */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
           onClick={() => router.push("/dashboard/projects")}
@@ -223,7 +224,7 @@ export default function ThreadPage() {
       {/* the page's one Waldenburg moment — an editable headline */}
       <div>
         <input
-          className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim/50 focus:border-line-strong"
+          className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
           placeholder="Untitled thread"
           value={thread.title}
           onChange={(e) => setThread({ ...thread, title: e.target.value })}
@@ -233,7 +234,7 @@ export default function ThreadPage() {
           <p className="mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
             {sites.map((s, i) => (
               <span key={s} className="flex items-center gap-2">
-                {i > 0 && <span className="text-dim/50">→</span>}
+                {i > 0 && <span className="text-dim">→</span>}
                 <span className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: SOURCE_DOTS[s] }} />
                   {s}
@@ -259,9 +260,9 @@ export default function ThreadPage() {
             return (
               <div
                 key={s.prompt.id}
-                className="group flex gap-4 px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                className="group flex gap-4 px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-soft"
               >
-                <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim/70">
+                <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -352,7 +353,7 @@ export default function ThreadPage() {
         <div className="mb-1.5 flex items-center">
           <span className="flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
             Final output{" "}
-            <span className="font-normal normal-case tracking-normal text-dim/70">
+            <span className="font-normal normal-case tracking-normal text-dim">
               — what this recipe produced
             </span>
           </span>
@@ -386,7 +387,7 @@ export default function ThreadPage() {
             }}
           />
         </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-[#fafafa]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-soft">
           {thread.finalImage && (
             <div className="relative m-3 mb-0 overflow-hidden rounded-lg border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -403,7 +404,7 @@ export default function ThreadPage() {
             </div>
           )}
           <textarea
-            className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim/60"
+            className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-relaxed tracking-tight text-ink outline-none placeholder:text-dim"
             placeholder="What did this chain produce? Paste the result, metrics, or notes…"
             value={thread.finalOutput ?? ""}
             onChange={(e) => setThread({ ...thread, finalOutput: e.target.value })}

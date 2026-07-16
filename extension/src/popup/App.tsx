@@ -577,6 +577,7 @@ export function App() {
           <button
             className="icon-btn"
             title="Discard captured context"
+            aria-label="Discard captured context"
             onClick={() => {
               void setHandoff(null);
               setHandoffState(null);
@@ -635,7 +636,7 @@ export function App() {
           </button>
           {auth ? (
             <>
-              <button className="icon-btn" title="Sync now" onClick={() => void handleSync()}>
+              <button className="icon-btn" title="Sync now" aria-label="Sync now" onClick={() => void handleSync()}>
                 <RefreshCw size={13} />
               </button>
               <button

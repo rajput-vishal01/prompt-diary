@@ -269,7 +269,7 @@ export default function GalleryPage() {
                   <Link
                     key={r.id}
                     href={`/r/${r.id}`}
-                    className="ledger-row group flex w-full cursor-pointer flex-col gap-1 px-4 py-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
+                    className="ledger-row group flex w-full cursor-pointer flex-col gap-1 px-4 py-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
                   >
                     <span className="flex items-center gap-2">
                       <span className="truncate text-[16px] font-medium text-ink">{r.title}</span>
@@ -316,7 +316,7 @@ export default function GalleryPage() {
                         {p.bookmarked && <Bookmark size={13} className="shrink-0 fill-brass text-brass" />}
                         <span className="truncate text-[16px] font-medium text-ink">{p.title}</span>
                       </span>
-                      <p className="line-clamp-3 rounded-md bg-[#fafafa] p-2 font-mono text-[14px] leading-relaxed tracking-tight text-body">
+                      <p className="line-clamp-3 rounded-md bg-soft p-2 font-mono text-[14px] leading-relaxed tracking-tight text-body">
                         {p.body}
                       </p>
                       <div className="mt-auto flex flex-wrap items-center gap-1.5">
@@ -330,7 +330,7 @@ export default function GalleryPage() {
                             {t}
                           </span>
                         ))}
-                        <span className="ml-auto shrink-0 text-xs text-dim/80">
+                        <span className="ml-auto shrink-0 text-xs text-dim">
                           by {p.authorName}
                           {p.useCount > 0 && <span className="tabular-nums"> · {p.useCount}×</span>}
                         </span>
