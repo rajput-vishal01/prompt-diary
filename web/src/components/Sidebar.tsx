@@ -225,17 +225,31 @@ export function Sidebar() {
 
   // ---------- mutations ----------
 
+  // every mutation toasts on failure — a rename/delete/move that silently
+  // rejected would otherwise leave the tree looking unchanged with no signal
+  const errMsg = (e: unknown, fallback: string) =>
+    e instanceof Error ? e.message : fallback;
+
   const renameItem = (kind: "folders" | "projects" | "threads") =>
     async (node: TreeNode, name: string) => {
       const id = node.id;
       const body = kind === "threads" ? { title: name } : { name };
-      await api(`/api/v1/${kind}/${id}`, { method: "PATCH", body });
-      emitChanged();
+      try {
+        await api(`/api/v1/${kind}/${id}`, { method: "PATCH", body });
+        emitChanged();
+      } catch (e) {
+        toast(errMsg(e, "Rename failed"), { kind: "error" });
+      }
     };
 
   const deleteFolderNode = async (node: TreeNode) => {
     const f = folders.find((x) => x.id === node.id);
-    await api(`/api/v1/folders/${node.id}`, { method: "DELETE" });
+    try {
+      await api(`/api/v1/folders/${node.id}`, { method: "DELETE" });
+    } catch (e) {
+      toast(errMsg(e, "Could not delete folder"), { kind: "error" });
+      return;
+    }
     emitChanged();
     if (activeFolder === node.id) router.push("/dashboard");
     toast(`Deleted “${node.label}”`, {
@@ -251,7 +265,12 @@ export function Sidebar() {
 
   const deleteProjectNode = async (node: TreeNode) => {
     const p = projects.find((x) => x.id === node.id);
-    await api(`/api/v1/projects/${node.id}`, { method: "DELETE" });
+    try {
+      await api(`/api/v1/projects/${node.id}`, { method: "DELETE" });
+    } catch (e) {
+      toast(errMsg(e, "Could not delete project"), { kind: "error" });
+      return;
+    }
     emitChanged();
     if (activeProject === node.id) router.push("/dashboard/projects");
     toast(`Deleted “${node.label}”`, {
@@ -267,13 +286,21 @@ export function Sidebar() {
   };
 
   const deleteThreadNode = async (node: TreeNode) => {
-    await api(`/api/v1/threads/${node.id}`, { method: "DELETE" });
+    try {
+      await api(`/api/v1/threads/${node.id}`, { method: "DELETE" });
+    } catch (e) {
+      toast(errMsg(e, "Could not delete thread"), { kind: "error" });
+      return;
+    }
     emitChanged();
     toast(`Deleted “${node.label}”`);
   };
 
   const persistOrder = (kind: "folders" | "projects") => (ids: string[]) => {
-    // optimistic local order, then persist each row's index
+    // optimistic local order, then persist each row's index; on any failure
+    // re-fetch the authoritative order rather than leaving a silent divergence
+    const prevFolders = folders;
+    const prevProjects = projects;
     if (kind === "folders") {
       const byId = new Map(folders.map((f) => [f.id, f]));
       setFolders(ids.map((i) => byId.get(i)!).filter(Boolean));
@@ -281,15 +308,23 @@ export function Sidebar() {
       const byId = new Map(projects.map((p) => [p.id, p]));
       setProjects(ids.map((i) => byId.get(i)!).filter(Boolean));
     }
-    ids.forEach((id, i) => {
-      void api(`/api/v1/${kind}/${id}`, { method: "PATCH", body: { sortOrder: i } }).catch(() => {});
+    void Promise.all(
+      ids.map((id, i) => api(`/api/v1/${kind}/${id}`, { method: "PATCH", body: { sortOrder: i } })),
+    ).catch(() => {
+      if (kind === "folders") setFolders(prevFolders);
+      else setProjects(prevProjects);
+      toast("Could not save the new order", { kind: "error" });
     });
   };
 
   const moveThreadToProject = async (threadId: string, projectId: string) => {
-    await api(`/api/v1/threads/${threadId}`, { method: "PATCH", body: { projectId } });
-    emitChanged();
-    toast("Thread moved");
+    try {
+      await api(`/api/v1/threads/${threadId}`, { method: "PATCH", body: { projectId } });
+      emitChanged();
+      toast("Thread moved");
+    } catch (e) {
+      toast(errMsg(e, "Could not move thread"), { kind: "error" });
+    }
   };
 
   const flatItem = (href: string, label: string) => (

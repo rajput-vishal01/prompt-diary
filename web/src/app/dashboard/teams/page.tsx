@@ -8,6 +8,11 @@ import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
+
+// the Sidebar's Teams tree refetches on this event — fire it whenever team
+// membership changes here so it doesn't sit stale until an unrelated mutation
+const emitSidebar = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
 
 interface TeamRow {
   id: string;
@@ -97,6 +102,7 @@ function TeamsPageInner() {
     try {
       await api("/api/v1/teams", { method: "POST", body: { name: name.trim() } });
       reload();
+      emitSidebar();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not create team", { kind: "error" });
     }
@@ -106,6 +112,7 @@ function TeamsPageInner() {
     try {
       await api(`/api/v1/invites/${id}`, { method: "POST", body: { action } });
       reload();
+      emitSidebar();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not update invite", { kind: "error" });
     }
@@ -251,12 +258,18 @@ function TeamDetail({
   };
 
   const removeMember = async (userId: string) => {
-    await api(`/api/v1/teams/${team.id}/members`, {
-      method: "DELETE",
-      body: { userId },
-    });
+    try {
+      await api(`/api/v1/teams/${team.id}/members`, {
+        method: "DELETE",
+        body: { userId },
+      });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not remove member", { kind: "error" });
+      return;
+    }
     setConfirmingRemove(null);
     if (userId === session?.user.id) {
+      emitSidebar(); // I left the team — the sidebar's Teams tree must drop it
       onChanged();
       onBack();
       return;
@@ -267,7 +280,13 @@ function TeamDetail({
   const deleteTeam = async () => {
     if (!(await dialog.confirm({ title: `Delete team “${team.name}”?`, body: "Team prompts become private.", danger: true })))
       return;
-    await api(`/api/v1/teams/${team.id}`, { method: "DELETE" });
+    try {
+      await api(`/api/v1/teams/${team.id}`, { method: "DELETE" });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not delete team", { kind: "error" });
+      return;
+    }
+    emitSidebar();
     onChanged();
     onBack();
   };

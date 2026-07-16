@@ -435,8 +435,23 @@ if (TRACK_SITE) {
     lastSendAt = now;
     usageTimestamps = [...usageTimestamps, now]; // optimistic — instant UI
     updateLimitWidget();
-    chrome.runtime.sendMessage({ type: "usage-msg", site: TRACK_SITE.key }, () => {
-      void chrome.runtime.lastError; // worker asleep — event is still queued next time
+    const site = TRACK_SITE.key;
+    chrome.runtime.sendMessage({ type: "usage-msg", site }, () => {
+      // if the worker didn't receive it (context invalidated after an extension
+      // reload/update), the durable write never happened — persist it ourselves
+      // so the count isn't silently lost. Content scripts can write storage too.
+      if (chrome.runtime.lastError) {
+        void chrome.storage.local.get(["usageEvents", "usageLocalLog"]).then((res) => {
+          const queue = (res["usageEvents"] as Array<{ site: string; at: number }>) ?? [];
+          queue.push({ site, at: now });
+          const log = (res["usageLocalLog"] as Record<string, number[]>) ?? {};
+          log[site] = [...(log[site] ?? []), now];
+          void chrome.storage.local.set({
+            usageEvents: queue.slice(-500),
+            usageLocalLog: log,
+          });
+        });
+      }
     });
   };
 

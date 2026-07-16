@@ -25,7 +25,15 @@ async function flushPendingSteps(): Promise<void> {
         body: { promptIds: merged },
       });
     }
-    await chrome.storage.local.remove("pendingSteps");
+    // subtract only what we flushed — a step queued during the network round
+    // trip above must survive, not be wiped by a blind remove()
+    const flushed = new Set(queue.map((s) => `${s.threadId}|${s.promptId}`));
+    const latest = await chrome.storage.local.get("pendingSteps");
+    const current =
+      (latest["pendingSteps"] as Array<{ threadId: string; promptId: string }>) ?? [];
+    const remaining = current.filter((s) => !flushed.has(`${s.threadId}|${s.promptId}`));
+    if (remaining.length) await chrome.storage.local.set({ pendingSteps: remaining });
+    else await chrome.storage.local.remove("pendingSteps");
   } catch {
     // keep the queue; next sync retries
   }

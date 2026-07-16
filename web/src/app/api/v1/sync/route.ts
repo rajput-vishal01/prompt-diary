@@ -78,7 +78,11 @@ export async function POST(req: NextRequest) {
       visibility = "private";
     }
 
-    const clientUpdatedAt = p.updatedAt ? new Date(p.updatedAt) : new Date();
+    // clamp a client clock skewed into the future so a bad clock can't win
+    // every conflict forever; legit clients are always at or before now
+    const now = new Date();
+    const rawClientAt = p.updatedAt ? new Date(p.updatedAt) : now;
+    const clientUpdatedAt = rawClientAt > now ? now : rawClientAt;
     if (existing) {
       if (existing.updatedAt >= clientUpdatedAt) continue; // server wins
       await db
@@ -95,6 +99,10 @@ export async function POST(req: NextRequest) {
           outputAfter: p.outputAfter ?? existing.outputAfter,
           imageBefore: p.imageBefore ?? existing.imageBefore,
           imageAfter: p.imageAfter ?? existing.imageAfter,
+          // a client edit newer than the server row wins over a prior delete —
+          // without this, an edit that arrives after a deletion is written but
+          // stays deleted=true, invisible in every future snapshot (data loss)
+          deleted: false,
           updatedAt: clientUpdatedAt,
         })
         .where(eq(prompts.id, p.id));

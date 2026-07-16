@@ -103,7 +103,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.outputAfter !== undefined && { outputAfter: input.outputAfter }),
       ...(input.imageBefore !== undefined && { imageBefore: input.imageBefore }),
       ...(input.imageAfter !== undefined && { imageAfter: input.imageAfter }),
-      ...(input.useCount !== undefined && { useCount: input.useCount }),
+      // useCount is a monotonic copy counter: only ever +1 per request. Clamp
+      // so an owner can't PATCH { useCount: 9e9 } to top the gallery ranking.
+      ...(input.useCount !== undefined && {
+        useCount: Math.min(input.useCount, row.useCount + 1),
+      }),
       ...(contentChanged && {
         visibility: nextVisibility,
         teamId: nextTeamId,

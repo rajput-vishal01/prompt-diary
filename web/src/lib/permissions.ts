@@ -27,6 +27,11 @@ export async function canAccessPrompt(
   prompt: PromptRow,
   mode: "read" | "write",
 ): Promise<boolean> {
+  // a soft-deleted prompt is readable by nobody. Every other caller filters
+  // deleted before reaching here, but a public recipe's steps route through
+  // loadThreadForViewer, which relies on this gate to redact deleted steps
+  // instead of leaking their body on /r/[id].
+  if (prompt.deleted) return false;
   const isOwner = userId !== null && prompt.userId === userId;
   if (mode === "write") return isOwner;
 

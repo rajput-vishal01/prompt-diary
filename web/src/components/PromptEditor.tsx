@@ -144,6 +144,14 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body, tags, folderId, visibility, teamId, pinned, outputBefore, outputAfter, imageBefore, imageAfter]);
 
+  // a pending debounced save is lost if the user navigates away (sidebar link,
+  // list row, back button) before the 1200ms timer fires — done() flushes but
+  // those paths don't. Mirror the latest flush into a ref and run it once on
+  // unmount; flush() no-ops when there's nothing to save.
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => () => void flushRef.current(), []);
+
   const done = async () => {
     await flush();
     router.push("/dashboard");
@@ -161,7 +169,12 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
 
   const remove = async () => {
     if (!id) return;
-    await api(`/api/v1/prompts/${id}`, { method: "DELETE" });
+    try {
+      await api(`/api/v1/prompts/${id}`, { method: "DELETE" });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not delete prompt", { kind: "error" });
+      return;
+    }
     toast("Prompt deleted", {
       action: {
         label: "Undo",

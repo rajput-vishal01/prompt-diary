@@ -16,6 +16,7 @@ const publicThread = uid("pub");
 const privateThread = uid("priv");
 const publicStep = uid("step-pub");
 const privateStep = uid("step-priv");
+const deletedStep = uid("step-del"); // public prompt the owner later soft-deleted
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -25,6 +26,8 @@ beforeAll(async () => {
   await db.insert(prompts).values([
     { id: publicStep, userId: owner, title: "Public step", body: "public body", visibility: "public" },
     { id: privateStep, userId: owner, title: "Secret step", body: "SECRET body", visibility: "private" },
+    // public visibility but soft-deleted — must NOT leak on the public recipe
+    { id: deletedStep, userId: owner, title: "Deleted step", body: "DELETED body", visibility: "public", deleted: true },
   ]);
   await db.insert(threads).values([
     { id: publicThread, userId: owner, title: "Public recipe", visibility: "public" },
@@ -33,12 +36,13 @@ beforeAll(async () => {
   await db.insert(threadSteps).values([
     { threadId: publicThread, promptId: publicStep, order: 0 },
     { threadId: publicThread, promptId: privateStep, order: 1 },
+    { threadId: publicThread, promptId: deletedStep, order: 2 },
   ]);
 });
 
 afterAll(async () => {
   await db.delete(threads).where(inArray(threads.id, [publicThread, privateThread]));
-  await db.delete(prompts).where(inArray(prompts.id, [publicStep, privateStep]));
+  await db.delete(prompts).where(inArray(prompts.id, [publicStep, privateStep, deletedStep]));
   await db.delete(user).where(inArray(user.id, [owner, stranger]));
 });
 
@@ -68,7 +72,7 @@ describe("loadThreadForViewer redaction", () => {
   test("anon sees public steps in full, private steps title-only", async () => {
     const t = await loadThreadForViewer(publicThread, null);
     expect(t).not.toBeNull();
-    expect(t!.steps).toHaveLength(2);
+    expect(t!.steps).toHaveLength(3);
 
     const [open, secret] = t!.steps;
     expect(open!.redacted).toBe(false);
@@ -79,8 +83,18 @@ describe("loadThreadForViewer redaction", () => {
     expect(JSON.stringify(secret)).not.toContain("SECRET body");
   });
 
-  test("owner sees every step in full", async () => {
+  test("a soft-deleted public step never leaks its body, even to the owner", async () => {
+    for (const viewer of [null, owner, stranger]) {
+      const t = await loadThreadForViewer(publicThread, viewer);
+      const del = t!.steps.find((s) => s.prompt.id === deletedStep);
+      expect(del!.redacted).toBe(true);
+      expect(JSON.stringify(t!.steps)).not.toContain("DELETED body");
+    }
+  });
+
+  test("owner sees non-deleted steps in full", async () => {
     const t = await loadThreadForViewer(publicThread, owner);
-    expect(t!.steps.every((s) => !s.redacted)).toBe(true);
+    const live = t!.steps.filter((s) => s.prompt.id !== deletedStep);
+    expect(live.every((s) => !s.redacted)).toBe(true);
   });
 });

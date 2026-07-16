@@ -154,7 +154,9 @@ export default function ThreadPage() {
           onChange={(e) => {
             const v = e.target.value || null;
             setThread({ ...thread, projectId: v });
-            void patch({ projectId: v });
+            // reload so a failed save reverts the select instead of lying,
+            // matching the visibility select below
+            void patch({ projectId: v }).then(reload);
           }}
         >
           <option value="">No project</option>
@@ -379,6 +381,7 @@ export default function ThreadPage() {
                 const url = await uploadImage(f);
                 setThread({ ...thread, finalImage: url });
                 await patch({ finalImage: url });
+                reload(); // reconcile — a failed patch shouldn't leave a phantom image
               } catch (err) {
                 toast(err instanceof Error ? err.message : "Upload failed", { kind: "error" });
               } finally {
@@ -396,7 +399,7 @@ export default function ThreadPage() {
                 className="absolute right-2 top-2 rounded-md bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
                 onClick={() => {
                   setThread({ ...thread, finalImage: null });
-                  void patch({ finalImage: null });
+                  void patch({ finalImage: null }).then(reload);
                 }}
               >
                 Remove

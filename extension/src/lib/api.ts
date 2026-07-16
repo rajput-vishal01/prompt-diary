@@ -219,23 +219,42 @@ export async function recordUsageEvent(site: string, at = Date.now()): Promise<v
   await chrome.storage.local.set({ usageLocalLog: log, usageEvents: queue.slice(-500) });
 }
 
+// re-entrancy guard: flushUsageEvents fires after every tracked send AND on
+// every popup sync. Without this, two overlapping calls POST the same batch
+// and mis-trim the queue. (Guards within a realm; the rarer cross-realm
+// overlap is bounded by identity-based removal below + 48h server prune.)
+let usageFlushInFlight = false;
+
 /** Push queued events to the server (no-op signed out; retries next call). */
 export async function flushUsageEvents(): Promise<void> {
-  const auth = await getAuth();
-  if (!auth) return;
-  const res = await chrome.storage.local.get("usageEvents");
-  const queue = (res["usageEvents"] as UsageEvent[] | undefined) ?? [];
-  if (queue.length === 0) return;
+  if (usageFlushInFlight) return;
+  usageFlushInFlight = true;
   try {
-    await api("/api/v1/usage/messages", {
-      method: "POST",
-      body: { events: queue.slice(0, 100) },
-    });
+    const auth = await getAuth();
+    if (!auth) return;
+    const res = await chrome.storage.local.get("usageEvents");
+    const queue = (res["usageEvents"] as UsageEvent[] | undefined) ?? [];
+    if (queue.length === 0) return;
+    const batch = queue.slice(0, 100);
+    await api("/api/v1/usage/messages", { method: "POST", body: { events: batch } });
+    // remove exactly the events we sent by identity, not by count — a naive
+    // slice(batch.length) over a re-read queue can drop events appended mid-flush
+    const sent = new Set(batch.map((e) => `${e.site}|${e.at}`));
+    let removed = 0;
     const latest = await chrome.storage.local.get("usageEvents");
     const current = (latest["usageEvents"] as UsageEvent[] | undefined) ?? [];
-    await chrome.storage.local.set({ usageEvents: current.slice(queue.slice(0, 100).length) });
+    const remaining = current.filter((e) => {
+      if (removed < batch.length && sent.has(`${e.site}|${e.at}`)) {
+        removed++;
+        return false;
+      }
+      return true;
+    });
+    await chrome.storage.local.set({ usageEvents: remaining.slice(-500) });
   } catch {
     // keep the queue; next event or sync retries
+  } finally {
+    usageFlushInFlight = false;
   }
 }
 

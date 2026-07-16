@@ -135,8 +135,14 @@ export default function GalleryPage() {
         },
       });
       toast("Added to your diary");
-    } catch {
-      // 409 = already there; fall through and mark it owned either way
+    } catch (e) {
+      // only 409 "Already in your diary" means it's genuinely already owned;
+      // any other failure must NOT lie that it was saved
+      const already = e instanceof Error && e.message.includes("Already in your diary");
+      if (!already) {
+        toast(e instanceof Error ? e.message : "Could not add to your diary", { kind: "error" });
+        return;
+      }
     }
     setOwnedSourceIds((prev) => new Set(prev).add(p.id));
   };

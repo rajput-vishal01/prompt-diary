@@ -68,45 +68,68 @@ function ProjectsPageInner() {
     return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, reload);
   }, [reload]);
 
+  const fail = (e: unknown, fallback: string) =>
+    toast(e instanceof Error ? e.message : fallback, { kind: "error" });
+
   const newProject = async () => {
     const name = await dialog.prompt({ title: "New project", placeholder: "Project name", submitLabel: "Create" });
     if (!name?.trim()) return;
-    await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
-    reload();
-    emitChanged();
+    try {
+      await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
+      reload();
+      emitChanged();
+    } catch (e) {
+      fail(e, "Could not create project");
+    }
   };
 
   const renameProject = async (p: ProjectRow) => {
     const name = await dialog.prompt({ title: "Rename project", initial: p.name });
     if (!name?.trim() || name.trim() === p.name) return;
-    await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
-    reload();
-    emitChanged();
+    try {
+      await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
+      reload();
+      emitChanged();
+    } catch (e) {
+      fail(e, "Rename failed");
+    }
   };
 
   const deleteProject = async (p: ProjectRow) => {
     if (!(await dialog.confirm({ title: `Delete project “${p.name}”?`, body: "Its threads are kept.", danger: true }))) return;
-    await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
-    if (selected === p.id) setSelected(null);
-    reload();
-    emitChanged();
+    try {
+      await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
+      if (selected === p.id) setSelected(null);
+      reload();
+      emitChanged();
+    } catch (e) {
+      fail(e, "Could not delete project");
+    }
   };
 
   const deleteThread = async (t: ThreadRow) => {
     if (!(await dialog.confirm({ title: `Delete thread “${t.title}”?`, body: "The prompts inside are kept.", danger: true })))
       return;
-    await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
-    toast("Thread deleted");
-    reload();
-    emitChanged();
+    try {
+      await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
+      toast("Thread deleted");
+      reload();
+      emitChanged();
+    } catch (e) {
+      fail(e, "Could not delete thread");
+    }
   };
 
   const renameThread = async (t: ThreadRow) => {
     const title = await dialog.prompt({ title: "Rename thread", initial: t.title });
     if (!title?.trim() || title.trim() === t.title) return;
-    await api(`/api/v1/threads/${t.id}`, { method: "PATCH", body: { title: title.trim() } });
-    reload();
-    emitChanged();
+    try {
+      await api(`/api/v1/threads/${t.id}`, { method: "PATCH", body: { title: title.trim() } });
+      reload();
+      emitChanged();
+    } catch (e) {
+      fail(e, "Rename failed");
+    }
   };
 
   const newThread = async () => {

@@ -38,7 +38,14 @@ export default function ProfilePage() {
     const previous = session?.user.image;
     try {
       const url = await uploadImage(file);
-      await authClient.updateUser({ image: url });
+      // better-auth returns {error} instead of throwing — must check it, or a
+      // failed save would still fall through and destroy the OLD avatar below,
+      // leaving the user with no avatar at all
+      const res = await authClient.updateUser({ image: url });
+      if (res.error) {
+        setError(res.error.message ?? "Could not save the new photo");
+        return;
+      }
       // the replaced avatar is an orphan on Cloudinary now — clean it up
       if (previous) {
         void fetch("/api/v1/uploads/destroy", {

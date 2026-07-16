@@ -93,8 +93,14 @@ export default function GalleryDetailPage() {
         },
       });
       toast("Added to your diary");
-    } catch {
-      // 409 = already there
+    } catch (e) {
+      // only 409 "Already in your diary" means it's genuinely owned; any other
+      // failure must not silently flip the UI to "In your diary"
+      const already = e instanceof Error && e.message.includes("Already in your diary");
+      if (!already) {
+        toast(e instanceof Error ? e.message : "Could not add to your diary", { kind: "error" });
+        return;
+      }
     }
     setOwned(true);
   };
