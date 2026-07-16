@@ -536,6 +536,19 @@ button {
   margin-bottom: -5px;
 }
 
+/* help overlay prose */
+.help-p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--dim);
+  padding: 2px 2px 6px;
+}
+
+.help-p b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* manage overlay rows (folders/threads dropdown, replaces the old sidebar) */
 .manage-section {
   font-size: 10.5px;

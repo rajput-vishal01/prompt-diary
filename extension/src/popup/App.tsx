@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, MoreHorizontal, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowLeftRight, CircleDot, HelpCircle, MoreHorizontal, Plus, RefreshCw, X } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import {
   buildHandoffText,
@@ -88,6 +88,7 @@ export function App() {
   const [newThreadTitle, setNewThreadTitle] = useState("");
   // navigation tree lives behind "⋯" as a temporary overlay, never a column
   const [manageOpen, setManageOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   // context transfer: one handoff slot + whether this tab can be captured
   const [handoff, setHandoffState] = useState<Handoff | null>(null);
   const [canCapture, setCanCapture] = useState(false);
@@ -133,6 +134,11 @@ export function App() {
     void getRecents().then(setRecents);
     void getActiveThread().then(setRecording);
     void getHandoff().then(setHandoffState);
+    // first open ever → show the guide once, so nobody has to guess what
+    // Record / threads / Transfer mean
+    void chrome.storage.local.get("helpSeen").then((res) => {
+      if (!res["helpSeen"]) setHelpOpen(true);
+    });
     // the Transfer chip only appears on sites we can actually capture
     void chrome.tabs
       .query({ active: true, currentWindow: true })
@@ -339,9 +345,19 @@ export function App() {
       <div className="header">
         <div className="brand-row">
           <span className="brand">PromptDiary</span>
-          <button className="btn primary small" onClick={() => setEditing("new")}>
-            <Plus size={13} /> New
-          </button>
+          <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button
+              className="icon-btn"
+              title="How Prompt Diary works"
+              aria-label="Help"
+              onClick={() => setHelpOpen(true)}
+            >
+              <HelpCircle size={15} />
+            </button>
+            <button className="btn primary small" onClick={() => setEditing("new")}>
+              <Plus size={13} /> New
+            </button>
+          </span>
         </div>
 
         <div className="search-wrap">
@@ -410,15 +426,25 @@ export function App() {
               <ArrowLeftRight size={12} /> Transfer
             </button>
           )}
-          {recording && (
-            <button
-              className="chip recording"
-              title={`Recording to “${recording.title}” — click to stop`}
-              onClick={() => void setActiveThread(null).then(() => setRecording(null))}
-            >
-              ◉ {recording.title}
-            </button>
-          )}
+          {/* record-to-thread is a core flow — always one click away */}
+          {auth &&
+            (recording ? (
+              <button
+                className="chip recording"
+                title={`Recording to “${recording.title}” — every save becomes its next step. Click to stop.`}
+                onClick={() => void setActiveThread(null).then(() => setRecording(null))}
+              >
+                ◉ {recording.title}
+              </button>
+            ) : (
+              <button
+                className="chip"
+                title="Record saves into a thread — each save becomes the next step of a recipe"
+                onClick={() => void getThreads().then(setRecPicker).catch(() => setRecPicker([]))}
+              >
+                <CircleDot size={12} /> Record
+              </button>
+            ))}
           <button
             className="chip manage"
             title="Folders & threads"
@@ -635,6 +661,75 @@ export function App() {
           <div className="actions">
             <button className="btn" onClick={() => setManageOpen(false)}>
               Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- "?" — how everything works, in one screen ---------- */}
+      {helpOpen && (
+        <div className="editor">
+          <h2>How Prompt Diary works</h2>
+          <div style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}>
+            <div className="manage-section">Save prompts</div>
+            <p className="help-p">
+              On any AI site: <b>select text</b> and click the <b>Pd</b> bubble, use the{" "}
+              <b>Pd · Save</b> button under a message, or right-click → <i>Save to Prompt Diary</i>.
+              Saves land here and sync to your dashboard.
+            </p>
+
+            <div className="manage-section">Reuse them</div>
+            <p className="help-p">
+              Open this popup (<b>{hotkey || "Alt+P"}</b>), type to search, <b>↑↓</b> to pick,{" "}
+              <b>↵</b> to insert straight into the chatbox you were typing in — on any website.
+              Clicking a row copies it instead.
+            </p>
+
+            <div className="manage-section">Folders</div>
+            <p className="help-p">
+              Folders organize prompts by topic (like bookmarks folders). Filter with the chips
+              above the list; manage them under <b>⋯</b>.
+            </p>
+
+            <div className="manage-section">Threads &amp; projects</div>
+            <p className="help-p">
+              A <b>thread</b> is a recipe: the ordered chain of prompts that produced one great
+              result — not the whole chat, just the steps that mattered. A <b>project</b> is a
+              shelf that groups threads across different AIs (e.g. emails in ChatGPT + images in
+              Gemini for one launch). Build and reorder them on the dashboard under{" "}
+              <i>Projects</i>.
+            </p>
+
+            <div className="manage-section">Record</div>
+            <p className="help-p">
+              Hit <b>◉ Record</b> and pick (or create) a thread — from then on, <b>every prompt
+              you save becomes the next step</b> of that thread automatically. Click the red chip
+              to stop. Perfect for capturing a working session as a reusable recipe.
+            </p>
+
+            <div className="manage-section">Transfer context</div>
+            <p className="help-p">
+              Deep in a conversation but want a different model? Hit <b>⇄ Transfer</b> on the
+              chat, open the other AI, and <b>Insert</b> — the transcript carries over so the new
+              model continues where the old one left off.
+            </p>
+
+            <div className="manage-section">Usage meter</div>
+            <p className="help-p">
+              The small <b>Pd</b> box on AI sites counts your sends against that model&apos;s rate
+              limit (estimated). It turns amber when you&apos;re close and red when you&apos;ve
+              likely hit it — click it to set your plan.
+            </p>
+          </div>
+          <div className="actions">
+            <button
+              className="btn primary"
+              onClick={() => {
+                setHelpOpen(false);
+                void chrome.storage.local.set({ helpSeen: true });
+              }}
+            >
+              Got it
             </button>
           </div>
         </div>
