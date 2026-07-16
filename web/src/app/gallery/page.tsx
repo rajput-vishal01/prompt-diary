@@ -2,11 +2,14 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Facet, Prompt } from "shared";
+import { useRouter } from "next/navigation";
+import { Bookmark, Copy } from "lucide-react";
+import type { Facet } from "shared";
 import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
+import { toast } from "@/components/Toast";
 
 interface GalleryPrompt {
   id: string;
@@ -16,27 +19,54 @@ interface GalleryPrompt {
   useCount: number;
   createdAt: string;
   authorName: string;
+  bookmarked: boolean;
 }
+
+interface GalleryRecipe {
+  id: string;
+  title: string;
+  finalOutput: string | null;
+  updatedAt: string;
+  authorName: string;
+  stepCount: number;
+}
+
+type Sort = "copied" | "new";
 
 export default function GalleryPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [prompts, setPrompts] = useState<GalleryPrompt[]>([]);
+  const [recipes, setRecipes] = useState<GalleryRecipe[]>([]);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<Sort>("copied");
   const [facetSel, setFacetSel] = useState<Facet[]>([]);
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
+  const [showRecipes, setShowRecipes] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
-  const [detail, setDetail] = useState<{ prompt: Prompt; authorName: string } | null>(
-    null,
-  );
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const t = setTimeout(() => {
-      void api<GalleryPrompt[]>(
-        `/api/v1/gallery${query ? `?q=${encodeURIComponent(query)}` : ""}`,
-      ).then(setPrompts);
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (query) params.set("q", query);
+      if (showRecipes) {
+        params.set("type", "threads");
+        void api<GalleryRecipe[]>(`/api/v1/gallery?${params}`)
+          .then(setRecipes)
+          .finally(() => setLoading(false));
+      } else {
+        params.set("sort", sort);
+        if (bookmarkedOnly) params.set("bookmarked", "1");
+        void api<GalleryPrompt[]>(`/api/v1/gallery?${params}`)
+          .then(setPrompts)
+          .finally(() => setLoading(false));
+      }
     }, 250);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, sort, bookmarkedOnly, showRecipes]);
 
   // which gallery prompts are already in my diary (by sourceId)
   useEffect(() => {
@@ -56,9 +86,7 @@ export default function GalleryPage() {
     [prompts],
   );
   const visible = facetSel.length
-    ? prompts.filter((p) =>
-        facetSel.every((f) => facetsById.get(p.id)?.includes(f)),
-      )
+    ? prompts.filter((p) => facetSel.every((f) => facetsById.get(p.id)?.includes(f)))
     : prompts;
   const toggleFacet = (f: Facet) =>
     setFacetSel((prev) =>
@@ -71,14 +99,26 @@ export default function GalleryPage() {
     setTimeout(() => setCopiedId(null), 1200);
   };
 
-  const openDetail = async (p: GalleryPrompt) => {
-    // list payload stays light; outputs are fetched per-prompt on open
+  const toggleBookmark = async (p: GalleryPrompt) => {
+    if (!session) {
+      toast("Sign in to bookmark prompts", { kind: "error" });
+      return;
+    }
+    // optimistic — the icon must not lag the click
+    setPrompts((prev) =>
+      prev.map((x) => (x.id === p.id ? { ...x, bookmarked: !p.bookmarked } : x)),
+    );
     try {
-      const full = await api<Prompt>(`/api/v1/prompts/${p.id}`);
-      setDetail({ prompt: full, authorName: p.authorName });
+      if (p.bookmarked) {
+        await api(`/api/v1/gallery/bookmarks?promptId=${p.id}`, { method: "DELETE" });
+      } else {
+        await api("/api/v1/gallery/bookmarks", { method: "POST", body: { promptId: p.id } });
+      }
     } catch {
-      // prompt was just unpublished/deleted — refresh the list
-      setPrompts((prev) => prev.filter((x) => x.id !== p.id));
+      setPrompts((prev) =>
+        prev.map((x) => (x.id === p.id ? { ...x, bookmarked: p.bookmarked } : x)),
+      );
+      toast("Bookmark failed", { kind: "error" });
     }
   };
 
@@ -94,6 +134,7 @@ export default function GalleryPage() {
           sourceId: p.id,
         },
       });
+      toast("Added to your diary");
     } catch {
       // 409 = already there; fall through and mark it owned either way
     }
@@ -107,245 +148,233 @@ export default function GalleryPage() {
         <Sidebar />
       </Suspense>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Public Gallery</h1>
-            <p className="text-sm text-dim">
-              Open-source prompts shared by the community.
-            </p>
+        <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-8 pb-10 pt-8">
+          {/* editorial masthead */}
+          <div className="mb-5 flex items-end justify-between">
+            <div>
+              <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+                Gallery
+              </h1>
+              <p className="mt-1 text-sm text-dim">
+                Open-source prompts and recipes shared by the community.
+              </p>
+            </div>
+            {!session && (
+              <Link
+                href="/login"
+                className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink"
+              >
+                Sign in
+              </Link>
+            )}
           </div>
-          {!session && (
-            <Link href="/login" className="btn-primary">
-              Sign in
-            </Link>
-          )}
-        </div>
 
-      <input
-        className="input mb-3"
-        placeholder="Search public prompts…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {FACETS.map((f) => (
-          <button
-            key={f}
-            className={`chip cursor-pointer transition-colors ${
-              facetSel.includes(f)
-                ? "border-accent bg-tint text-accent"
-                : "text-dim hover:text-ink"
-            }`}
-            title={`Filter by ${f} style (detected from the prompt text)`}
-            onClick={() => toggleFacet(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {visible.length === 0 && (
-          <p className="py-16 text-center text-dim">
-            No public prompts{query || facetSel.length ? " match your filters" : " yet"}.
-          </p>
-        )}
-        {visible.map((p) => (
-          <div
-            key={p.id}
-            className="card cursor-pointer transition-colors hover:border-accent"
-            onClick={() => void openDetail(p)}
-            title="Open before/after view"
-          >
-            <div className="flex items-center gap-2">
-              <h2 className="flex-1 truncate font-semibold">{p.title}</h2>
-              {copiedId === p.id && (
-                <span className="text-xs text-accent">Copied!</span>
+          {/* search + sort stay pinned while the grid scrolls */}
+          <div className="sticky top-0 z-10 -mx-1 bg-bg px-1 pb-3 pt-1">
+            <div className="flex gap-2">
+              <input
+                className="input h-11 flex-1"
+                placeholder={showRecipes ? "Search public recipes…" : "Search public prompts…"}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {!showRecipes && (
+                <span className="flex h-11 items-center overflow-hidden rounded-lg border border-line-strong">
+                  {(["copied", "new"] as const).map((s) => (
+                    <button
+                      key={s}
+                      className={`h-full px-3.5 text-[13px] font-medium transition-colors ${
+                        sort === s ? "bg-tint text-ink" : "text-dim hover:text-ink"
+                      }`}
+                      onClick={() => setSort(s)}
+                    >
+                      {s === "copied" ? "Most copied" : "Newest"}
+                    </button>
+                  ))}
+                </span>
               )}
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <button
-                className="btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copy(p);
+                className={`chip cursor-pointer transition-colors ${
+                  !showRecipes && !bookmarkedOnly ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                }`}
+                onClick={() => {
+                  setShowRecipes(false);
+                  setBookmarkedOnly(false);
                 }}
               >
-                Copy
+                Prompts
               </button>
-              {session &&
-                (ownedSourceIds.has(p.id) ? (
-                  <span className="text-xs font-semibold text-accent">
-                    In your diary
-                  </span>
-                ) : (
-                  <button
-                    className="btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void addToDiary(p);
-                    }}
+              <button
+                className={`chip cursor-pointer transition-colors ${
+                  showRecipes ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                }`}
+                title="Public recipes — ordered prompt chains with their final output"
+                onClick={() => setShowRecipes((v) => !v)}
+              >
+                Recipes
+              </button>
+              {session && (
+                <button
+                  className={`chip cursor-pointer transition-colors ${
+                    bookmarkedOnly ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                  }`}
+                  onClick={() => {
+                    setShowRecipes(false);
+                    setBookmarkedOnly((v) => !v);
+                  }}
+                >
+                  ★ Bookmarked
+                </button>
+              )}
+              {!showRecipes && (
+                <>
+                  <span className="mx-1 h-4 w-px bg-line-strong" aria-hidden />
+                  {FACETS.map((f) => (
+                    <button
+                      key={f}
+                      className={`chip cursor-pointer transition-colors ${
+                        facetSel.includes(f)
+                          ? "border-ink bg-tint text-ink"
+                          : "text-dim hover:text-ink"
+                      }`}
+                      title={`Filter by ${f} style (detected from the prompt text)`}
+                      onClick={() => toggleFacet(f)}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ---------- recipes: two-line editorial rows ---------- */}
+          {showRecipes && (
+            <div className="panel divide-y divide-line">
+              {loading && (
+                <div className="px-4 py-5">
+                  <div className="skeleton h-4 w-2/5" />
+                </div>
+              )}
+              {!loading && recipes.length === 0 && (
+                <p className="py-14 text-center text-sm text-dim">
+                  No public recipes{query ? " match your search" : " yet — publish one from a thread page"}.
+                </p>
+              )}
+              {!loading &&
+                recipes.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/r/${r.id}`}
+                    className="ledger-row group flex w-full cursor-pointer flex-col gap-1 px-4 py-4 transition-colors duration-[120ms] ease-out hover:bg-[#fafafa]"
                   >
-                    + Add to my diary
-                  </button>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[16px] font-medium text-ink">{r.title}</span>
+                      <span className="chip shrink-0">{r.stepCount} steps</span>
+                      <span className="ml-auto shrink-0 text-xs text-dim">by {r.authorName}</span>
+                    </span>
+                    {r.finalOutput && (
+                      <span className="line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">
+                        {r.finalOutput}
+                      </span>
+                    )}
+                  </Link>
                 ))}
             </div>
-            <p className="mt-1 line-clamp-3 font-mono text-xs leading-relaxed text-dim">
-              {p.body}
-            </p>
-            <div className="mt-3 flex items-center gap-2">
-              {(facetsById.get(p.id) ?? []).map((f) => (
-                <span key={f} className="chip border-accent/30 text-accent">
-                  {f}
-                </span>
-              ))}
-              {p.tags.map((t) => (
-                <span key={t} className="chip">
-                  {t}
-                </span>
-              ))}
-              <span className="ml-auto text-xs text-dim">
-                by {p.authorName} · used {p.useCount}×
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-        </div>
-      </div>
+          )}
 
-      {detail && (
-        <GalleryDetail
-          prompt={detail.prompt}
-          authorName={detail.authorName}
-          owned={ownedSourceIds.has(detail.prompt.id)}
-          canAdd={!!session}
-          onAdd={() => {
-            void addToDiary({
-              id: detail.prompt.id,
-              title: detail.prompt.title,
-              body: detail.prompt.body,
-              tags: detail.prompt.tags,
-              useCount: detail.prompt.useCount,
-              createdAt: detail.prompt.createdAt,
-              authorName: detail.authorName,
-            });
-          }}
-          onClose={() => setDetail(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function GalleryDetail({
-  prompt,
-  authorName,
-  owned,
-  canAdd,
-  onAdd,
-  onClose,
-}: {
-  prompt: Prompt;
-  authorName: string;
-  owned: boolean;
-  canAdd: boolean;
-  onAdd: () => void;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const hasOutputs =
-    prompt.outputBefore || prompt.outputAfter || prompt.imageBefore || prompt.imageAfter;
-
-  const copyPrompt = () => {
-    void navigator.clipboard.writeText(prompt.body);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
-
-  return (
-    // read-only twin of the My Prompts detail view
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6">
-      <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <button className="btn" onClick={onClose}>
-            ← Back
-          </button>
-          <h2 className="min-w-0 flex-1 truncate text-lg font-bold">
-            {prompt.title}
-          </h2>
-          <span className="text-xs text-dim">by {authorName}</span>
-          {copied && <span className="text-xs font-bold text-accent">Copied</span>}
-          <button className="btn" onClick={copyPrompt}>
-            Copy prompt
-          </button>
-          {canAdd &&
-            (owned ? (
-              <span className="text-xs font-semibold text-accent">In your diary</span>
-            ) : (
-              <button className="btn-primary" onClick={onAdd}>
-                + Add to my diary
-              </button>
-            ))}
-        </div>
-
-        {hasOutputs ? (
-          <div className="grid min-h-0 flex-[1.2] grid-cols-2 gap-4">
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
-              <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
-                BEFORE — output without this prompt
+          {/* ---------- prompts: manuscript cards ---------- */}
+          {!showRecipes && (
+            <>
+              {!loading && visible.length === 0 && (
+                <p className="py-14 text-center text-sm text-dim">
+                  {bookmarkedOnly
+                    ? "No bookmarks yet — hover a card and hit the bookmark icon."
+                    : `No public prompts${query || facetSel.length ? " match your filters" : " yet"}.`}
+                </p>
+              )}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {loading &&
+                  Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="rounded-2xl border border-line bg-raised p-6">
+                      <div className="skeleton h-4 w-2/5" />
+                      <div className="skeleton mt-3 h-16 w-full" />
+                    </div>
+                  ))}
+                {!loading &&
+                  visible.map((p) => (
+                    <div
+                      key={p.id}
+                      className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
+                      onClick={() => router.push(`/gallery/${p.id}`)}
+                      title="Open"
+                    >
+                      <span className="flex items-center gap-1.5 pr-16">
+                        {p.bookmarked && <Bookmark size={13} className="shrink-0 fill-brass text-brass" />}
+                        <span className="truncate text-[16px] font-medium text-ink">{p.title}</span>
+                      </span>
+                      <p className="line-clamp-3 rounded-md bg-[#fafafa] p-2 font-mono text-[14px] leading-relaxed tracking-tight text-body">
+                        {p.body}
+                      </p>
+                      <div className="mt-auto flex flex-wrap items-center gap-1.5">
+                        {(facetsById.get(p.id) ?? []).map((f) => (
+                          <span key={f} className="chip">
+                            {f}
+                          </span>
+                        ))}
+                        {p.tags.slice(0, 3).map((t) => (
+                          <span key={t} className="chip">
+                            {t}
+                          </span>
+                        ))}
+                        <span className="ml-auto shrink-0 text-xs text-dim/80">
+                          by {p.authorName}
+                          {p.useCount > 0 && <span className="tabular-nums"> · {p.useCount}×</span>}
+                        </span>
+                      </div>
+                      {session && ownedSourceIds.has(p.id) && (
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-success">
+                          In your diary
+                        </span>
+                      )}
+                      {/* hover-reveal actions — same language as My Prompts cards */}
+                      <span
+                        className="absolute right-3 top-3 hidden items-center gap-0.5 rounded-lg bg-raised group-hover:flex"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          aria-label="Copy prompt"
+                          title={copiedId === p.id ? "Copied!" : "Copy prompt"}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                          onClick={() => copy(p)}
+                        >
+                          <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
+                        </button>
+                        <button
+                          aria-label={p.bookmarked ? "Remove bookmark" : "Bookmark"}
+                          title={p.bookmarked ? "Remove bookmark" : "Bookmark"}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                          onClick={() => void toggleBookmark(p)}
+                        >
+                          <Bookmark size={14} className={p.bookmarked ? "fill-brass text-brass" : ""} />
+                        </button>
+                        {session && !ownedSourceIds.has(p.id) && (
+                          <button
+                            className="ml-1 whitespace-nowrap rounded-full border border-line-strong px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:bg-hover"
+                            onClick={() => void addToDiary(p)}
+                          >
+                            + Add
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {prompt.imageBefore && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={prompt.imageBefore} alt="before output" className="w-full border-b border-line object-contain" />
-                )}
-                <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-dim">
-                  {prompt.outputBefore ?? (prompt.imageBefore ? "" : "No sample provided.")}
-                </pre>
-              </div>
-            </div>
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-accent/40 bg-raised">
-              <div className="border-b border-line bg-tint px-3 py-2 text-xs font-semibold text-accent">
-                AFTER — output with this prompt
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {prompt.imageAfter && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={prompt.imageAfter} alt="after output" className="w-full border-b border-line object-contain" />
-                )}
-                <pre className="whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
-                  {prompt.outputAfter ?? (prompt.imageAfter ? "" : "No sample provided.")}
-                </pre>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <p className="rounded-[10px] border border-line bg-raised px-4 py-3 text-sm text-dim">
-            The author hasn't added before/after output samples for this prompt.
-          </p>
-        )}
-
-        <div
-          className={`flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-line bg-raised ${hasOutputs ? "flex-1" : "flex-[2]"}`}
-        >
-          <div className="border-b border-line px-3 py-2 text-xs font-semibold text-dim">
-            THE PROMPT
-          </div>
-          <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-xs leading-relaxed text-ink">
-            {prompt.body}
-          </pre>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {prompt.tags.map((t) => (
-            <span key={t} className="chip">
-              {t}
-            </span>
-          ))}
-          <span className="ml-auto text-xs tabular-nums text-dim">
-            used {prompt.useCount}×
-          </span>
+            </>
+          )}
         </div>
       </div>
     </div>

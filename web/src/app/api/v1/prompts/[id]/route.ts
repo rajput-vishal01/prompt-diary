@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { PromptUpdateSchema } from "shared";
 import { db } from "@/db";
-import { prompts } from "@/db/schema";
+import { prompts, user as userTable } from "@/db/schema";
 import {
   forbidden,
   getUser,
@@ -34,7 +34,13 @@ export async function GET(req: NextRequest, { params }: Params) {
   const row = await getPrompt(id);
   if (!row || row.deleted) return notFound();
   if (!(await canAccessPrompt(user?.id ?? null, row, "read"))) return forbidden();
-  return jsonOk(row);
+
+  // additive: gallery/share surfaces need a byline without a second request
+  const author = await db.query.user.findFirst({
+    where: eq(userTable.id, row.userId),
+    columns: { name: true },
+  });
+  return jsonOk({ ...row, authorName: author?.name ?? "Someone" });
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
