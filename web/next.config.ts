@@ -10,6 +10,12 @@ try {
 
 const nextConfig: NextConfig = {
   transpilePackages: ["shared"],
+  // Isolate the production build's output dir so a running `next dev` (which
+  // owns `.next`) can't corrupt it and vice-versa — the two share `.next` by
+  // default and clobber each other, producing phantom PageNotFoundError /
+  // routes-manifest.json ENOENT failures. NEXT_BUILD_DIR is unset on Vercel,
+  // so deploys keep using `.next` exactly as before.
+  distDir: process.env.NEXT_BUILD_DIR || ".next",
   async headers() {
     return [
       {
