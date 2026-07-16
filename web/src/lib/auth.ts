@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { destroyAllUserImages } from "./cloudinary";
 import { canSendMail, sendMail, verificationEmailHtml } from "./mailer";
 
 const googleEnabled =
@@ -21,6 +23,31 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true, // registering IS signing in — no double form fill
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+      // DB rows cascade via FKs; Cloudinary doesn't — sweep every asset we
+      // know about (prompt panes, thread screenshots, avatar) before the rows
+      // that reference them disappear
+      beforeDelete: async (user) => {
+        const [rows, threadRows] = await Promise.all([
+          db
+            .select({ a: schema.prompts.imageBefore, b: schema.prompts.imageAfter })
+            .from(schema.prompts)
+            .where(eq(schema.prompts.userId, user.id)),
+          db
+            .select({ a: schema.threads.finalImage })
+            .from(schema.threads)
+            .where(eq(schema.threads.userId, user.id)),
+        ]);
+        await destroyAllUserImages(user.id, [
+          user.image,
+          ...rows.flatMap((r) => [r.a, r.b]),
+          ...threadRows.map((r) => r.a),
+        ]);
+      },
+    },
   },
   emailVerification: {
     sendOnSignUp: true,

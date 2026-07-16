@@ -228,7 +228,114 @@ export default function ProfilePage() {
         </p>
       </Section>
 
+      <DangerZone email={session.user.email} />
+
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
+  );
+}
+
+function DangerZone({ email }: { email: string }) {
+  const [open, setOpen] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteAccount = async () => {
+    setDeleting(true);
+    setError(null);
+    const res = await authClient.deleteUser(password ? { password } : {});
+    if (res.error) {
+      setDeleting(false);
+      setError(
+        res.error.message ??
+          "Could not delete the account — if you use a password, enter it above.",
+      );
+      return;
+    }
+    // gone — session is dead, leave the app
+    window.location.href = "/";
+  };
+
+  return (
+    <section className="border-t border-line pt-5">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-danger">
+        Danger zone
+      </p>
+      {!open ? (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-dim">
+            Permanently delete your account, prompts, threads, teams you own,
+            and uploaded images.
+          </p>
+          <button
+            className="shrink-0 rounded-full border border-danger/40 px-4 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/5"
+            onClick={() => setOpen(true)}
+          >
+            Delete account
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3 rounded-xl border border-danger/30 p-4">
+          <p className="text-sm leading-relaxed text-body">
+            This is permanent. Everything you saved — prompts, folders,
+            threads, projects, bookmarks, usage history, uploaded images —
+            is deleted and cannot be recovered. Teams you own are deleted;
+            teams you joined lose you as a member.
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-dim" htmlFor="del-email">
+              Type your email to confirm
+            </label>
+            <input
+              id="del-email"
+              className="input"
+              placeholder={email}
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-dim" htmlFor="del-password">
+              Password{" "}
+              <span className="font-normal text-dim/80">
+                (leave empty if you signed in with Google)
+              </span>
+            </label>
+            <input
+              id="del-password"
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              className="btn"
+              onClick={() => {
+                setOpen(false);
+                setConfirmEmail("");
+                setPassword("");
+                setError(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-full bg-danger px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/90 disabled:cursor-default disabled:opacity-50"
+              disabled={confirmEmail.trim().toLowerCase() !== email.toLowerCase() || deleting}
+              onClick={() => void deleteAccount()}
+            >
+              {deleting ? "Deleting…" : "Delete my account forever"}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

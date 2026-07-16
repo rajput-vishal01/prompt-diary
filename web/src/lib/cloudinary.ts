@@ -13,6 +13,19 @@ export function publicIdFromUrl(url: string): string | null {
 }
 
 /**
+ * Best-effort destruction of EVERY asset a user owns — account deletion.
+ * Collects known URLs from their rows (prompt panes, thread screenshots,
+ * avatar) and destroys each; the user-folder guard in destroyImage still
+ * applies per URL.
+ */
+export async function destroyAllUserImages(
+  userId: string,
+  urls: Array<string | null | undefined>,
+): Promise<void> {
+  await Promise.allSettled(urls.filter(Boolean).map((u) => destroyImage(u, userId)));
+}
+
+/**
  * Destroy a Cloudinary asset by its delivery URL. `userId` is the ownership
  * guard: only assets inside that user's folder are ever destroyed.
  * Best-effort — failures are swallowed (an orphaned image is not worth a 500).
