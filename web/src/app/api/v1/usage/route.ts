@@ -16,7 +16,12 @@ export async function GET(req: NextRequest) {
   const since = dayString(new Date(Date.now() - days * 86_400_000));
 
   const rows = await db
-    .select({ day: usageDays.day, site: usageDays.site, tokens: usageDays.tokens })
+    .select({
+      day: usageDays.day,
+      site: usageDays.site,
+      model: usageDays.model,
+      tokens: usageDays.tokens,
+    })
     .from(usageDays)
     .where(and(eq(usageDays.userId, g.user.id), gte(usageDays.day, since)))
     .orderBy(usageDays.day);
@@ -35,9 +40,9 @@ export async function POST(req: NextRequest) {
   for (const e of parsed.data.entries) {
     await db
       .insert(usageDays)
-      .values({ userId: g.user.id, day: e.day, site: e.site, tokens: e.tokens })
+      .values({ userId: g.user.id, day: e.day, site: e.site, model: e.model, tokens: e.tokens })
       .onConflictDoUpdate({
-        target: [usageDays.userId, usageDays.day, usageDays.site],
+        target: [usageDays.userId, usageDays.day, usageDays.site, usageDays.model],
         set: { tokens: sql`${usageDays.tokens} + ${e.tokens}` },
       });
   }

@@ -65,12 +65,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // usage-limit tracker: content scripts can't call our API (page-origin CORS),
 // so the worker records events (local + server queue) and serves counts back
-let serverFetchCache: { site: string; at: number; timestamps: number[] } | null = null;
+type Buckets = { standard: number[]; reasoning: number[] };
+let serverFetchCache: { site: string; at: number; buckets: Buckets } | null = null;
 
 chrome.runtime.onMessage.addListener(
-  (msg: { type?: string; site?: string }, _sender, sendResponse) => {
+  (
+    msg: { type?: string; site?: string; reasoning?: boolean; model?: string },
+    _sender,
+    sendResponse,
+  ) => {
     if (msg?.type === "usage-msg" && msg.site) {
-      void recordUsageEvent(msg.site)
+      void recordUsageEvent(msg.site, { reasoning: msg.reasoning, model: msg.model })
         .then(() => flushUsageEvents())
         .then(() => {
           serverFetchCache = null; // count changed — next read refetches
@@ -83,15 +88,15 @@ chrome.runtime.onMessage.addListener(
       const site = msg.site;
       // 60s cache keeps the widget's tick from hammering the server
       if (serverFetchCache && serverFetchCache.site === site && Date.now() - serverFetchCache.at < 60_000) {
-        sendResponse({ timestamps: serverFetchCache.timestamps });
+        sendResponse({ buckets: serverFetchCache.buckets });
         return;
       }
       void getUsageTimestamps(site)
-        .then((timestamps) => {
-          serverFetchCache = { site, at: Date.now(), timestamps };
-          sendResponse({ timestamps });
+        .then((buckets) => {
+          serverFetchCache = { site, at: Date.now(), buckets };
+          sendResponse({ buckets });
         })
-        .catch(() => sendResponse({ timestamps: [] }));
+        .catch(() => sendResponse({ buckets: { standard: [], reasoning: [] } }));
       return true;
     }
     return;

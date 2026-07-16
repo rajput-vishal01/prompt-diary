@@ -14,6 +14,7 @@ interface DailyRow {
   userId: string;
   name: string;
   site: string;
+  model: string;
   day: string; // YYYY-MM-DD
   tokens: number;
 }
@@ -159,6 +160,20 @@ export default function TeamUsageDashboard() {
     return [...bySite.entries()].sort((a, b) => b[1] - a[1]);
   }, [filtered]);
 
+  // real per-model breakdown from the new model dimension
+  const modelSplit = useMemo(() => {
+    const byModel = new Map<string, number>();
+    for (const r of filtered) {
+      const label = r.model || "Unknown model";
+      byModel.set(label, (byModel.get(label) ?? 0) + r.tokens);
+    }
+    return [...byModel.entries()].sort((a, b) => b[1] - a[1]);
+  }, [filtered]);
+  const maxModel = Math.max(1, ...modelSplit.map(([, t]) => t));
+  // the headline stat prefers the top *named* model — "Unknown model" (legacy /
+  // undetected spend) is real but unhelpful as a highlight
+  const topModel = modelSplit.find(([m]) => m !== "Unknown model") ?? modelSplit[0];
+
   const topPrompts = useMemo(
     () => [...prompts].sort((a, b) => b.useCount - a.useCount).filter((p) => p.useCount > 0).slice(0, 5),
     [prompts],
@@ -251,7 +266,7 @@ export default function TeamUsageDashboard() {
             <Stat label="Total tokens" value={`~${fmt(total)}`} />
             <Stat label="Daily average" value={`~${fmt(Math.round(total / Math.max(1, activeDays)))}`} sub={`${activeDays} active ${activeDays === 1 ? "day" : "days"}`} />
             <Stat label="Active members" value={`${activeMembers}`} sub={`of ${members.length || leaderboard.length}`} />
-            <Stat label="Top model" value={siteSplit[0]?.[0] ?? "—"} sub={siteSplit[0] ? `~${fmt(siteSplit[0][1])}` : "no sends yet"} />
+            <Stat label="Top model" value={topModel?.[0] ?? "—"} sub={topModel ? `~${fmt(topModel[1])}` : "no sends yet"} />
           </div>
 
           <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -259,7 +274,7 @@ export default function TeamUsageDashboard() {
               {/* ---------- daily stacked chart ---------- */}
               <section className="panel p-5">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
-                  Daily tokens by model
+                  Daily tokens by site
                   {selectedName && <span className="normal-case tracking-normal text-dim"> — {selectedName}</span>}
                 </p>
                 {total === 0 ? (
@@ -328,11 +343,11 @@ export default function TeamUsageDashboard() {
                 )}
               </section>
 
-              {/* ---------- model split: one proportional bar ---------- */}
+              {/* ---------- split by site: one proportional bar ---------- */}
               {siteSplit.length > 0 && (
                 <section className="panel p-5">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
-                    Model split
+                    By site
                   </p>
                   <div className="flex h-3 w-full overflow-hidden rounded-full">
                     {siteSplit.map(([s, t]) => (
@@ -349,6 +364,33 @@ export default function TeamUsageDashboard() {
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(s) }} />
                         <span className="text-ink">{s}</span>
                         <span className="ml-auto tabular-nums text-dim">
+                          ~{fmt(t)} · {Math.round((t / Math.max(1, total)) * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* ---------- split by model (the new dimension) ---------- */}
+              {modelSplit.length > 0 && (
+                <section className="panel p-5">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+                    By model
+                  </p>
+                  <div className="space-y-2.5">
+                    {modelSplit.map(([model, t]) => (
+                      <div key={model} className="flex items-center gap-3 text-sm">
+                        <span className="w-40 shrink-0 truncate text-ink" title={model}>
+                          {model}
+                        </span>
+                        <span className="h-2 flex-1 overflow-hidden rounded-full bg-tint">
+                          <span
+                            className="block h-full rounded-full bg-ink"
+                            style={{ width: `${(t / maxModel) * 100}%` }}
+                          />
+                        </span>
+                        <span className="w-20 shrink-0 text-right tabular-nums text-dim">
                           ~{fmt(t)} · {Math.round((t / Math.max(1, total)) * 100)}%
                         </span>
                       </div>

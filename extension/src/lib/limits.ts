@@ -8,6 +8,12 @@ export type Plan = "free" | "plus" | "pro";
 export interface SiteLimit {
   windowHours: number;
   maxMessages: number | null; // null = effectively unlimited on this plan
+  // Reasoning/thinking sends burn far more compute and every provider caps
+  // them SEPARATELY (ChatGPT Thinking + Claude extended-thinking each carry
+  // their own, much smaller quota). Tracking them in the same bucket as instant
+  // messages is why a flat "15 msgs" count is meaningless. Omit = no separate
+  // reasoning cap on this site (reasoning falls back to the standard bucket).
+  reasoning?: { windowHours: number; maxMessages: number | null };
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
@@ -45,27 +51,29 @@ export function siteDisplayName(key: string): string {
 
 // sites without a researched entry fall back to this conservative default
 export const DEFAULT_LIMITS: Record<Plan, SiteLimit> = {
-  free: { windowHours: 5, maxMessages: 50 },
-  plus: { windowHours: 5, maxMessages: 250 },
-  pro: { windowHours: 5, maxMessages: null },
+  free: { windowHours: 5, maxMessages: 50, reasoning: { windowHours: 24, maxMessages: 10 } },
+  plus: { windowHours: 5, maxMessages: 250, reasoning: { windowHours: 24, maxMessages: 50 } },
+  pro: { windowHours: 5, maxMessages: null, reasoning: { windowHours: 24, maxMessages: null } },
 };
 
-// site → plan → limit (ballparks; tune freely)
+// site → plan → limit (ballparks; tune freely). Reasoning caps are the small
+// separate quotas for thinking-mode sends — deliberately tight because a single
+// high-reasoning message can eat a large slice of the day's reasoning budget.
 export const LIMITS: Record<string, Record<Plan, SiteLimit>> = {
   chatgpt: {
-    free: { windowHours: 3, maxMessages: 15 },
-    plus: { windowHours: 3, maxMessages: 80 },
-    pro: { windowHours: 3, maxMessages: null },
+    free: { windowHours: 3, maxMessages: 15, reasoning: { windowHours: 24, maxMessages: 5 } },
+    plus: { windowHours: 3, maxMessages: 80, reasoning: { windowHours: 168, maxMessages: 200 } },
+    pro: { windowHours: 3, maxMessages: null, reasoning: { windowHours: 24, maxMessages: null } },
   },
   claude: {
-    free: { windowHours: 5, maxMessages: 40 },
-    plus: { windowHours: 5, maxMessages: 200 },
-    pro: { windowHours: 5, maxMessages: null },
+    free: { windowHours: 5, maxMessages: 40, reasoning: { windowHours: 24, maxMessages: 10 } },
+    plus: { windowHours: 5, maxMessages: 200, reasoning: { windowHours: 168, maxMessages: 100 } },
+    pro: { windowHours: 5, maxMessages: null, reasoning: { windowHours: 168, maxMessages: null } },
   },
   gemini: {
-    free: { windowHours: 24, maxMessages: 100 },
-    plus: { windowHours: 24, maxMessages: 500 },
-    pro: { windowHours: 24, maxMessages: null },
+    free: { windowHours: 24, maxMessages: 100, reasoning: { windowHours: 24, maxMessages: 20 } },
+    plus: { windowHours: 24, maxMessages: 500, reasoning: { windowHours: 24, maxMessages: 100 } },
+    pro: { windowHours: 24, maxMessages: null, reasoning: { windowHours: 24, maxMessages: null } },
   },
   perplexity: {
     free: { windowHours: 24, maxMessages: 100 },
@@ -78,9 +86,9 @@ export const LIMITS: Record<string, Record<Plan, SiteLimit>> = {
     pro: { windowHours: 24, maxMessages: null },
   },
   grok: {
-    free: { windowHours: 2, maxMessages: 20 },
-    plus: { windowHours: 2, maxMessages: 100 },
-    pro: { windowHours: 2, maxMessages: null },
+    free: { windowHours: 2, maxMessages: 20, reasoning: { windowHours: 24, maxMessages: 10 } },
+    plus: { windowHours: 2, maxMessages: 100, reasoning: { windowHours: 24, maxMessages: 50 } },
+    pro: { windowHours: 2, maxMessages: null, reasoning: { windowHours: 24, maxMessages: null } },
   },
   copilot: {
     free: { windowHours: 24, maxMessages: 300 },
@@ -91,6 +99,27 @@ export const LIMITS: Record<string, Record<Plan, SiteLimit>> = {
 
 export function limitsFor(site: string, plan: Plan): SiteLimit {
   return LIMITS[site]?.[plan] ?? DEFAULT_LIMITS[plan];
+}
+
+/**
+ * The bucket a send draws from. Reasoning sends have their own (tighter) cap
+ * when the site defines one; otherwise they fall back to the standard bucket.
+ */
+export function bucketLimit(
+  site: string,
+  plan: Plan,
+  reasoning: boolean,
+): { windowHours: number; maxMessages: number | null } {
+  const l = limitsFor(site, plan);
+  return reasoning && l.reasoning
+    ? l.reasoning
+    : { windowHours: l.windowHours, maxMessages: l.maxMessages };
+}
+
+/** True if a detected model label is itself a reasoning/thinking model. */
+export function isReasoningModel(label: string | null | undefined): boolean {
+  if (!label) return false;
+  return /think|reason|\bo[134]\b|\bpro\b|deep\s?research/i.test(label);
 }
 
 export type LimitState = "ok" | "warn" | "over";

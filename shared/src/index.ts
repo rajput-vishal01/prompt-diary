@@ -189,6 +189,7 @@ export const UsagePushSchema = z.object({
       z.object({
         day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         site: z.string().min(1).max(30),
+        model: z.string().max(40).optional().default(""), // "" = unknown model
         tokens: z.number().int().min(1).max(5_000_000),
       }),
     )
@@ -205,6 +206,8 @@ export const UsageEventsSchema = z.object({
       z.object({
         site: z.string().min(1).max(30),
         at: z.number().int().positive(), // epoch ms, client clock
+        reasoning: z.boolean().optional().default(false), // thinking-mode send
+        model: z.string().max(40).optional().default(""), // detected model label
       }),
     )
     .min(1)

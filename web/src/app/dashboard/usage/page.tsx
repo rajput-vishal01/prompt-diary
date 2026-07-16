@@ -6,6 +6,7 @@ import { api } from "@/lib/client-api";
 interface UsageRow {
   day: string;
   site: string;
+  model: string;
   tokens: number;
 }
 
@@ -56,6 +57,18 @@ export default function UsagePage() {
   const colorOf = (site: string) =>
     SITE_COLORS[sites.indexOf(site) % SITE_COLORS.length];
 
+  // per-model breakdown over the window — the new model dimension. "" rows
+  // (pre-tracking / undetected) roll up under "Unknown model".
+  const byModel = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const label = r.model || "Unknown model";
+      m.set(label, (m.get(label) ?? 0) + r.tokens);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rows]);
+  const maxModel = Math.max(1, ...byModel.map(([, t]) => t));
+
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-1 flex items-baseline justify-between">
@@ -91,7 +104,7 @@ export default function UsagePage() {
       {!isLoading && total > 0 && (
         <div className="panel p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
-            Daily tokens by model
+            Daily tokens by site
           </p>
           {/* stacked day bars — pure CSS, no chart lib */}
           <div className="flex h-48 items-end gap-1.5">
@@ -141,10 +154,38 @@ export default function UsagePage() {
         </div>
       )}
 
+      {/* per-model breakdown — which models the tokens actually went to */}
+      {!isLoading && total > 0 && byModel.length > 0 && (
+        <div className="panel mt-4 p-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
+            By model
+          </p>
+          <div className="space-y-2.5">
+            {byModel.map(([model, tok]) => (
+              <div key={model} className="flex items-center gap-3 text-sm">
+                <span className="w-40 shrink-0 truncate text-ink" title={model}>
+                  {model}
+                </span>
+                <span className="h-2 flex-1 overflow-hidden rounded-full bg-tint">
+                  <span
+                    className="block h-full rounded-full bg-ink"
+                    style={{ width: `${(tok / maxModel) * 100}%` }}
+                  />
+                </span>
+                <span className="w-16 shrink-0 text-right tabular-nums text-dim">
+                  ~{formatTokens(tok)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* the honesty footnote — everything on this page is a ballpark */}
       <p className="mt-3 text-xs text-dim">
         Estimated from message length (characters ÷ 4) on chats where the
-        extension is active — not billing data.
+        extension is active — not billing data. Model is auto-detected from the
+        page and may be blank when it can&apos;t be read.
       </p>
     </div>
   );

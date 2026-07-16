@@ -205,17 +205,54 @@ export async function signOut(): Promise<void> {
 export interface UsageEvent {
   site: string;
   at: number; // epoch ms
+  reasoning: boolean; // thinking-mode send — its own bucket
+  model: string; // detected model label ("" = unknown)
+}
+
+/** Send timestamps split into the two independently-capped buckets. */
+export interface UsageBuckets {
+  standard: number[];
+  reasoning: number[];
 }
 
 const DAY_MS = 24 * 3_600_000;
+const WEEK_MS = 7 * DAY_MS; // reasoning caps are weekly — keep a week locally
 
-/** Record one send event: local log + server queue. */
-export async function recordUsageEvent(site: string, at = Date.now()): Promise<void> {
+type LocalLog = Record<string, UsageBuckets>;
+
+// tolerate the pre-bucket shape (Record<site, number[]>) so an in-place
+// extension update doesn't throw on the old stored log
+function normalizeLog(raw: unknown): LocalLog {
+  const out: LocalLog = {};
+  if (raw && typeof raw === "object") {
+    for (const [site, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (Array.isArray(v)) out[site] = { standard: v as number[], reasoning: [] };
+      else if (v && typeof v === "object") {
+        const o = v as Partial<UsageBuckets>;
+        out[site] = { standard: o.standard ?? [], reasoning: o.reasoning ?? [] };
+      }
+    }
+  }
+  return out;
+}
+
+/** Record one send event: bucketed local log + server queue. */
+export async function recordUsageEvent(
+  site: string,
+  opts: { at?: number; reasoning?: boolean; model?: string } = {},
+): Promise<void> {
+  const at = opts.at ?? Date.now();
+  const reasoning = opts.reasoning ?? false;
+  const model = opts.model ?? "";
   const res = await chrome.storage.local.get(["usageLocalLog", "usageEvents"]);
-  const log = (res["usageLocalLog"] as Record<string, number[]> | undefined) ?? {};
-  log[site] = [...(log[site] ?? []).filter((t) => t > at - DAY_MS), at];
+  const log = normalizeLog(res["usageLocalLog"]);
+  const b = log[site] ?? { standard: [], reasoning: [] };
+  const kept = (reasoning ? b.reasoning : b.standard).filter((t) => t > at - WEEK_MS);
+  if (reasoning) b.reasoning = [...kept, at];
+  else b.standard = [...kept, at];
+  log[site] = b;
   const queue = (res["usageEvents"] as UsageEvent[] | undefined) ?? [];
-  queue.push({ site, at });
+  queue.push({ site, at, reasoning, model });
   await chrome.storage.local.set({ usageLocalLog: log, usageEvents: queue.slice(-500) });
 }
 
@@ -258,21 +295,27 @@ export async function flushUsageEvents(): Promise<void> {
   }
 }
 
-/** Send timestamps for a site: server (authoritative) ∪ unflushed queue, or the local log. */
-export async function getUsageTimestamps(site: string): Promise<number[]> {
+/** Bucketed send timestamps: server (authoritative) ∪ unflushed queue, or the local log. */
+export async function getUsageTimestamps(site: string): Promise<UsageBuckets> {
   const auth = await getAuth();
   const res = await chrome.storage.local.get(["usageLocalLog", "usageEvents"]);
-  const queue = ((res["usageEvents"] as UsageEvent[] | undefined) ?? [])
-    .filter((e) => e.site === site)
-    .map((e) => e.at);
+  const queue = ((res["usageEvents"] as UsageEvent[] | undefined) ?? []).filter((e) => e.site === site);
+  const qStd = queue.filter((e) => !e.reasoning).map((e) => e.at);
+  const qRsn = queue.filter((e) => e.reasoning).map((e) => e.at);
   if (auth) {
     try {
-      const server = await api<number[]>(`/api/v1/usage/messages?site=${encodeURIComponent(site)}`);
-      return [...server, ...queue].sort((a, b) => a - b);
+      const server = await api<UsageBuckets>(`/api/v1/usage/messages?site=${encodeURIComponent(site)}`);
+      return {
+        standard: [...server.standard, ...qStd].sort((a, b) => a - b),
+        reasoning: [...server.reasoning, ...qRsn].sort((a, b) => a - b),
+      };
     } catch {
       // fall through to local
     }
   }
-  const log = (res["usageLocalLog"] as Record<string, number[]> | undefined) ?? {};
-  return (log[site] ?? []).sort((a, b) => a - b);
+  const b = normalizeLog(res["usageLocalLog"])[site] ?? { standard: [], reasoning: [] };
+  return {
+    standard: [...b.standard].sort((a, b) => a - b),
+    reasoning: [...b.reasoning].sort((a, b) => a - b),
+  };
 }

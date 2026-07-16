@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       userId: usageDays.userId,
       name: user.name,
       site: usageDays.site,
+      model: usageDays.model,
       ...(daily && { day: usageDays.day }),
       tokens: sql<number>`sum(${usageDays.tokens})::int`,
     })
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       usageDays.userId,
       user.name,
       usageDays.site,
+      usageDays.model,
       ...(daily ? [usageDays.day] : []),
     )
     .orderBy(sql`sum(${usageDays.tokens}) desc`);

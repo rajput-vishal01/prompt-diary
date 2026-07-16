@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { usageMessages } from "@/db/schema";
 import { guard, jsonErr, jsonOk } from "@/lib/api";
 
-const RETENTION_MS = 48 * 3_600_000; // longest site window is 24h — keep 2×
+// reasoning caps run on weekly (168h) windows, so keep 8 days of history
+const RETENTION_MS = 8 * 24 * 3_600_000;
 
 // GET /api/v1/usage/messages?site=chatgpt — this user's send timestamps in
 // the last 24h (epoch ms, ascending). The widget computes windows client-side.
@@ -16,9 +17,11 @@ export async function GET(req: NextRequest) {
   const site = req.nextUrl.searchParams.get("site");
   if (!site) return jsonErr("site required", 400);
 
-  const since = new Date(Date.now() - 24 * 3_600_000);
+  // 7 days back: reasoning caps run on weekly windows, so the widget needs a
+  // wider history than the 24h standard bucket to compute them
+  const since = new Date(Date.now() - 7 * 24 * 3_600_000);
   const rows = await db
-    .select({ at: usageMessages.at })
+    .select({ at: usageMessages.at, reasoning: usageMessages.reasoning })
     .from(usageMessages)
     .where(
       and(
@@ -28,9 +31,13 @@ export async function GET(req: NextRequest) {
       ),
     )
     .orderBy(asc(usageMessages.at))
-    .limit(2000);
+    .limit(4000);
 
-  return jsonOk(rows.map((r) => r.at.getTime()));
+  // split into the two buckets the widget tracks independently
+  const standard: number[] = [];
+  const reasoning: number[] = [];
+  for (const r of rows) (r.reasoning ? reasoning : standard).push(r.at.getTime());
+  return jsonOk({ standard, reasoning });
 }
 
 // POST /api/v1/usage/messages — batch of send events from the extension
@@ -49,6 +56,8 @@ export async function POST(req: NextRequest) {
       id: crypto.randomUUID(),
       userId: g.user.id,
       site: e.site,
+      reasoning: e.reasoning,
+      model: e.model,
       at: new Date(e.at),
     }));
 

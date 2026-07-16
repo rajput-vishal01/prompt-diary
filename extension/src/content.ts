@@ -6,8 +6,9 @@
 
 import {
   PLAN_LABELS,
+  bucketLimit,
+  isReasoningModel,
   limitState,
-  limitsFor,
   pruneWindow,
   resetEta,
   siteForHost,
@@ -128,6 +129,37 @@ style.textContent = `
   }
   .pd-limit-plan.active { background: #292524; border-color: #292524; color: #fff; }
   .pd-limit-est { color: #a8a29e; font-size: 10px; }
+  /* the head doubles as the drag handle */
+  .pd-limit-head { cursor: move; }
+  .pd-limit.dragging { transition: none; box-shadow: 0 8px 28px rgba(0,0,0,0.16); }
+  .pd-limit.dragging .pd-limit-fill, .pd-limit.dragging .pd-limit-subfill { transition: none; }
+  .pd-limit-model {
+    display: flex; align-items: center; gap: 5px;
+    color: #57534e; font-size: 10.5px; margin-top: -2px;
+  }
+  .pd-limit-model .pd-model-name {
+    max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 600; color: #0c0a09;
+  }
+  .pd-limit-think {
+    flex-shrink: 0; background: #f7ead6; color: #8a5a06;
+    border-radius: 9999px; padding: 1px 6px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  /* reasoning bucket sub-row — only shown once thinking sends exist */
+  .pd-limit-sub { display: none; flex-direction: column; gap: 3px; }
+  .pd-limit-sub.show { display: flex; }
+  .pd-limit-sub-head {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; color: #8a5a06; font-weight: 600;
+  }
+  .pd-limit-sub-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .pd-limit-subbar { height: 3px; border-radius: 9999px; background: #f7ead6; overflow: hidden; }
+  .pd-limit-subfill {
+    height: 100%; border-radius: 9999px; background: #8a5a06; width: 0%;
+    transition: width 300ms ease-out;
+  }
+  .pd-limit-sub.over .pd-limit-subfill { background: #dc2626; }
 `;
 shadow.appendChild(style);
 
@@ -397,17 +429,61 @@ function roleOf(el: HTMLElement): "user" | "assistant" | undefined {
 
 const TRACK_SITE = siteForHost(location.hostname); // any supported model site
 
-let usageTimestamps: number[] = []; // fetched from background, pruned locally
+type Buckets = { standard: number[]; reasoning: number[] };
+let usageBuckets: Buckets = { standard: [], reasoning: [] };
 let sitePlan: Plan = "free";
 let lastSendAt = 0; // debounce: Enter + send-click for one message = one event
+let detected: { model: string; thinking: boolean } = { model: "", thinking: false };
+
+const modelText = (el: Element | null | undefined) => (el?.textContent ?? "").trim();
+
+// Best-effort model + thinking-mode detection from the page DOM. Selectors rot,
+// so each site scans defensively and degrades to {model:"", thinking:false}.
+function detectModel(): { model: string; thinking: boolean } {
+  const key = TRACK_SITE?.key;
+  const thinkOn = () =>
+    [...document.querySelectorAll('[aria-pressed="true"], [data-state="on"]')].some((e) => {
+      const s = `${modelText(e)} ${e.getAttribute("aria-label") ?? ""}`;
+      return /think|reason/i.test(s);
+    });
+  try {
+    if (key === "chatgpt") {
+      const btn =
+        document.querySelector('[data-testid="model-switcher-dropdown-button"]') ??
+        document.querySelector('button[aria-label*="model" i]') ??
+        [...document.querySelectorAll("main button, header button")].find((b) =>
+          /gpt|o[134]\b|thinking/i.test(modelText(b)),
+        );
+      const model = modelText(btn).replace(/^chatgpt\s*/i, "").slice(0, 40) || "GPT";
+      return { model, thinking: isReasoningModel(model) || thinkOn() };
+    }
+    if (key === "claude") {
+      const btn = [...document.querySelectorAll("button")].find((b) =>
+        /claude|sonnet|opus|haiku|fable/i.test(modelText(b)),
+      );
+      const model = modelText(btn).slice(0, 40) || "Claude";
+      return { model, thinking: isReasoningModel(model) || thinkOn() };
+    }
+    if (key === "gemini") {
+      const btn = [...document.querySelectorAll("button, [role='button']")].find((b) =>
+        /2\.\d|flash|pro|gemini/i.test(modelText(b)),
+      );
+      const model = modelText(btn).replace(/^gemini\s*/i, "").slice(0, 40) || "Gemini";
+      return { model, thinking: isReasoningModel(model) || thinkOn() };
+    }
+  } catch {
+    // detection must never throw into the host page
+  }
+  return { model: "", thinking: false };
+}
 
 function refreshUsage() {
   if (!TRACK_SITE) return;
   chrome.runtime.sendMessage(
     { type: "get-usage", site: TRACK_SITE.key },
-    (res?: { timestamps?: number[] }) => {
-      if (chrome.runtime.lastError || !res?.timestamps) return;
-      usageTimestamps = res.timestamps;
+    (res?: { buckets?: Buckets }) => {
+      if (chrome.runtime.lastError || !res?.buckets) return;
+      usageBuckets = res.buckets;
       updateLimitWidget();
     },
   );
@@ -417,10 +493,19 @@ if (TRACK_SITE) {
   void chrome.storage.local.get("sitePlans").then((res) => {
     const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
     sitePlan = plans[TRACK_SITE.key] ?? "free";
+    detected = detectModel();
     buildLimitWidget();
     refreshUsage();
   });
   setInterval(refreshUsage, 30_000); // background caches server reads for 60s
+  // re-detect the model/mode periodically — users switch mid-session
+  setInterval(() => {
+    const next = detectModel();
+    if (next.model !== detected.model || next.thinking !== detected.thinking) {
+      detected = next;
+      updateLimitWidget();
+    }
+  }, 3000);
 
   const editableText = (t: EventTarget | null): string | null => {
     if (t instanceof HTMLTextAreaElement) return t.value;
@@ -433,23 +518,36 @@ if (TRACK_SITE) {
     const now = Date.now();
     if (now - lastSendAt < 1500) return; // Enter and click both fired
     lastSendAt = now;
-    usageTimestamps = [...usageTimestamps, now]; // optimistic — instant UI
+    detected = detectModel();
+    const reasoning = detected.thinking || isReasoningModel(detected.model);
+    // optimistic bucket bump — instant UI, reconciled on next refresh
+    if (reasoning) usageBuckets = { ...usageBuckets, reasoning: [...usageBuckets.reasoning, now] };
+    else usageBuckets = { ...usageBuckets, standard: [...usageBuckets.standard, now] };
     updateLimitWidget();
     const site = TRACK_SITE.key;
-    chrome.runtime.sendMessage({ type: "usage-msg", site }, () => {
-      // if the worker didn't receive it (context invalidated after an extension
-      // reload/update), the durable write never happened — persist it ourselves
-      // so the count isn't silently lost. Content scripts can write storage too.
+    const model = detected.model;
+    chrome.runtime.sendMessage({ type: "usage-msg", site, reasoning, model }, () => {
+      // worker unreachable (context invalidated after a reload) → persist here so
+      // the send isn't lost. Local log is bucketed; tolerate the pre-bucket shape.
       if (chrome.runtime.lastError) {
         void chrome.storage.local.get(["usageEvents", "usageLocalLog"]).then((res) => {
-          const queue = (res["usageEvents"] as Array<{ site: string; at: number }>) ?? [];
-          queue.push({ site, at: now });
-          const log = (res["usageLocalLog"] as Record<string, number[]>) ?? {};
-          log[site] = [...(log[site] ?? []), now];
-          void chrome.storage.local.set({
-            usageEvents: queue.slice(-500),
-            usageLocalLog: log,
-          });
+          const queue =
+            (res["usageEvents"] as Array<{ site: string; at: number; reasoning: boolean; model: string }>) ?? [];
+          queue.push({ site, at: now, reasoning, model });
+          const raw = (res["usageLocalLog"] ?? {}) as Record<string, unknown>;
+          const cur = raw[site];
+          const b: Buckets = Array.isArray(cur)
+            ? { standard: cur as number[], reasoning: [] }
+            : cur && typeof cur === "object"
+              ? {
+                  standard: (cur as Partial<Buckets>).standard ?? [],
+                  reasoning: (cur as Partial<Buckets>).reasoning ?? [],
+                }
+              : { standard: [], reasoning: [] };
+          if (reasoning) b.reasoning = [...b.reasoning, now];
+          else b.standard = [...b.standard, now];
+          raw[site] = b;
+          void chrome.storage.local.set({ usageEvents: queue.slice(-500), usageLocalLog: raw });
         });
       }
     });
@@ -489,6 +587,74 @@ const limitBox = document.createElement("div");
 limitBox.className = "pd-limit";
 shadow.appendChild(limitBox);
 
+let dragMoved = false; // set true after a drag so the ensuing click doesn't toggle
+
+function clampPos(x: number, y: number): { x: number; y: number } {
+  const r = limitBox.getBoundingClientRect();
+  const w = r.width || 160;
+  const h = r.height || 60;
+  return {
+    x: Math.min(Math.max(4, x), Math.max(4, window.innerWidth - w - 4)),
+    y: Math.min(Math.max(4, y), Math.max(4, window.innerHeight - h - 4)),
+  };
+}
+
+function applyPos(x: number, y: number) {
+  limitBox.style.left = `${x}px`;
+  limitBox.style.top = `${y}px`;
+  limitBox.style.right = "auto";
+  limitBox.style.bottom = "auto";
+}
+
+function restorePos() {
+  void chrome.storage.local.get("pdLimitPos").then((res) => {
+    const p = res["pdLimitPos"] as { x: number; y: number } | undefined;
+    if (p) {
+      const c = clampPos(p.x, p.y);
+      applyPos(c.x, c.y);
+    } else {
+      const r = limitBox.getBoundingClientRect();
+      applyPos(window.innerWidth - (r.width || 160) - 16, window.innerHeight - (r.height || 60) - 16);
+    }
+  });
+}
+
+function makeDraggable() {
+  const head = limitBox.querySelector<HTMLElement>(".pd-limit-head");
+  if (!head) return;
+  head.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const r = limitBox.getBoundingClientRect();
+    const origX = r.left;
+    const origY = r.top;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let moved = false;
+    head.setPointerCapture(e.pointerId);
+    limitBox.classList.add("dragging");
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+      const c = clampPos(origX + dx, origY + dy);
+      applyPos(c.x, c.y);
+    };
+    const up = () => {
+      head.removeEventListener("pointermove", move);
+      head.removeEventListener("pointerup", up);
+      limitBox.classList.remove("dragging");
+      if (moved) {
+        dragMoved = true;
+        const rr = limitBox.getBoundingClientRect();
+        void chrome.storage.local.set({ pdLimitPos: { x: rr.left, y: rr.top } });
+        setTimeout(() => (dragMoved = false), 0);
+      }
+    };
+    head.addEventListener("pointermove", move);
+    head.addEventListener("pointerup", up);
+  });
+}
+
 function buildLimitWidget() {
   if (!TRACK_SITE) return;
   limitBox.innerHTML = `
@@ -497,11 +663,19 @@ function buildLimitWidget() {
       <span class="pd-limit-label"></span>
       <span class="pd-limit-count"></span>
     </div>
+    <div class="pd-limit-model">
+      <span class="pd-model-name"></span>
+      <span class="pd-limit-think">THINKING</span>
+    </div>
     <div class="pd-limit-bar"><div class="pd-limit-fill"></div></div>
+    <div class="pd-limit-sub">
+      <div class="pd-limit-sub-head"><span>Thinking</span><span class="pd-limit-sub-count"></span></div>
+      <div class="pd-limit-subbar"><div class="pd-limit-subfill"></div></div>
+    </div>
     <div class="pd-limit-note"></div>
     <div class="pd-limit-panel">
       <div class="pd-limit-plans"></div>
-      <span class="pd-limit-est">Estimated from your sends — not an official meter.</span>
+      <span class="pd-limit-est">Estimated from your sends — not an official meter. Drag to move.</span>
     </div>`;
   const plansEl = limitBox.querySelector(".pd-limit-plans")!;
   (Object.keys(PLAN_LABELS) as Plan[]).forEach((p) => {
@@ -521,35 +695,89 @@ function buildLimitWidget() {
     });
     plansEl.appendChild(b);
   });
-  limitBox.addEventListener("click", () => limitBox.classList.toggle("open"));
+  // click toggles the plan panel — but not when the click ends a drag
+  limitBox.addEventListener("click", () => {
+    if (!dragMoved) limitBox.classList.toggle("open");
+  });
   limitBox.style.display = "flex";
+  makeDraggable();
+  restorePos();
+  window.addEventListener("resize", () => {
+    const r = limitBox.getBoundingClientRect();
+    const c = clampPos(r.left, r.top);
+    applyPos(c.x, c.y);
+  });
   updateLimitWidget();
 }
 
 function updateLimitWidget() {
   if (!TRACK_SITE || limitBox.style.display === "none") return;
-  const { windowHours, maxMessages } = limitsFor(TRACK_SITE.key, sitePlan);
-  const inWindow = pruneWindow(usageTimestamps, windowHours, Date.now());
-  const count = inWindow.length;
-  const state = limitState(count, maxMessages);
-  limitBox.classList.remove("warn", "over");
-  if (state !== "ok") limitBox.classList.add(state);
+  const now = Date.now();
+  const std = bucketLimit(TRACK_SITE.key, sitePlan, false);
+  const rsn = bucketLimit(TRACK_SITE.key, sitePlan, true);
+  const hasSeparateRsn =
+    rsn.maxMessages !== std.maxMessages || rsn.windowHours !== std.windowHours;
 
-  const label = limitBox.querySelector<HTMLElement>(".pd-limit-label");
-  const countEl = limitBox.querySelector<HTMLElement>(".pd-limit-count");
-  const fill = limitBox.querySelector<HTMLElement>(".pd-limit-fill");
-  const note = limitBox.querySelector<HTMLElement>(".pd-limit-note");
+  const stdIn = pruneWindow(usageBuckets.standard, std.windowHours, now);
+  const rsnIn = pruneWindow(usageBuckets.reasoning, rsn.windowHours, now);
+  // no separate reasoning cap → thinking sends just count as standard messages
+  const primaryCount = hasSeparateRsn ? stdIn.length : stdIn.length + rsnIn.length;
+
+  const stdState = limitState(primaryCount, std.maxMessages);
+  const rsnState = hasSeparateRsn ? limitState(rsnIn.length, rsn.maxMessages) : "ok";
+  const worst =
+    stdState === "over" || rsnState === "over"
+      ? "over"
+      : stdState === "warn" || rsnState === "warn"
+        ? "warn"
+        : "ok";
+  limitBox.classList.remove("warn", "over");
+  if (worst !== "ok") limitBox.classList.add(worst);
+
+  const q = (s: string) => limitBox.querySelector<HTMLElement>(s);
+  const label = q(".pd-limit-label");
+  const countEl = q(".pd-limit-count");
+  const fill = q(".pd-limit-fill");
+  const note = q(".pd-limit-note");
+  const modelName = q(".pd-model-name");
+  const thinkPill = q(".pd-limit-think");
+  const sub = q(".pd-limit-sub");
+  const subCount = q(".pd-limit-sub-count");
+  const subFill = q(".pd-limit-subfill");
   if (!label || !countEl || !fill || !note) return;
 
-  label.textContent = `${TRACK_SITE.name} · ${windowHours}h`;
-  countEl.textContent = maxMessages === null ? `${count} msgs · ∞` : `${count}/${maxMessages} msgs`;
+  label.textContent = `${TRACK_SITE.name} · ${std.windowHours}h`;
+  countEl.textContent =
+    std.maxMessages === null ? `${primaryCount} · ∞` : `${primaryCount}/${std.maxMessages}`;
   fill.style.width =
-    maxMessages === null ? "4%" : `${Math.min(100, (count / maxMessages) * 100)}%`;
-  const eta = resetEta(inWindow, windowHours, Date.now());
+    std.maxMessages === null ? "4%" : `${Math.min(100, (primaryCount / std.maxMessages) * 100)}%`;
+
+  if (modelName) modelName.textContent = detected.model || "detecting model…";
+  if (thinkPill) thinkPill.style.display = detected.thinking ? "inline-block" : "none";
+
+  // reasoning sub-row: shown only when the site caps reasoning separately AND
+  // the user has actually used thinking (or has it toggled on right now)
+  if (sub && subCount && subFill) {
+    const showSub = hasSeparateRsn && (rsnIn.length > 0 || detected.thinking);
+    sub.classList.toggle("show", showSub);
+    sub.classList.toggle("over", rsnState === "over");
+    if (showSub) {
+      const win = rsn.windowHours >= 168 ? `${Math.round(rsn.windowHours / 24)}d` : `${rsn.windowHours}h`;
+      subCount.textContent =
+        rsn.maxMessages === null ? `${rsnIn.length} · ∞` : `${rsnIn.length}/${rsn.maxMessages} · ${win}`;
+      subFill.style.width =
+        rsn.maxMessages === null ? "4%" : `${Math.min(100, (rsnIn.length / rsn.maxMessages) * 100)}%`;
+    }
+  }
+
+  const rEta = resetEta(rsnIn, rsn.windowHours, now);
+  const eta = resetEta(stdIn, std.windowHours, now);
   note.textContent =
-    state === "over"
-      ? `Limit likely reached${eta ? ` · frees up in ${eta}` : ""}`
-      : "";
+    rsnState === "over"
+      ? `Thinking limit likely reached${rEta ? ` · frees in ${rEta}` : ""}`
+      : stdState === "over"
+        ? `Limit likely reached${eta ? ` · frees in ${eta}` : ""}`
+        : "";
   limitBox.querySelectorAll<HTMLElement>(".pd-limit-plan").forEach((b) => {
     b.classList.toggle("active", b.dataset["plan"] === sitePlan);
   });
@@ -629,12 +857,15 @@ function recordMessageChars(count: number) {
   pendingChars += count;
 }
 
-// batch writes: storage once every 5s instead of per message
+// batch writes: storage once every 5s instead of per message. Key is now
+// day|site|model so the spend dashboards can break usage down by model — "|"
+// stripped from the label to keep the key delimiter unambiguous.
 setInterval(() => {
   if (!SITE_KEY || pendingChars === 0) return;
   const tokens = Math.ceil(pendingChars / 4);
   pendingChars = 0;
-  const key = `${new Date().toISOString().slice(0, 10)}|${SITE_KEY}`;
+  const model = (detected.model || "").replace(/\|/g, " ");
+  const key = `${new Date().toISOString().slice(0, 10)}|${SITE_KEY}|${model}`;
   void chrome.storage.local.get("usagePending").then((res) => {
     const pending = (res["usagePending"] as Record<string, number>) ?? {};
     void chrome.storage.local.set({

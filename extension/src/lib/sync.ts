@@ -39,15 +39,16 @@ async function flushPendingSteps(): Promise<void> {
   }
 }
 
-// estimated token counters accumulated by the content script ("day|site" → tokens);
-// pushed as deltas, then decremented so counts recorded mid-flush aren't lost
+// estimated token counters accumulated by the content script ("day|site|model"
+// → tokens); pushed as deltas, then decremented so counts recorded mid-flush
+// aren't lost. Older "day|site" keys (pre-model) still parse — model defaults "".
 async function flushPendingUsage(): Promise<void> {
   const res = await chrome.storage.local.get("usagePending");
   const pending = (res["usagePending"] as Record<string, number>) ?? {};
   const entries = Object.entries(pending)
     .map(([key, tokens]) => {
-      const [day, site] = key.split("|");
-      return { day: day ?? "", site: site ?? "", tokens };
+      const [day, site, model] = key.split("|");
+      return { day: day ?? "", site: site ?? "", model: model ?? "", tokens };
     })
     .filter((e) => e.day && e.site && e.tokens > 0);
   if (entries.length === 0) return;

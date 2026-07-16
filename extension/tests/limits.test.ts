@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { limitState, limitsFor, pruneWindow, resetEta, siteForHost } from "../src/lib/limits";
+import {
+  bucketLimit,
+  isReasoningModel,
+  limitState,
+  limitsFor,
+  pruneWindow,
+  resetEta,
+  siteForHost,
+} from "../src/lib/limits";
 
 const HOUR = 3_600_000;
 
@@ -32,9 +40,35 @@ describe("site coverage", () => {
   });
 
   test("sites without a researched entry get the conservative default", () => {
-    expect(limitsFor("qwen", "free")).toEqual({ windowHours: 5, maxMessages: 50 });
+    expect(limitsFor("qwen", "free").windowHours).toBe(5);
+    expect(limitsFor("qwen", "free").maxMessages).toBe(50);
     expect(limitsFor("chatgpt", "plus").maxMessages).toBe(80);
     expect(limitsFor("chatgpt", "pro").maxMessages).toBeNull();
+  });
+});
+
+describe("reasoning bucket — the accuracy fix", () => {
+  test("thinking sends draw from a separate, tighter cap", () => {
+    // a free ChatGPT user has 15 standard msgs but only ~5 Thinking messages
+    expect(bucketLimit("chatgpt", "free", false).maxMessages).toBe(15);
+    expect(bucketLimit("chatgpt", "free", true).maxMessages).toBe(5);
+    expect(bucketLimit("chatgpt", "free", true).windowHours).toBe(24);
+  });
+
+  test("sites with no reasoning cap fall back to the standard bucket", () => {
+    const std = bucketLimit("perplexity", "free", false);
+    const rsn = bucketLimit("perplexity", "free", true);
+    expect(rsn).toEqual(std);
+  });
+
+  test("isReasoningModel flags thinking/o-series/pro model labels", () => {
+    expect(isReasoningModel("GPT-5 Thinking")).toBe(true);
+    expect(isReasoningModel("o3")).toBe(true);
+    expect(isReasoningModel("Claude Sonnet 4.5 (extended thinking)")).toBe(true);
+    expect(isReasoningModel("Gemini 2.5 Pro")).toBe(true);
+    expect(isReasoningModel("GPT-5")).toBe(false);
+    expect(isReasoningModel("Claude Sonnet 4.5")).toBe(false);
+    expect(isReasoningModel(null)).toBe(false);
   });
 });
 

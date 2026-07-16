@@ -177,9 +177,13 @@ export const usageDays = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     day: text("day").notNull(), // YYYY-MM-DD
     site: text("site").notNull(), // chatgpt | claude | gemini | …
+    // which model the tokens went to (e.g. "GPT-5 Thinking"); "" = unknown /
+    // pre-model-tracking rows. Part of the grain so the dashboards can break
+    // spend down by model, not just by site.
+    model: text("model").notNull().default(""),
     tokens: integer("tokens").notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.day, t.site] })],
+  (t) => [primaryKey({ columns: [t.userId, t.day, t.site, t.model] })],
 );
 
 // individual message-send events for the on-page limit widget — rolling-window
@@ -193,6 +197,11 @@ export const usageMessages = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     site: text("site").notNull(),
+    // reasoning/thinking-mode sends draw from a separate, tighter cap — the
+    // widget counts the two buckets independently, so the send must remember
+    // which one it was. model is best-effort DOM detection ("" = unknown).
+    reasoning: boolean("reasoning").notNull().default(false),
+    model: text("model").notNull().default(""),
     at: timestamp("at").notNull(),
   },
   (t) => [index("usage_messages_user_site_at_idx").on(t.userId, t.site, t.at)],
