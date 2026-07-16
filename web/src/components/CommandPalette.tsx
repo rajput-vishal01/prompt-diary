@@ -106,11 +106,11 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 pt-[18vh]"
+      className="anim-overlay fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 pt-[18vh]"
       onMouseDown={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-xl border border-line bg-raised shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
+        className="anim-card w-full max-w-lg overflow-hidden rounded-xl border border-line bg-raised shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 44px launcher input with a persistent kbd hint — the popup's language */}

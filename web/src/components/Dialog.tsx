@@ -93,11 +93,11 @@ export function DialogHost() {
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex items-start justify-center bg-ink/30 pt-[26vh]"
+      className="anim-overlay fixed inset-0 z-[95] flex items-start justify-center bg-ink/30 pt-[26vh]"
       onMouseDown={cancel}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-line bg-raised p-5 shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
+        className="anim-card w-full max-w-sm rounded-xl border border-line bg-raised p-5 shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
         role="dialog"
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}

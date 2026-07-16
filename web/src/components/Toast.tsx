@@ -43,7 +43,7 @@ export function Toaster() {
           key={t.id}
           role="status"
           // the ink pill — the app's one dark surface
-          className="pointer-events-auto flex items-center gap-3 rounded-full bg-ink py-2.5 pl-4 pr-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(12,10,9,0.25)]"
+          className="anim-toast pointer-events-auto flex items-center gap-3 rounded-full bg-ink py-2.5 pl-4 pr-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(12,10,9,0.25)]"
         >
           <span aria-hidden className={t.kind === "error" ? "text-red-300" : "text-[#6fcf97]"}>
             {t.kind === "error" ? "✕" : "✓"}
