@@ -7,11 +7,16 @@
 import {
   PLAN_LABELS,
   bucketLimit,
+  extractOfficialUsage,
+  fmtDuration,
   isReasoningModel,
   limitState,
+  matchLimitBanner,
+  parseResetTime,
   pruneWindow,
   resetEta,
   siteForHost,
+  type OfficialUsage,
   type Plan,
 } from "./lib/limits";
 
@@ -200,6 +205,12 @@ function savePrompt(body: string) {
   chrome.runtime.sendMessage(
     { type: "save-prompt", title, body: text, sourceConvo: sourceConvo() },
     (res?: { ok?: boolean; duplicate?: boolean; threadTitle?: string | null }) => {
+      // reading lastError marks it handled — otherwise Chrome logs an
+      // "Unchecked runtime.lastError" console error on every failed save
+      if (chrome.runtime.lastError) {
+        showToast("Could not save — reload this tab and try again");
+        return;
+      }
       showToast(
         !res?.ok
           ? "Could not save — is the extension enabled?"
@@ -435,6 +446,88 @@ let sitePlan: Plan = "free";
 let lastSendAt = 0; // debounce: Enter + send-click for one message = one event
 let detected: { model: string; thinking: boolean } = { model: "", thinking: false };
 
+// ---- ground truth over guesses ----
+// official: the site's own usage numbers (claude.ai exposes them) — exact.
+// limitHit: the site showed a "limit reached" banner — believe it until reset.
+// learnedCaps: count observed when a banner fired — calibrates the static
+//   ballpark caps to this user's real account, per site|plan|bucket.
+type LimitHit = { bucket: "standard" | "reasoning"; at: number; resetAt: number };
+let official: (OfficialUsage & { at: number }) | null = null;
+let limitHit: LimitHit | null = null;
+let learnedCaps: Record<string, number> = {};
+
+const capKey = (bucket: "standard" | "reasoning") =>
+  `${TRACK_SITE?.key}|${sitePlan}|${bucket}`;
+
+// claude.ai's app ships its own usage endpoint; same-origin fetch from the
+// content script rides the page's cookies. Best-effort: any drift in the
+// endpoint or response shape silently falls back to estimates.
+async function fetchOfficialUsage(): Promise<void> {
+  if (TRACK_SITE?.key !== "claude") return;
+  try {
+    const org = document.cookie.match(/(?:^|;\s*)lastActiveOrg=([^;]+)/)?.[1];
+    if (!org) return;
+    const res = await fetch(`/api/organizations/${decodeURIComponent(org)}/usage`, {
+      credentials: "include",
+    });
+    if (!res.ok) return;
+    const usage = extractOfficialUsage(await res.json(), Date.now());
+    if (usage) {
+      official = { ...usage, at: Date.now() };
+      updateLimitWidget();
+    }
+  } catch {
+    // never let tracker plumbing throw into the host page
+  }
+}
+
+function registerLimitHit(bucket: "standard" | "reasoning", bannerText: string) {
+  if (!TRACK_SITE) return;
+  const now = Date.now();
+  if (limitHit && limitHit.bucket === bucket && limitHit.resetAt > now) return; // already known
+  const lim = bucketLimit(TRACK_SITE.key, sitePlan, bucket === "reasoning");
+  // trust the banner's own reset phrasing; fall back to the window length
+  const resetAt = parseResetTime(bannerText, now) ?? now + lim.windowHours * 3_600_000;
+  limitHit = { bucket, at: now, resetAt };
+  void chrome.storage.local.set({ [`pdLimitHit-${TRACK_SITE.key}`]: limitHit });
+  // calibrate the cap to what was actually observed — but only when we saw a
+  // meaningful number of sends; a fresh install hitting a limit knows nothing
+  const inWin = pruneWindow(
+    bucket === "reasoning" ? usageBuckets.reasoning : usageBuckets.standard,
+    lim.windowHours,
+    now,
+  );
+  if (inWin.length >= 3) {
+    learnedCaps[capKey(bucket)] = inWin.length;
+    void chrome.storage.local.set({ pdLearnedCaps: learnedCaps });
+  }
+  updateLimitWidget();
+}
+
+// Scan for the site's own "limit reached" banner. Throttled; a cheap
+// whole-page pre-check gates the node walk. Text nodes inside chat messages
+// are skipped so a conversation QUOTING a limit phrase can't trip it.
+let lastBannerScan = 0;
+function scanForLimitBanner(force = false) {
+  if (!TRACK_SITE) return;
+  const now = Date.now();
+  if (!force && now - lastBannerScan < 8000) return;
+  lastBannerScan = now;
+  const pageText = document.body.textContent ?? "";
+  if (!matchLimitBanner(pageText)) return;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const text = n.textContent ?? "";
+    if (text.length < 12 || text.length > 400) continue; // banners are short
+    const hit = matchLimitBanner(text);
+    if (!hit) continue;
+    const el = n.parentElement;
+    if (!el || (messageSelector && el.closest(messageSelector))) continue;
+    registerLimitHit(hit.reasoning ? "reasoning" : "standard", text);
+    return;
+  }
+}
+
 const modelText = (el: Element | null | undefined) => (el?.textContent ?? "").trim();
 
 // Best-effort model + thinking-mode detection from the page DOM. Selectors rot,
@@ -490,16 +583,25 @@ function refreshUsage() {
 }
 
 if (TRACK_SITE) {
-  void chrome.storage.local.get("sitePlans").then((res) => {
-    const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
-    sitePlan = plans[TRACK_SITE.key] ?? "free";
-    detected = detectModel();
-    buildLimitWidget();
-    refreshUsage();
-  });
+  void chrome.storage.local
+    .get(["sitePlans", "pdLearnedCaps", `pdLimitHit-${TRACK_SITE.key}`])
+    .then((res) => {
+      const plans = (res["sitePlans"] as Record<string, Plan> | undefined) ?? {};
+      sitePlan = plans[TRACK_SITE.key] ?? "free";
+      learnedCaps = (res["pdLearnedCaps"] as Record<string, number> | undefined) ?? {};
+      const hit = res[`pdLimitHit-${TRACK_SITE.key}`] as LimitHit | undefined;
+      if (hit && hit.resetAt > Date.now()) limitHit = hit; // survive reloads until reset
+      detected = detectModel();
+      buildLimitWidget();
+      refreshUsage();
+      void fetchOfficialUsage();
+    });
   setInterval(refreshUsage, 30_000); // background caches server reads for 60s
-  // re-detect the model/mode periodically — users switch mid-session
+  setInterval(() => void fetchOfficialUsage(), 60_000); // claude's own numbers
+  // re-detect the model/mode periodically — users switch mid-session; the
+  // banner scan self-throttles to every 8s inside
   setInterval(() => {
+    scanForLimitBanner();
     const next = detectModel();
     if (next.model !== detected.model || next.thinking !== detected.thinking) {
       detected = next;
@@ -524,6 +626,12 @@ if (TRACK_SITE) {
     if (reasoning) usageBuckets = { ...usageBuckets, reasoning: [...usageBuckets.reasoning, now] };
     else usageBuckets = { ...usageBuckets, standard: [...usageBuckets.standard, now] };
     updateLimitWidget();
+    // a refused send is exactly when the site shows its limit banner — look
+    // right after, and refresh the official numbers while at it
+    setTimeout(() => {
+      scanForLimitBanner(true);
+      void fetchOfficialUsage();
+    }, 2500);
     const site = TRACK_SITE.key;
     const model = detected.model;
     chrome.runtime.sendMessage({ type: "usage-msg", site, reasoning, model }, () => {
@@ -699,7 +807,7 @@ function buildLimitWidget() {
     <div class="pd-limit-note"></div>
     <div class="pd-limit-panel">
       <div class="pd-limit-plans"></div>
-      <span class="pd-limit-est">Estimated from your sends — not an official meter. Drag to move.</span>
+      <span class="pd-limit-est">Estimated from your sends; switches to the site's own numbers or its limit notice when available. Drag to move.</span>
     </div>`;
   const plansEl = limitBox.querySelector(".pd-limit-plans")!;
   (Object.keys(PLAN_LABELS) as Plan[]).forEach((p) => {
@@ -742,18 +850,40 @@ function buildLimitWidget() {
 function updateLimitWidget() {
   if (!TRACK_SITE || limitBox.style.display === "none") return;
   const now = Date.now();
+  if (limitHit && limitHit.resetAt <= now) {
+    limitHit = null; // reset time passed — back to estimating
+    void chrome.storage.local.remove(`pdLimitHit-${TRACK_SITE.key}`);
+  }
   const std = bucketLimit(TRACK_SITE.key, sitePlan, false);
   const rsn = bucketLimit(TRACK_SITE.key, sitePlan, true);
   const hasSeparateRsn =
     rsn.maxMessages !== std.maxMessages || rsn.windowHours !== std.windowHours;
+
+  // calibrated caps (observed at a real limit hit) beat the static ballparks
+  const stdCap = learnedCaps[capKey("standard")] ?? std.maxMessages;
+  const rsnCap = learnedCaps[capKey("reasoning")] ?? rsn.maxMessages;
 
   const stdIn = pruneWindow(usageBuckets.standard, std.windowHours, now);
   const rsnIn = pruneWindow(usageBuckets.reasoning, rsn.windowHours, now);
   // no separate reasoning cap → thinking sends just count as standard messages
   const primaryCount = hasSeparateRsn ? stdIn.length : stdIn.length + rsnIn.length;
 
-  const stdState = limitState(primaryCount, std.maxMessages);
-  const rsnState = hasSeparateRsn ? limitState(rsnIn.length, rsn.maxMessages) : "ok";
+  // official numbers (claude) override the count estimate for the primary bar
+  const officialFresh = official && now - official.at < 5 * 60_000 ? official : null;
+
+  let stdState = officialFresh
+    ? officialFresh.pct >= 1
+      ? "over"
+      : officialFresh.pct >= 0.7
+        ? "warn"
+        : "ok"
+    : limitState(primaryCount, stdCap);
+  let rsnState = hasSeparateRsn ? limitState(rsnIn.length, rsnCap) : "ok";
+  // the site said the limit is reached — that outranks every estimate
+  if (limitHit) {
+    if (limitHit.bucket === "reasoning" && hasSeparateRsn) rsnState = "over";
+    else stdState = "over";
+  }
   const worst =
     stdState === "over" || rsnState === "over"
       ? "over"
@@ -775,11 +905,18 @@ function updateLimitWidget() {
   const subFill = q(".pd-limit-subfill");
   if (!label || !countEl || !fill || !note) return;
 
-  label.textContent = `${TRACK_SITE.name} · ${std.windowHours}h`;
-  countEl.textContent =
-    std.maxMessages === null ? `${primaryCount} · ∞` : `${primaryCount}/${std.maxMessages}`;
-  fill.style.width =
-    std.maxMessages === null ? "4%" : `${Math.min(100, (primaryCount / std.maxMessages) * 100)}%`;
+  if (officialFresh) {
+    // exact utilization straight from the site — no message-count guessing
+    label.textContent = `${TRACK_SITE.name} · official`;
+    countEl.textContent = `${Math.round(officialFresh.pct * 100)}%`;
+    fill.style.width = `${Math.min(100, officialFresh.pct * 100)}%`;
+  } else {
+    label.textContent = `${TRACK_SITE.name} · ${std.windowHours}h`;
+    countEl.textContent =
+      stdCap === null ? `${primaryCount} · ∞` : `${primaryCount}/${stdCap}`;
+    fill.style.width =
+      stdCap === null ? "4%" : `${Math.min(100, (primaryCount / stdCap) * 100)}%`;
+  }
 
   if (modelName) modelName.textContent = detected.model || "detecting model…";
   if (thinkPill) thinkPill.style.display = detected.thinking ? "inline-block" : "none";
@@ -793,20 +930,26 @@ function updateLimitWidget() {
     if (showSub) {
       const win = rsn.windowHours >= 168 ? `${Math.round(rsn.windowHours / 24)}d` : `${rsn.windowHours}h`;
       subCount.textContent =
-        rsn.maxMessages === null ? `${rsnIn.length} · ∞` : `${rsnIn.length}/${rsn.maxMessages} · ${win}`;
+        rsnCap === null ? `${rsnIn.length} · ∞` : `${rsnIn.length}/${rsnCap} · ${win}`;
       subFill.style.width =
-        rsn.maxMessages === null ? "4%" : `${Math.min(100, (rsnIn.length / rsn.maxMessages) * 100)}%`;
+        rsnCap === null ? "4%" : `${Math.min(100, (rsnIn.length / rsnCap) * 100)}%`;
     }
   }
 
   const rEta = resetEta(rsnIn, rsn.windowHours, now);
   const eta = resetEta(stdIn, std.windowHours, now);
-  note.textContent =
-    rsnState === "over"
-      ? `Thinking limit likely reached${rEta ? ` · frees in ${rEta}` : ""}`
-      : stdState === "over"
-        ? `Limit likely reached${eta ? ` · frees in ${eta}` : ""}`
-        : "";
+  const hitEta = limitHit ? fmtDuration(limitHit.resetAt - now) : null;
+  const officialEta = officialFresh?.resetsAt ? fmtDuration(officialFresh.resetsAt - now) : null;
+  note.textContent = limitHit
+    ? // the site said so — no "likely" hedging
+      `${limitHit.bucket === "reasoning" ? "Thinking limit" : "Limit"} reached — reported by ${TRACK_SITE.name}${hitEta ? ` · resets in ${hitEta}` : ""}`
+    : officialFresh && officialFresh.pct >= 1
+      ? `Limit reached — ${TRACK_SITE.name} reports 100%${officialEta ? ` · resets in ${officialEta}` : ""}`
+      : rsnState === "over"
+        ? `Thinking limit likely reached${rEta ? ` · frees in ${rEta}` : ""}`
+        : stdState === "over"
+          ? `Limit likely reached${eta ? ` · frees in ${eta}` : ""}`
+          : "";
   limitBox.querySelectorAll<HTMLElement>(".pd-limit-plan").forEach((b) => {
     b.classList.toggle("active", b.dataset["plan"] === sitePlan);
   });

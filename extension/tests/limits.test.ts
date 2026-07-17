@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
   bucketLimit,
+  extractOfficialUsage,
+  fmtDuration,
   isReasoningModel,
   limitState,
   limitsFor,
+  matchLimitBanner,
+  parseResetTime,
   pruneWindow,
   resetEta,
   siteForHost,
@@ -83,5 +87,100 @@ describe("rolling window", () => {
     const now = Date.now();
     expect(resetEta([now - 2 * HOUR], 3, now)).toBe("~1h 0m");
     expect(resetEta([], 3, now)).toBeNull();
+  });
+});
+
+// ---------- site-reported limits: ground truth over guesses ----------
+
+describe("matchLimitBanner", () => {
+  test("matches real banner phrasings from the big three", () => {
+    expect(matchLimitBanner("You've hit the Plus plan limit for GPT-4o.")).not.toBeNull();
+    expect(matchLimitBanner("You're out of messages until 4 AM")).not.toBeNull();
+    expect(matchLimitBanner("You've reached your daily limit.")).not.toBeNull();
+    expect(matchLimitBanner("Usage limit reached. Try again later.")).not.toBeNull();
+    expect(matchLimitBanner("You have hit the free plan limit.")).not.toBeNull();
+  });
+
+  test("attributes thinking/reasoning banners to the reasoning bucket", () => {
+    expect(matchLimitBanner("You've hit the extended thinking limit")).toEqual({ reasoning: true });
+    expect(matchLimitBanner("You've hit the Plus plan limit")).toEqual({ reasoning: false });
+  });
+
+  test("ignores casual limit talk that isn't a banner", () => {
+    expect(matchLimitBanner("the speed limit reached 120 on that road")).toBeNull();
+    expect(matchLimitBanner("we should limit the scope of this function")).toBeNull();
+    expect(matchLimitBanner("what are the rate limits for this API?")).toBeNull();
+  });
+});
+
+describe("parseResetTime", () => {
+  const noon = new Date("2026-07-16T12:00:00").getTime(); // local noon
+
+  test("clock time later today", () => {
+    const t = parseResetTime("You're out of messages until 4 PM", noon)!;
+    expect(new Date(t).getHours()).toBe(16);
+    expect(t).toBeGreaterThan(noon);
+    expect(t - noon).toBeLessThanOrEqual(24 * HOUR);
+  });
+
+  test("clock time already passed rolls to tomorrow", () => {
+    const t = parseResetTime("out of messages until 4 AM", noon)!;
+    expect(new Date(t).getHours()).toBe(4);
+    expect(t).toBeGreaterThan(noon);
+  });
+
+  test("relative hours and minutes", () => {
+    expect(parseResetTime("limit resets in 2 hours", noon)).toBe(noon + 2 * HOUR);
+    expect(parseResetTime("try again in 45 minutes", noon)).toBe(noon + 45 * 60_000);
+  });
+
+  test("tomorrow means next local midnight", () => {
+    const t = parseResetTime("You've reached your daily limit. Try again tomorrow.", noon)!;
+    expect(new Date(t).getHours()).toBe(0);
+    expect(t - noon).toBe(12 * HOUR);
+  });
+
+  test("null when the banner names no reset", () => {
+    expect(parseResetTime("Usage limit reached.", noon)).toBeNull();
+  });
+});
+
+describe("extractOfficialUsage — claude.ai's own numbers", () => {
+  const now = Date.now();
+
+  test("finds the worst utilization in a nested response", () => {
+    const resets = new Date(now + HOUR).toISOString();
+    const u = extractOfficialUsage(
+      {
+        five_hour: { utilization: 0.34, resets_at: resets },
+        seven_day: { utilization: 0.82, resets_at: resets },
+      },
+      now,
+    )!;
+    expect(u.pct).toBeCloseTo(0.82);
+    expect(u.resetsAt).toBe(Date.parse(resets));
+  });
+
+  test("normalizes a 0-100 scale and ignores past reset timestamps", () => {
+    const u = extractOfficialUsage(
+      { usage: { utilization: 82, resets_at: new Date(now - 1000).toISOString() } },
+      now,
+    )!;
+    expect(u.pct).toBeCloseTo(0.82);
+    expect(u.resetsAt).toBeNull();
+  });
+
+  test("null on unrecognized shapes", () => {
+    expect(extractOfficialUsage({ foo: "bar" }, now)).toBeNull();
+    expect(extractOfficialUsage(null, now)).toBeNull();
+    expect(extractOfficialUsage("nope", now)).toBeNull();
+  });
+});
+
+describe("fmtDuration", () => {
+  test("hours+minutes, minutes only, elapsed", () => {
+    expect(fmtDuration(2 * HOUR + 15 * 60_000)).toBe("~2h 15m");
+    expect(fmtDuration(40 * 60_000)).toBe("~40m");
+    expect(fmtDuration(0)).toBeNull();
   });
 });

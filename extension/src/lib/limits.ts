@@ -138,13 +138,89 @@ export function pruneWindow(timestamps: number[], windowHours: number, now: numb
   return timestamps.filter((t) => t > cutoff);
 }
 
-/** When the oldest in-window message falls out — i.e. when a slot frees up. */
-export function resetEta(timestamps: number[], windowHours: number, now: number): string | null {
-  const oldest = timestamps[0];
-  if (oldest === undefined) return null;
-  const ms = oldest + windowHours * 3_600_000 - now;
+/** "~2h 15m" / "~40m" for a duration in ms; null when already elapsed. */
+export function fmtDuration(ms: number): string | null {
   if (ms <= 0) return null;
   const h = Math.floor(ms / 3_600_000);
   const m = Math.ceil((ms % 3_600_000) / 60_000);
   return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
+}
+
+/** When the oldest in-window message falls out — i.e. when a slot frees up. */
+export function resetEta(timestamps: number[], windowHours: number, now: number): string | null {
+  const oldest = timestamps[0];
+  if (oldest === undefined) return null;
+  return fmtDuration(oldest + windowHours * 3_600_000 - now);
+}
+
+// ---------- site-reported limit detection ----------
+// Counting sends can only ever be a guess (real quotas are compute-weighted
+// and per-account). When the site ITSELF says the limit is reached — the
+// banner every chat app shows — that is ground truth: believe it, mark the
+// bucket exhausted, and calibrate the cap to what was actually observed.
+
+// strong phrasings only — a chat message casually mentioning "limit" must not
+// trip this, so every alternative anchors on an explicit hit-the-wall sentence
+const LIMIT_BANNER_RE =
+  /(you(?:'|’)?(?:ve| have) (?:reached|hit) (?:your|the)[^.\n]{0,60}\blimit|you(?:'|’)?re out of (?:messages|free messages|usage)|out of (?:messages|usage) until|(?:message|usage|rate) limit reached|reached your (?:daily|weekly|monthly|usage)[^.\n]{0,30}\blimit|limit[^.\n]{0,20}\bresets? (?:at|in)\b|no (?:messages|uses|responses) (?:left|remaining) until)/i;
+
+/** Non-null when `text` reads as a limit banner; says which bucket it names. */
+export function matchLimitBanner(text: string): { reasoning: boolean } | null {
+  if (!LIMIT_BANNER_RE.test(text)) return null;
+  return { reasoning: /think|reason|extended/i.test(text) };
+}
+
+/**
+ * Epoch ms parsed from a banner's own reset phrasing ("until 4 PM",
+ * "resets in 2 hours", "try again tomorrow"); null when it names none.
+ */
+export function parseResetTime(text: string, now: number): number | null {
+  const clock = text.match(/\b(?:until|at|after)\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?/i);
+  if (clock) {
+    let h = parseInt(clock[1]!, 10) % 12;
+    if (clock[3]!.toLowerCase() === "p") h += 12;
+    const d = new Date(now);
+    d.setHours(h, clock[2] ? parseInt(clock[2], 10) : 0, 0, 0);
+    if (d.getTime() <= now) d.setDate(d.getDate() + 1); // that time already passed today
+    return d.getTime();
+  }
+  const rel = text.match(/\bin\s+(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m)\b/i);
+  if (rel) {
+    return now + parseInt(rel[1]!, 10) * (/^h/i.test(rel[2]!) ? 3_600_000 : 60_000);
+  }
+  if (/\btomorrow\b/i.test(text)) {
+    const d = new Date(now);
+    d.setHours(24, 0, 0, 0); // next local midnight
+    return d.getTime();
+  }
+  return null;
+}
+
+// ---------- official usage (claude.ai exposes its own numbers) ----------
+// claude.ai's app fetches /api/organizations/<org>/usage — the same data its
+// native usage page renders. The response shape isn't a public contract, so
+// walk it defensively for {utilization, resets_at} pairs instead of trusting
+// exact field paths; on any drift this returns null and estimates take over.
+
+export interface OfficialUsage {
+  pct: number; // 0..1
+  resetsAt: number | null; // epoch ms
+}
+
+export function extractOfficialUsage(json: unknown, now: number): OfficialUsage | null {
+  let best: OfficialUsage | null = null;
+  const visit = (v: unknown) => {
+    if (!v || typeof v !== "object") return;
+    const o = v as Record<string, unknown>;
+    if (typeof o["utilization"] === "number") {
+      const raw = o["utilization"];
+      const pct = raw > 1 ? raw / 100 : raw; // seen as both 0–1 and 0–100
+      const rs = typeof o["resets_at"] === "string" ? Date.parse(o["resets_at"]) : NaN;
+      const resetsAt = Number.isFinite(rs) && rs > now ? rs : null;
+      if (!best || pct > best.pct) best = { pct, resetsAt };
+    }
+    for (const k of Object.keys(o)) visit(o[k]);
+  };
+  visit(json);
+  return best;
 }
