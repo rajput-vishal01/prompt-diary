@@ -1,7 +1,20 @@
-# Design Elevation — v2 plan (direction confirmed on the landing page)
+# Design Elevation — v2 plan (COMPLETE)
 
-**Status:** the design direction is locked as of the landing revamp
-(`bffeb71`): Editorial Ink content + Ink Glass overlays + the kinetic React
+**Status: ALL 8 CHUNKS SHIPPED** (2026-07-17). Chunk 1 selects `06b8a12`-era,
+chunks 2–3 overlays/tooltips, chunk 4 gallery `18a7637`, chunk 5 auth+share
+`5ea2f59`, chunk 6 dashboard calm `da675fc`, chunk 7 popup glass `a9425a1`,
+chunk 8 content chrome `de405fa`. Post-plan fixes worth knowing: the
+sticky-stack pile-up was broken by dwell wrappers and restored with spacers
+(`7147d8d`), and the sink-back fade was moved off card opacity onto a
+`.stack-shade` overlay (`4095552`) — both landmines are documented in
+DESIGN.md's sticky-stack entry and in /CLAUDE.md. This file is kept as the
+historical record of the rollout; DESIGN.md remains the living authority.
+
+The original plan follows.
+
+---
+
+**Direction:** Editorial Ink content + Ink Glass overlays + the kinetic React
 Bits layer, with Bricolage Grotesque / Instrument Sans as the app-wide
 voice. DESIGN.md's "Kinetic layer" section is the authority. This plan
 sequences carrying that direction through the REST of the application.

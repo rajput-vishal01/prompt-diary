@@ -42,8 +42,19 @@ Every prompt access routes through one `canAccessPrompt()`
 ([permissions.ts](web/src/lib/permissions.ts)): owner ✓ read/write · team
 member ✓ read · public ✓ read for anyone. The full matrix is tested in
 [permissions.test.ts](web/tests/permissions.test.ts). Comparison images are
-locked to our Cloudinary CDN; auth via Better Auth (cookie sessions + bearer
-tokens + 5-min cookie cache); soft deletes; rate-limited API.
+locked to our Cloudinary CDN (signed uploads pinned to image formats); auth
+via Better Auth (cookie sessions + bearer tokens + 5-min cookie cache, brute
+force limiter on Redis in prod); extension CORS fails closed without
+`EXTENSION_IDS`; webhooks reject replays; prod ships CSP + HSTS; soft
+deletes; rate-limited API. Full audit + fixes: 2026-07-17.
+
+### Speed
+Server-rendered dashboard with a TanStack Query layer: hard loads paint with
+data (session gate + the 5 shared queries prefetched during SSR, hydrated —
+zero skeletons, zero client API calls on arrival), revisits render from
+cache, mutations invalidate globally, rows prefetch on hover, and frequent
+actions (delete, bookmark, reorder) are optimistic. Details in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Stack
 
@@ -86,7 +97,9 @@ cd ../extension && bun run build
    `DATABASE_URL` (Neon **pooled** string), `BETTER_AUTH_SECRET` (fresh one,
    not your dev value), `BETTER_AUTH_URL`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`,
    `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
-   and optionally `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
+   and optionally `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`. **Also set
+   `EXTENSION_IDS`** (your published extension's id) — extension CORS fails
+   closed in production without it.
 2. **Google OAuth** (if used): authorized redirect URI
    `https://<deployed-url>/api/auth/callback/google`.
 3. **Extension store build**:

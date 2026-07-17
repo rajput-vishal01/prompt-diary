@@ -65,6 +65,24 @@ backgrounds. Dark mode: not shipped.
 - **Input**: white bg, `line-strong` border, 8px radius; focus = ink border.
 - **Focus**: 2px ink outline, offset 2px, everywhere.
 - **Empty states**: teach the flow ("highlight text → right-click → save").
+- **Icon pressable** (`.icon-btn`): the 32px icon button — layout, transition,
+  press scale 0.97 baked in; hover COLORS stay at the call site (danger
+  deletes vs ink defaults never fight the utility).
+- **Drag vocabulary** (one language everywhere): hover-reveal `GripVertical`
+  handle on the left edge, grab/grabbing cursor, source dims to 40%, and a
+  brass 2px indicator line marks the before/after drop zone (pointer Y vs
+  row midpoint). Used by the sidebar tree AND thread-step reordering; any
+  new reorderable list reuses exactly this.
+- **Lightbox** (`ZoomableImage`/`Lightbox`): every content image gets a
+  hover expand chip + click-to-zoom full-screen viewer — ink/80 veil with
+  backdrop blur, image materializes (scale .96 + blur resolve), Esc /
+  click-anywhere / X closes, scroll locked, portaled to body, reduced-motion
+  gated. Chip sits top-left when a pane's top-right is owned by Remove.
+- **Sidebar tree**: every section (My Prompts, Projects, Teams, Tags) is
+  collapsible with persisted state; clicking a parent row BOTH expands its
+  children and navigates — nesting never hides behind the chevron alone.
+  Folders/Pinned expand to prompt leaves, projects to threads; the open
+  item carries the brass indicator.
 
 ## Overlay material — "Ink Glass"
 
