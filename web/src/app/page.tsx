@@ -262,17 +262,27 @@ export default function Home() {
         scrollTrigger: { trigger: "[data-quote]", start: "top 80%", end: "top 40%", scrub: true },
       });
       // sticky stack: each section pins; the previous card sinks back and dims
-      // as the next slides over it (sticky does the pinning, gsap the depth)
+      // as the next slides over it (sticky does the pinning, gsap the depth).
+      // The dim is a shade overlay INSIDE the card — never fade the card
+      // itself: a translucent card lets the whole pile beneath bleed through
+      // its background (every lower card's text ghosting into view).
       const cards = gsap.utils.toArray<HTMLElement>(".stack-card");
       cards.forEach((card, i) => {
         const next = cards[i + 1];
         if (!next) return;
         gsap.to(card, {
           scale: 0.93,
-          opacity: 0.4,
           ease: "none",
           scrollTrigger: { trigger: next, start: "top bottom", end: "top top", scrub: true },
         });
+        const shade = card.querySelector(".stack-shade");
+        if (shade) {
+          gsap.to(shade, {
+            opacity: 0.35,
+            ease: "none",
+            scrollTrigger: { trigger: next, start: "top bottom", end: "top top", scrub: true },
+          });
+        }
       });
     },
     { scope: root },
@@ -498,6 +508,7 @@ export default function Home() {
 
       {/* ---------- card 1: the idea, spelled large ---------- */}
       <section className={`${stackCard} bg-ink text-bg`}>
+        <div aria-hidden className="stack-shade pointer-events-none absolute inset-0 z-30 bg-ink opacity-0" />
         <div aria-hidden className="pointer-events-none absolute -left-40 top-0 h-[32rem] w-[32rem] rounded-full bg-orb-lavender/20 blur-[150px]" />
         <div aria-hidden className="pointer-events-none absolute -right-40 bottom-0 h-[32rem] w-[32rem] rounded-full bg-orb-peach/20 blur-[150px]" />
 
@@ -546,6 +557,7 @@ export default function Home() {
 
       {/* ---------- card 2: what it does — the feature stage ---------- */}
       <section className={`${stackCard} bg-bg shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]`}>
+        <div aria-hidden className="stack-shade pointer-events-none absolute inset-0 z-30 bg-ink opacity-0" />
         <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col justify-center px-6 py-24 md:px-10">
           <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">What it does</p>
           <h2 className="st-reveal mt-2 max-w-2xl font-display text-[clamp(30px,4vw,44px)] font-light leading-[1.1] tracking-[-0.01em]">
@@ -616,6 +628,7 @@ export default function Home() {
 
       {/* ---------- card 3: capabilities — hover list with popping previews ---------- */}
       <section className={`${stackCard} border-line bg-raised`}>
+        <div aria-hidden className="stack-shade pointer-events-none absolute inset-0 z-30 bg-ink opacity-0" />
         <div className="relative mx-auto flex min-h-[100dvh] max-w-6xl flex-col justify-center px-6 py-24 md:px-10">
           <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">And everything around them</p>
           <ul className="mt-8">
@@ -666,6 +679,7 @@ export default function Home() {
 
       {/* ---------- card 4: manifesto ---------- */}
       <section data-quote className={`${stackCard} bg-bg text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]`}>
+        <div aria-hidden className="stack-shade pointer-events-none absolute inset-0 z-30 bg-ink opacity-0" />
         <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col items-center justify-center px-6 py-24">
           <p className="mx-auto max-w-3xl font-display text-[clamp(28px,4.5vw,52px)] font-light leading-[1.2] tracking-[-0.01em] text-ink">
             {quote.map((w, i) => (

@@ -113,10 +113,15 @@ A tool must never animate between the user and their rows.
 - **LogoLoop** — velocity-smoothed marquee with edge fades; decelerates
   under the cursor.
 - **Sticky-stack scroll story** (marketing only): major sections are
-  rounded-top cards that pin at the viewport top and sink back
-  (scale 0.93, dim to 40%) as the next slides over. Every card gets a
-  **dwell runway** — its wrapper is ~145dvh vs the 100dvh card — so the
-  pinned card holds still long enough to read before the takeover starts.
+  rounded-top cards, direct siblings with `sticky top-0`, so each pins at
+  the viewport top and the next slides over the pile. Sink-back = scale
+  0.93 + a `.stack-shade` overlay inside the card scrubbing to 35% ink.
+  **Never animate the card's own opacity** — a translucent card lets every
+  card beneath bleed through its background. **Never wrap each card in its
+  own taller div** — sticky only sticks within its parent, which kills the
+  pile-up. The **dwell runway** is an empty ~45dvh spacer AFTER each card:
+  the pinned card holds still while the spacer scrolls by, then the
+  takeover starts.
 - **Menu morph** — the full-screen menu expands from the burger as a
   dark-glass droplet (framer-motion clip-path circle), links stagger in;
   it retracts on close. Overlays morph out of their triggers, never fade
