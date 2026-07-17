@@ -64,6 +64,29 @@ backgrounds. Dark mode: not shipped.
 - **Focus**: 2px ink outline, offset 2px, everywhere.
 - **Empty states**: teach the flow ("highlight text → right-click → save").
 
+## Overlay material — "Ink Glass"
+
+A second material language for things that FLOAT above the content: nav
+chrome, menus, dropdowns, command palette, dialogs, tooltips, popovers,
+toasts. Never on the page canvas, cards, ledger rows, buttons, or inputs —
+glass on content is the dated-glassmorphism failure mode.
+
+- **`glass`** (light, default): warm-white translucency
+  `linear-gradient(160deg, rgba(255,255,255,.78), rgba(255,255,255,.58))`
+  + `backdrop-filter: blur(20px) saturate(160%)`, hairline border
+  (`line-strong` @ 55%), specular top edge
+  (`inset 0 1px 0 rgba(255,255,255,.65)`), one quiet warm shadow. Text on it:
+  `ink`/`dim` only.
+- **`glass-ink`** (dark): reserved for surfaces that are already the app's
+  dark voice (toast, landing menu overlay). `rgba(12,10,9,.86)` + blur 16.
+- **Fallbacks are part of the material**: no `backdrop-filter` support →
+  solid; `prefers-reduced-transparency` → solid; `prefers-contrast: more` →
+  solid + strong border. All three ship with the class, in globals.css.
+- **Motion**: overlays *materialize* — scale .96→1 + blur resolve + fade,
+  150–200ms `--ease-out-quart`; exits faster than entrances; menus/popovers
+  scale from their trigger side, modals stay center-origin; keyboard-invoked
+  surfaces (⌘K) get ≤100ms or nothing. Reduced motion → crossfade only.
+
 ## Landing (brand register)
 
 64px nav (wordmark left, outline + ink pills right) · centered hero with

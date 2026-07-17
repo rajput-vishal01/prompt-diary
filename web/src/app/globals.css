@@ -171,6 +171,63 @@ body {
 .pd-burger.open span:nth-child(2) { opacity: 0; }
 .pd-burger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); width: 24px; }
 
+/* ---------- Ink Glass: the overlay material (floating layer ONLY) ----------
+   Warm paper-tinted translucency for things that float above the content —
+   nav chrome, menus, dropdowns, palettes, dialogs, tooltips. Never on the
+   page canvas, cards, buttons, or inputs (that's 2013 glassmorphism, not us).
+   Depth comes from the material itself: blur+saturation contrast plus a
+   specular top edge; the drop shadow stays quiet and warm. */
+
+:root {
+  --ease-out-quart: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+.glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(214, 211, 209, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 40px rgba(12, 10, 9, 0.1);
+}
+
+/* the dark variant — reserved for surfaces that are ALREADY the app's dark
+   voice (toast, the landing menu). Everything else floats light. */
+.glass-ink {
+  background: rgba(12, 10, 9, 0.86);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 12px 40px rgba(12, 10, 9, 0.25);
+}
+
+/* material honesty: without backdrop-filter (old engines), or when the user
+   asks for less transparency/more contrast, the surface goes solid */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: #ffffff; }
+  .glass-ink { background: rgba(12, 10, 9, 0.97); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-ink {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass { background: #ffffff; }
+  .glass-ink { background: #0c0a09; }
+}
+@media (prefers-contrast: more) {
+  .glass {
+    background: #ffffff;
+    border-color: #d6d3d1;
+  }
+  .glass-ink { background: #0c0a09; }
+}
+
 /* ---------- micro-motion: state-conveying only, 150–250ms, ease-out ---------- */
 
 /* (route-change fade-rise lives in dashboard/template.tsx via GSAP) */

@@ -20,6 +20,9 @@ const MENU_LINKS = [
   { label: "Privacy", href: "/privacy" },
 ];
 
+// pastel washes behind the glass mocks — decoration only, never component fills
+const ORB_WASHES = ["bg-orb-mint", "bg-orb-peach", "bg-orb-lavender", "bg-orb-sky"];
+
 const MARQUEE_SITES = [
   "ChatGPT", "Claude", "Gemini", "Perplexity", "Poe", "DeepSeek",
   "Grok", "Copilot", "Le Chat", "Kimi", "Qwen", "Meta AI",
@@ -63,13 +66,13 @@ const CAPABILITIES = [
 
 function PopupMock() {
   return (
-    <div className="w-64 rounded-xl border border-line bg-raised p-3 shadow-soft">
-      <div className="flex h-8 items-center rounded-lg border border-line-strong px-2.5 text-xs text-dim">
+    <div className="glass w-64 rounded-xl p-3">
+      <div className="flex h-8 items-center rounded-lg border border-line-strong bg-white/50 px-2.5 text-xs text-dim">
         rewrite in my voice…
         <span className="kbd ml-auto">↵</span>
       </div>
       {["Editorial rewrite pass", "Bug report normalizer", "Launch email v3"].map((t, i) => (
-        <div key={t} className={`mt-1.5 rounded-lg px-2.5 py-2 ${i === 0 ? "bg-soft shadow-[inset_2px_0_0_#0c0a09]" : ""}`}>
+        <div key={t} className={`mt-1.5 rounded-lg px-2.5 py-2 ${i === 0 ? "bg-white/70 shadow-[inset_2px_0_0_#0c0a09]" : ""}`}>
           <p className="truncate text-xs font-medium text-ink">{t}</p>
           <p className="mt-0.5 truncate font-mono text-[10px] text-dim">Rewrite the following in a tighter…</p>
         </div>
@@ -80,15 +83,15 @@ function PopupMock() {
 
 function ThreadMock() {
   return (
-    <div className="w-64 rounded-xl border border-line bg-raised p-3 shadow-soft">
+    <div className="glass w-64 rounded-xl p-3">
       <p className="px-1 text-xs font-medium text-ink">Launch email recipe</p>
       {["Draft the angle", "Tighten the hook", "Final subject lines"].map((t, i) => (
-        <div key={t} className="mt-1.5 flex items-center gap-2 rounded-lg bg-soft px-2.5 py-2">
+        <div key={t} className="mt-1.5 flex items-center gap-2 rounded-lg bg-white/60 px-2.5 py-2">
           <span className="font-mono text-[10px] tabular-nums text-dim">{String(i + 1).padStart(2, "0")}</span>
           <span className="truncate text-xs text-ink">{t}</span>
         </div>
       ))}
-      <div className="mt-1.5 rounded-lg bg-tint px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-dim">
+      <div className="mt-1.5 rounded-lg bg-white/45 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-dim">
         final output ↓
       </div>
     </div>
@@ -97,13 +100,13 @@ function ThreadMock() {
 
 function TransferMock() {
   return (
-    <div className="flex w-64 flex-col items-center gap-2 rounded-xl border border-line bg-raised p-4 shadow-soft">
+    <div className="glass flex w-64 flex-col items-center gap-2 rounded-xl p-4">
       <div className="flex w-full items-center justify-between">
         <span className="chip">ChatGPT · 14 messages</span>
         <ArrowRight size={14} className="text-dim" />
         <span className="chip">Claude</span>
       </div>
-      <div className="w-full rounded-lg bg-soft p-2.5 font-mono text-[10px] leading-relaxed text-dim">
+      <div className="w-full rounded-lg bg-white/60 p-2.5 font-mono text-[10px] leading-relaxed text-dim">
         [Context from a previous conversation]
         <br />User: draft the pricing page…
         <br />Assistant: here&apos;s the structure…
@@ -115,7 +118,7 @@ function TransferMock() {
 
 function WidgetMock() {
   return (
-    <div className="w-56 rounded-xl border border-line bg-raised p-3 shadow-soft">
+    <div className="glass w-56 rounded-xl p-3">
       <div className="flex items-center gap-2 text-xs">
         <span className="font-display italic">Pd</span>
         <span className="text-dim">ChatGPT · 3h</span>
@@ -163,6 +166,7 @@ export default function Home() {
   const root = useRef<HTMLDivElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [hoverCap, setHoverCap] = useState<number | null>(null);
 
   // Lenis smooth scroll — the 412 signature feel (1.2s, exponential ease-out)
@@ -185,7 +189,8 @@ export default function Home() {
     };
   }, []);
 
-  // header hides scrolling down, returns scrolling up
+  // header hides scrolling down, returns scrolling up — and materializes as
+  // glass once it leaves the hero's top edge
   useEffect(() => {
     const header = document.getElementById("pd-header");
     if (!header) return;
@@ -193,6 +198,7 @@ export default function Home() {
     const onScroll = () => {
       const y = window.scrollY;
       header.style.transform = y > last && y > 120 ? "translateY(-100%)" : "translateY(0)";
+      setScrolled(y > 32); // no-op re-render unless the boolean flips
       last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -271,19 +277,29 @@ export default function Home() {
 
   return (
     <div ref={root} className="min-h-screen overflow-x-clip bg-bg text-ink selection:bg-ink selection:text-bg">
-      {/* ---------- header: fixed, inverts over dark bands ---------- */}
+      {/* ---------- header: fixed; becomes Ink Glass chrome once scrolled ----------
+          the glass fill keeps ink text legible over light AND dark bands —
+          the material does the work the old mix-blend-difference trick did */}
       <header
         id="pd-header"
-        className="fixed inset-x-0 top-0 z-50 text-white mix-blend-difference transition-transform duration-300 ease-out"
+        className="fixed inset-x-0 top-0 z-50 px-4 transition-transform duration-300 ease-out md:px-6"
       >
-        <div className="flex items-center justify-between px-6 py-6 md:px-10">
+        <div
+          className={`mx-auto mt-3 flex max-w-6xl items-center justify-between rounded-full py-2.5 transition-[background-color,border-color,box-shadow,padding-left,padding-right,color] duration-300 ease-out ${
+            menuOpen
+              ? "px-5 text-bg"
+              : scrolled
+                ? "glass px-5 text-ink"
+                : "border border-transparent px-2 text-ink"
+          }`}
+        >
           <Link href="/" className="font-display text-[22px] font-light tracking-tight">
             Prompt Diary
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <Link
               href="/login"
-              className="hidden rounded-full border border-white px-4 py-1.5 text-sm font-medium transition-opacity hover:opacity-70 md:block"
+              className="hidden rounded-full border border-current px-4 py-1.5 text-sm font-medium transition-[opacity,transform] duration-150 hover:opacity-70 active:scale-[0.97] md:block"
             >
               Start free
             </Link>
@@ -300,9 +316,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ---------- menu overlay ---------- */}
+      {/* ---------- menu overlay: dark glass — the page glows through it ---------- */}
       <div
-        className={`fixed inset-0 z-40 flex flex-col justify-center bg-ink px-8 transition-opacity duration-300 md:px-16 ${
+        className={`glass-ink fixed inset-0 z-40 flex flex-col justify-center rounded-none border-0 px-8 transition-opacity duration-300 md:px-16 ${
           menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
@@ -463,6 +479,16 @@ export default function Home() {
                 key={f.title}
                 className="st-reveal group relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-line bg-raised md:aspect-[4/3]"
               >
+                {/* pastel atmosphere INSIDE the card — the floating glass
+                    panel above it has something real to frost */}
+                <div
+                  aria-hidden
+                  className={`pointer-events-none absolute -right-12 -top-12 h-64 w-64 rounded-full opacity-70 blur-[70px] ${ORB_WASHES[i % ORB_WASHES.length]}`}
+                />
+                <div
+                  aria-hidden
+                  className={`pointer-events-none absolute -bottom-14 -left-10 h-56 w-56 rounded-full opacity-60 blur-[70px] ${ORB_WASHES[(i + 2) % ORB_WASHES.length]}`}
+                />
                 <span className="absolute left-5 top-4 font-mono text-xs tabular-nums text-dim">
                   {String(i + 1).padStart(2, "0")}
                 </span>
@@ -508,11 +534,14 @@ export default function Home() {
                   </h3>
                   <span className="shrink-0 font-display text-lg italic text-amber">{c.note}</span>
                 </div>
-                {/* floating preview — desktop only, never intercepts the pointer */}
+                {/* floating preview — glass, materializes rather than fades:
+                    scale + blur resolve together (never from scale 0) */}
                 <div
                   aria-hidden
-                  className={`pointer-events-none absolute right-[6%] top-1/2 z-10 hidden w-[22rem] max-w-[26vw] -translate-y-1/2 rotate-2 rounded-xl border border-line bg-bg p-4 shadow-soft transition-opacity duration-200 lg:block ${
-                    hoverCap === i ? "opacity-100" : "opacity-0"
+                  className={`glass pointer-events-none absolute right-[6%] top-1/2 z-10 hidden w-[22rem] max-w-[26vw] -translate-y-1/2 rounded-xl p-4 transition-[opacity,transform,filter] duration-200 ease-out lg:block ${
+                    hoverCap === i
+                      ? "rotate-2 scale-100 opacity-100 blur-0"
+                      : "rotate-2 scale-[0.97] opacity-0 blur-[3px]"
                   }`}
                 >
                   <p className="text-sm leading-relaxed text-body">{c.preview}</p>
@@ -554,13 +583,13 @@ export default function Home() {
               <div className="st-reveal mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/login"
-                  className="rounded-full bg-bg px-6 py-3 text-[15px] font-medium text-ink transition-opacity hover:opacity-85"
+                  className="rounded-full bg-bg px-6 py-3 text-[15px] font-medium text-ink transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.97]"
                 >
                   Start your diary — free
                 </Link>
                 <Link
                   href="/gallery"
-                  className="rounded-full border border-bg/40 px-6 py-3 text-[15px] font-medium text-bg transition-colors hover:border-bg"
+                  className="rounded-full border border-bg/40 px-6 py-3 text-[15px] font-medium text-bg transition-[border-color,transform] duration-150 hover:border-bg active:scale-[0.97]"
                 >
                   See the gallery
                 </Link>
