@@ -1,10 +1,10 @@
 import { destroyImage } from "@/lib/cloudinary";
 import { NextRequest } from "next/server";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { ThreadUpdateSchema } from "shared";
 import { db } from "@/db";
 import { prompts, threads, threadSteps } from "@/db/schema";
-import {
+import { invalid,
   getUser,
   guard,
   jsonErr,
@@ -14,6 +14,7 @@ import {
   rateLimit,
   rateLimitKey,
 } from "@/lib/api";
+import { ownsProject } from "@/lib/permissions";
 import { loadThreadForViewer } from "@/lib/threads";
 
 type Params = { params: Promise<{ id: string }> };
@@ -48,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!thread) return notFound();
 
   const parsed = ThreadUpdateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const input = parsed.data;
 
   // publishing a recipe = publishing content, same gate as prompts
@@ -60,21 +61,28 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return needsVerification();
   }
 
+  // moving the thread into a project requires owning that project
+  if (input.projectId && !(await ownsProject(g.user.id, input.projectId))) {
+    return jsonErr("Unknown project", 400);
+  }
+
   if (input.promptIds) {
-    const mine = await db
-      .select({ id: prompts.id })
-      .from(prompts)
-      .where(
-        sql`${prompts.id} in ${input.promptIds} and ${prompts.userId} = ${g.user.id}`,
-      );
-    if (mine.length !== input.promptIds.length) {
-      return jsonErr("All steps must be prompts you own", 403);
+    // dedupe: (threadId, promptId) is the primary key
+    const stepIds = [...new Set(input.promptIds)];
+    if (stepIds.length) {
+      const mine = await db
+        .select({ id: prompts.id })
+        .from(prompts)
+        .where(and(inArray(prompts.id, stepIds), eq(prompts.userId, g.user.id)));
+      if (mine.length !== stepIds.length) {
+        return jsonErr("All steps must be prompts you own", 403);
+      }
     }
     // full replace keeps ordering logic trivial — threads have ≤50 steps
     await db.delete(threadSteps).where(eq(threadSteps.threadId, id));
-    if (input.promptIds.length) {
+    if (stepIds.length) {
       await db.insert(threadSteps).values(
-        input.promptIds.map((promptId, i) => ({ threadId: id, promptId, order: i })),
+        stepIds.map((promptId, i) => ({ threadId: id, promptId, order: i })),
       );
     }
   }

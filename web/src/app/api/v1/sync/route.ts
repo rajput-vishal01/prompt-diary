@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { SyncPushSchema } from "shared";
 import { db } from "@/db";
 import { folders, prompts } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonOk } from "@/lib/api";
 import { isTeamMember } from "@/lib/permissions";
 
 // POST /api/v1/sync — offline-first reconciliation.
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const userId = g.user.id;
 
   const parsed = SyncPushSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const push = parsed.data;
 
   // memoize membership checks — a vault full of prompts sharing one team
@@ -60,6 +60,20 @@ export async function POST(req: NextRequest) {
       );
   }
 
+  // a prompt's folderId must reference one of THIS user's folders — a stale id
+  // (folder deleted on another device, never synced here) would FK-violate and
+  // 500 the whole sync forever. Unknown folder → uncategorized, not an error.
+  const ownFolderIds = new Set(
+    (
+      await db
+        .select({ id: folders.id })
+        .from(folders)
+        .where(eq(folders.userId, userId))
+    ).map((r) => r.id),
+  );
+  const validFolderId = (folderId: string | null | undefined) =>
+    folderId && ownFolderIds.has(folderId) ? folderId : null;
+
   // ---- prompts (LWW on updatedAt) ----
   for (const p of push.prompts) {
     const existing = await db.query.prompts.findFirst({
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
           title: p.title,
           body: p.body,
           tags: p.tags ?? [],
-          folderId: p.folderId ?? null,
+          folderId: validFolderId(p.folderId),
           visibility,
           teamId,
           pinned: p.pinned ?? existing.pinned,
@@ -112,7 +126,7 @@ export async function POST(req: NextRequest) {
         .values({
           id: p.id,
           userId,
-          folderId: p.folderId ?? null,
+          folderId: validFolderId(p.folderId),
           title: p.title,
           body: p.body,
           tags: p.tags ?? [],

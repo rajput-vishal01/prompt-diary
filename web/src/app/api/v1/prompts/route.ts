@@ -3,8 +3,8 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { PromptCreateSchema } from "shared";
 import { db } from "@/db";
 import { prompts } from "@/db/schema";
-import { guard, jsonErr, jsonOk, needsVerification } from "@/lib/api";
-import { isTeamMember } from "@/lib/permissions";
+import { invalid, guard, jsonErr, jsonOk, needsVerification } from "@/lib/api";
+import { isTeamMember, ownsFolder } from "@/lib/permissions";
 
 // GET /api/v1/prompts?folderId=&q=  — list my prompts
 export async function GET(req: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = PromptCreateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const input = parsed.data;
 
   if (input.teamId && !(await isTeamMember(g.user.id, input.teamId))) {
@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
   }
   if (input.visibility === "public" && !g.user.emailVerified) {
     return needsVerification();
+  }
+  // an unknown/foreign folderId would FK-500 (or file the prompt in someone
+  // else's folder) — reject it as the clean 400 it is
+  if (input.folderId && !(await ownsFolder(g.user.id, input.folderId))) {
+    return jsonErr("Unknown folder", 400);
   }
 
   // "add to my diary" from the gallery: dedupe on (user, sourceId).

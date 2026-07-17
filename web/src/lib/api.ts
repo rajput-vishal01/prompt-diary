@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import type { ZodError } from "zod";
 import { err, ok } from "shared";
 import { auth } from "./auth";
 
@@ -28,6 +29,13 @@ export function jsonOk<T>(data: T, status = 200) {
 
 export function jsonErr(message: string, status: number) {
   return NextResponse.json(err(message), { status });
+}
+
+/** 400 with the first Zod issue as readable text — never the raw issue-list JSON. */
+export function invalid(error: ZodError) {
+  const i = error.issues[0];
+  const msg = i ? (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message) : "Invalid input";
+  return jsonErr(msg, 400);
 }
 
 export const unauthorized = () => jsonErr("Unauthorized", 401);

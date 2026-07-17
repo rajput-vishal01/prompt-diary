@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { PromptUpdateSchema } from "shared";
 import { db } from "@/db";
 import { prompts, user as userTable } from "@/db/schema";
-import {
+import { invalid,
   forbidden,
   getUser,
   guard,
@@ -15,7 +15,7 @@ import {
   rateLimit,
   rateLimitKey,
 } from "@/lib/api";
-import { canAccessPrompt, isTeamMember } from "@/lib/permissions";
+import { canAccessPrompt, isTeamMember, ownsFolder } from "@/lib/permissions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!(await canAccessPrompt(g.user.id, row, "write"))) return forbidden();
 
   const parsed = PromptUpdateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const input = parsed.data;
 
   const nextVisibility = input.visibility ?? row.visibility;
@@ -73,6 +73,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     !g.user.emailVerified
   ) {
     return needsVerification();
+  }
+  // an unknown/foreign folderId would FK-500 (or file the prompt in someone
+  // else's folder) — reject it as the clean 400 it is
+  if (input.folderId && !(await ownsFolder(g.user.id, input.folderId))) {
+    return jsonErr("Unknown folder", 400);
   }
 
   // a useCount-only patch (the Copy button) must NOT bump updatedAt —
@@ -103,10 +108,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ...(input.outputAfter !== undefined && { outputAfter: input.outputAfter }),
       ...(input.imageBefore !== undefined && { imageBefore: input.imageBefore }),
       ...(input.imageAfter !== undefined && { imageAfter: input.imageAfter }),
-      // useCount is a monotonic copy counter: only ever +1 per request. Clamp
-      // so an owner can't PATCH { useCount: 9e9 } to top the gallery ranking.
+      // useCount is a monotonic copy counter: at most +1 per request (so an
+      // owner can't PATCH { useCount: 9e9 } to top the gallery ranking) and
+      // never below the current value (a stale client must not roll it back)
       ...(input.useCount !== undefined && {
-        useCount: Math.min(input.useCount, row.useCount + 1),
+        useCount: Math.max(row.useCount, Math.min(input.useCount, row.useCount + 1)),
       }),
       ...(contentChanged && {
         visibility: nextVisibility,

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { prompts, teams } from "@/db/schema";
-import { forbidden, guard, jsonErr, jsonOk, notFound } from "@/lib/api";
+import { invalid, forbidden, guard, jsonOk, notFound } from "@/lib/api";
 import { isTeamOwner } from "@/lib/permissions";
 
 type Params = { params: Promise<{ id: string }> };
@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!(await isTeamOwner(g.user.id, id))) return forbidden();
 
   const parsed = TeamPatchSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const [updated] = await db
     .update(teams)

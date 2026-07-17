@@ -3,7 +3,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { UsagePushSchema } from "shared";
 import { db } from "@/db";
 import { usageDays } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonOk } from "@/lib/api";
 
 const dayString = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = UsagePushSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   for (const e of parsed.data.entries) {
     await db

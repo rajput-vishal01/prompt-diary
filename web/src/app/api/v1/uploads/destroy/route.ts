@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonOk } from "@/lib/api";
 import { destroyImage } from "@/lib/cloudinary";
 
 const DestroySchema = z.object({ url: z.string().url().max(500) });
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = DestroySchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   await destroyImage(parsed.data.url, g.user.id);
   return jsonOk({ ok: true });

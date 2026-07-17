@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { teamInvites, teamMembers } from "@/db/schema";
-import { guard, jsonErr, jsonOk, needsVerification, notFound } from "@/lib/api";
+import { invalid, guard, jsonOk, needsVerification, notFound } from "@/lib/api";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const parsed = ActionSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const invite = await db.query.teamInvites.findFirst({
     where: eq(teamInvites.id, id),

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { TeamInviteSchema } from "shared";
 import { db } from "@/db";
 import { teamInvites, teamMembers, user } from "@/db/schema";
-import { forbidden, guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, forbidden, guard, jsonErr, jsonOk } from "@/lib/api";
 import { isTeamMember, isTeamOwner } from "@/lib/permissions";
 
 type Params = { params: Promise<{ id: string }> };
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!(await isTeamOwner(g.user.id, teamId))) return forbidden();
 
   const parsed = TeamInviteSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const email = parsed.data.email.toLowerCase();
 
   if (email === g.user.email.toLowerCase()) {
@@ -79,7 +79,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   const { id: teamId } = await params;
   const parsed = RemoveSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
   const targetId = parsed.data.userId;
 
   const owner = await isTeamOwner(g.user.id, teamId);

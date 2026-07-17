@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { TeamCreateSchema } from "shared";
 import { db } from "@/db";
 import { teamMembers, teams } from "@/db/schema";
-import { guard, jsonErr, jsonOk, needsVerification } from "@/lib/api";
+import { invalid, guard, jsonOk, needsVerification } from "@/lib/api";
 
 // GET /api/v1/teams — teams I'm a member of
 export async function GET(req: NextRequest) {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   if (!g.user.emailVerified) return needsVerification();
 
   const parsed = TeamCreateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const teamId = crypto.randomUUID();
   const [team] = await db

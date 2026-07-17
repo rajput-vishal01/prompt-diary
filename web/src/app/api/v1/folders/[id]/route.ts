@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { folders } from "@/db/schema";
-import { guard, jsonErr, jsonOk, notFound } from "@/lib/api";
+import { invalid, guard, jsonOk, notFound } from "@/lib/api";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { id } = await params;
   const parsed = FolderPatchSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const [updated] = await db
     .update(folders)

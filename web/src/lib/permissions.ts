@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { prompts, teamMembers } from "@/db/schema";
+import { folders, projects, prompts, teamMembers } from "@/db/schema";
 
 // SECURITY SPINE — every route that touches a prompt goes through here.
 // Never inline visibility checks in route handlers.
@@ -53,6 +53,25 @@ export function canReadThread(
 ): boolean {
   if (userId !== null && thread.userId === userId) return true;
   return thread.visibility === "public";
+}
+
+// Container ownership guards: a folderId/projectId in a request body must be
+// the caller's own row — anything else either FK-500s (nonexistent id) or
+// attaches data to another user's container.
+export async function ownsFolder(userId: string, folderId: string): Promise<boolean> {
+  const row = await db.query.folders.findFirst({
+    where: and(eq(folders.id, folderId), eq(folders.userId, userId)),
+    columns: { id: true },
+  });
+  return !!row;
+}
+
+export async function ownsProject(userId: string, projectId: string): Promise<boolean> {
+  const row = await db.query.projects.findFirst({
+    where: and(eq(projects.id, projectId), eq(projects.userId, userId)),
+    columns: { id: true },
+  });
+  return !!row;
 }
 
 export async function isTeamOwner(

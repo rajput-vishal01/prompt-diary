@@ -3,13 +3,13 @@ import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { UsageEventsSchema } from "shared";
 import { db } from "@/db";
 import { usageMessages } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonErr, jsonOk } from "@/lib/api";
 
 // reasoning caps run on weekly (168h) windows, so keep 8 days of history
 const RETENTION_MS = 8 * 24 * 3_600_000;
 
-// GET /api/v1/usage/messages?site=chatgpt — this user's send timestamps in
-// the last 24h (epoch ms, ascending). The widget computes windows client-side.
+// GET /api/v1/usage/messages?site=chatgpt — this user's send timestamps for
+// the last 7 days (epoch ms, ascending). The widget computes windows client-side.
 export async function GET(req: NextRequest) {
   const g = await guard(req);
   if ("response" in g) return g.response;
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = UsageEventsSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const now = Date.now();
   const rows = parsed.data.events

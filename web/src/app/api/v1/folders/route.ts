@@ -3,7 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { FolderCreateSchema } from "shared";
 import { db } from "@/db";
 import { folders } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonOk } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
   const g = await guard(req);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = FolderCreateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const [row] = await db
     .insert(folders)

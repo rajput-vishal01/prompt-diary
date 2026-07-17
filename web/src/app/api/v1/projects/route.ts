@@ -3,7 +3,7 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import { ProjectCreateSchema } from "shared";
 import { db } from "@/db";
 import { projects, threads } from "@/db/schema";
-import { guard, jsonErr, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonOk } from "@/lib/api";
 
 // GET /api/v1/projects — my projects with thread counts
 export async function GET(req: NextRequest) {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   if ("response" in g) return g.response;
 
   const parsed = ProjectCreateSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return jsonErr(parsed.error.message, 400);
+  if (!parsed.success) return invalid(parsed.error);
 
   const [row] = await db
     .insert(projects)

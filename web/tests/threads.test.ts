@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { prompts, threads, threadSteps, user } from "@/db/schema";
 import { canReadThread } from "@/lib/permissions";
