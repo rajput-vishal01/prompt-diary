@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react";
+import { Menu, MenuItem } from "@/components/ui/Menu";
 
 // One tree component, reused by My Prompts / Projects / Teams.
 // Row anatomy (default):  [chevron 12] [icon 14] [label] [spacer] [badge]
@@ -98,12 +99,10 @@ interface RowCtx {
   activeId?: string | null;
   renamingId: string | null;
   confirmingId: string | null;
-  menuId: string | null;
   drop: DropZone;
   toggleNode: (id: string) => void;
   setRenamingId: (id: string | null) => void;
   setConfirmingId: (id: string | null) => void;
-  setMenuId: (fn: (m: string | null) => string | null) => void;
   onNavigate: (href: string) => void;
   onRename?: TreeSectionProps["onRename"];
   onDelete?: TreeSectionProps["onDelete"];
@@ -270,56 +269,32 @@ function TreeRow({
             </button>
           )}
           {(node.canRename || node.canDelete) && (
-            <span className="relative">
-              <button
-                aria-label="More actions"
-                className={`rounded p-0.5 text-dim hover:bg-ink/[0.06] hover:text-ink ${ctx.menuId === node.id ? "bg-ink/[0.06]" : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  ctx.setMenuId((m) => (m === node.id ? null : node.id));
-                }}
-              >
-                <MoreHorizontal size={13} />
-              </button>
-              {ctx.menuId === node.id && (
-                <>
-                  <span
-                    className="fixed inset-0 z-40"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      ctx.setMenuId(() => null);
-                    }}
-                  />
-                  <span className="absolute right-0 top-6 z-50 flex w-32 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 shadow-soft">
-                    {node.canRename && (
-                      <button
-                        className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          ctx.setMenuId(() => null);
-                          ctx.setRenamingId(node.id);
-                        }}
-                      >
-                        Rename
-                      </button>
-                    )}
-                    {node.canDelete && (
-                      <button
-                        className="px-3 py-1.5 text-left text-sm text-danger hover:bg-hover"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          ctx.setMenuId(() => null);
-                          if (node.childCount) ctx.setConfirmingId(node.id);
-                          else void ctx.onDelete?.(node);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </span>
-                </>
+            <Menu
+              trigger={
+                <button
+                  aria-label="More actions"
+                  className="rounded p-0.5 text-dim hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal size={13} />
+                </button>
+              }
+            >
+              {node.canRename && (
+                <MenuItem onSelect={() => ctx.setRenamingId(node.id)}>Rename</MenuItem>
               )}
-            </span>
+              {node.canDelete && (
+                <MenuItem
+                  danger
+                  onSelect={() => {
+                    if (node.childCount) ctx.setConfirmingId(node.id);
+                    else void ctx.onDelete?.(node);
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              )}
+            </Menu>
           )}
         </span>
       </div>
@@ -356,7 +331,6 @@ export function TreeSection({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [menuId, setMenuId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const dragRef = useRef<{ id: string; isLeaf: boolean } | null>(null);
   const [drop, setDrop] = useState<DropZone>(null);
@@ -472,12 +446,10 @@ export function TreeSection({
     activeId,
     renamingId,
     confirmingId,
-    menuId,
     drop,
     toggleNode,
     setRenamingId,
     setConfirmingId,
-    setMenuId,
     onNavigate,
     onRename,
     onDelete,

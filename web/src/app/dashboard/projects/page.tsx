@@ -6,6 +6,7 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { relativeTime } from "@/lib/sources";
 import { toast } from "@/components/Toast";
+import { Menu, MenuItem } from "@/components/ui/Menu";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 import { dialog } from "@/components/Dialog";
 
@@ -44,7 +45,6 @@ function ProjectsPageInner() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [projectMenu, setProjectMenu] = useState(false);
 
   const reload = useCallback(() => {
     void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
@@ -155,40 +155,22 @@ function ProjectsPageInner() {
             </span>
           )}
           {selectedProject && (
-            <span className="relative">
-              <button
-                aria-label="Project actions"
-                className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${projectMenu ? "bg-ink/[0.06]" : ""}`}
-                onClick={() => setProjectMenu((m) => !m)}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-              {projectMenu && (
-                <>
-                  <span className="fixed inset-0 z-40" onClick={() => setProjectMenu(false)} />
-                  <span className="absolute left-0 top-9 z-50 flex w-40 flex-col overflow-hidden rounded-lg border border-line bg-raised py-1 font-sans text-sm shadow-soft">
-                    <button
-                      className="px-3 py-1.5 text-left text-ink hover:bg-hover"
-                      onClick={() => {
-                        setProjectMenu(false);
-                        void renameProject(selectedProject);
-                      }}
-                    >
-                      Rename project
-                    </button>
-                    <button
-                      className="px-3 py-1.5 text-left text-danger hover:bg-hover"
-                      onClick={() => {
-                        setProjectMenu(false);
-                        void deleteProject(selectedProject);
-                      }}
-                    >
-                      Delete project
-                    </button>
-                  </span>
-                </>
-              )}
-            </span>
+            <Menu
+              align="start"
+              trigger={
+                <button
+                  aria-label="Project actions"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink"
+                >
+                  <MoreHorizontal size={15} />
+                </button>
+              }
+            >
+              <MenuItem onSelect={() => void renameProject(selectedProject)}>Rename project</MenuItem>
+              <MenuItem danger onSelect={() => void deleteProject(selectedProject)}>
+                Delete project
+              </MenuItem>
+            </Menu>
           )}
         </h1>
         <span className="flex gap-2">

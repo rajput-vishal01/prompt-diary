@@ -349,14 +349,19 @@ export function Sidebar() {
       >
         ☰
       </button>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-ink/30 md:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+      {/* glass scrim — the page stays faintly visible under the drawer */}
+      <div
+        className={`fixed inset-0 z-30 bg-ink/25 backdrop-blur-[2px] transition-opacity duration-200 ease-out md:hidden ${
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden
+      />
       <aside
         style={{ width }}
-        className={`${
-          mobileOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
-        } shrink-0 flex-col border-r border-line bg-raised px-3 py-4 md:relative md:flex`}
+        className={`fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-line bg-raised px-3 py-4 transition-[transform,visibility] duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] md:relative md:visible md:translate-x-0 md:transition-none ${
+          mobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
+        }`}
       >
         <Link href="/" className="mb-5 px-2 font-display text-xl font-light tracking-tight">
           Prompt Diary

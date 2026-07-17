@@ -11,6 +11,7 @@ import { api } from "@/lib/client-api";
 import { SOURCE_DOTS, relativeTime, sourceOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { Select } from "@/components/ui/Select";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/Menu";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
@@ -50,10 +51,6 @@ function PromptsPageInner() {
   const [visFilter, setVisFilter] = useState("");
   const [view, setView] = useState<"list" | "cards">("list");
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [menuId, setMenuId] = useState<string | null>(null);
-  // the ⋯ menu lives inside an overflow-y-auto panel — near the bottom it
-  // must open upward or it clips below the scroller (and the viewport)
-  const [menuOpensUp, setMenuOpensUp] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -244,87 +241,35 @@ function PromptsPageInner() {
       >
         {copiedId === p.id ? <Check size={15} className="text-success" /> : <Copy size={15} />}
       </button>
-      <span className="relative">
-        <button
-          aria-label="More actions"
-          title="More"
-          className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${menuId === p.id ? "bg-ink/[0.06]" : ""} ${ghostBg ? "bg-raised/90" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuOpensUp(e.currentTarget.getBoundingClientRect().bottom > window.innerHeight - 300);
-            setMenuId((m) => (m === p.id ? null : p.id));
-          }}
-        >
-          <MoreHorizontal size={15} />
-        </button>
-        {menuId === p.id && (
-          <>
-            <span
-              className="fixed inset-0 z-40"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuId(null);
-              }}
-            />
-            <span
-              className={`absolute right-0 z-50 flex max-h-72 w-44 flex-col overflow-y-auto rounded-lg border border-line bg-raised py-1 shadow-soft ${
-                menuOpensUp ? "bottom-9" : "top-9"
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
-                onClick={() => {
-                  setMenuId(null);
-                  void duplicate(p);
-                }}
-              >
-                Duplicate
-              </button>
-              <span className="mx-3 my-1 border-t border-line" />
-              <span className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-dim">
-                Move to folder
-              </span>
-              {p.folderId && (
-                <button
-                  className="px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
-                  onClick={() => {
-                    setMenuId(null);
-                    void moveToFolder(p, null);
-                  }}
-                >
-                  No folder
-                </button>
-              )}
-              {folders
-                .filter((f) => f.id !== p.folderId)
-                .map((f) => (
-                  <button
-                    key={f.id}
-                    className="flex items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-hover"
-                    onClick={() => {
-                      setMenuId(null);
-                      void moveToFolder(p, f.id);
-                    }}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />
-                    <span className="truncate">{f.name}</span>
-                  </button>
-                ))}
-              <span className="mx-3 my-1 border-t border-line" />
-              <button
-                className="px-3 py-1.5 text-left text-sm text-danger hover:bg-hover"
-                onClick={() => {
-                  setMenuId(null);
-                  void remove(p);
-                }}
-              >
-                Delete
-              </button>
-            </span>
-          </>
-        )}
-      </span>
+      <Menu
+        trigger={
+          <button
+            aria-label="More actions"
+            title="More"
+            className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+        }
+      >
+        <MenuItem onSelect={() => void duplicate(p)}>Duplicate</MenuItem>
+        <MenuSeparator />
+        <MenuLabel>Move to folder</MenuLabel>
+        {p.folderId && <MenuItem onSelect={() => void moveToFolder(p, null)}>No folder</MenuItem>}
+        {folders
+          .filter((f) => f.id !== p.folderId)
+          .map((f) => (
+            <MenuItem key={f.id} onSelect={() => void moveToFolder(p, f.id)}>
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: f.color }} />
+              <span className="truncate">{f.name}</span>
+            </MenuItem>
+          ))}
+        <MenuSeparator />
+        <MenuItem danger onSelect={() => void remove(p)}>
+          Delete
+        </MenuItem>
+      </Menu>
     </span>
   );
 

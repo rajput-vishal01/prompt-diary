@@ -253,54 +253,9 @@ body {
   }
 }
 
-/* ---------- micro-motion: state-conveying only, 150–250ms, ease-out ---------- */
-
-/* (route-change fade-rise lives in dashboard/template.tsx via GSAP) */
-
-/* overlays: scrim fades, card pops from 98% — reads as "appeared", not "flew" */
-@keyframes pd-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes pd-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.98) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.anim-overlay {
-  animation: pd-fade 150ms ease-out;
-}
-
-.anim-card {
-  animation: pd-pop 180ms ease-out;
-}
-
-/* toast — slides up from the edge it lives on */
-@keyframes pd-toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.anim-toast {
-  animation: pd-toast-in 200ms ease-out;
-}
+/* ---------- micro-motion: state-conveying only, 150–250ms, ease-out ----------
+   (route-change fade-rise lives in dashboard/template.tsx via GSAP; overlay
+   entrances live in .glass-pop above and framer-motion springs in Dialog/Toast) */
 
 ::-webkit-scrollbar {
   width: 8px;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Folder, Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
+import { GlassSurface } from "@/components/bits";
 import { toast } from "@/components/Toast";
 
 type Item =
@@ -95,14 +96,24 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
+    // ⌘K is a keyboard-invoked, many-times-a-day surface: it appears
+    // INSTANTLY (no entrance animation — the Raycast rule). The panel itself
+    // is refractive GlassSurface, the app's showpiece overlay.
     <div
-      className="anim-overlay fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 pt-[18vh]"
+      className="fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 pt-[18vh]"
       onMouseDown={() => setOpen(false)}
     >
-      <div
-        className="anim-card w-full max-w-lg overflow-hidden rounded-xl border border-line bg-raised shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-lg" onMouseDown={(e) => e.stopPropagation()}>
+        <GlassSurface
+          width="100%"
+          height="auto"
+          borderRadius={16}
+          backgroundOpacity={0.16}
+          saturation={1.5}
+          distortionScale={-130}
+          displace={0.4}
+        >
+          <div className="-m-2 w-[calc(100%+16px)] overflow-hidden rounded-2xl">
         {/* 44px launcher input with a persistent kbd hint — the popup's language */}
         <div className="relative border-b border-line">
           <input
@@ -138,8 +149,8 @@ export function CommandPalette() {
               // the 2px ink selection bar — same cursor vocabulary as every list
               className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors duration-[120ms] ${
                 i === sel
-                  ? "bg-soft text-ink shadow-[inset_2px_0_0_#0c0a09]"
-                  : "text-ink hover:bg-hover"
+                  ? "bg-white/70 text-ink shadow-[inset_2px_0_0_#0c0a09]"
+                  : "text-ink hover:bg-white/50"
               }`}
               onMouseEnter={() => setSel(i)}
               onClick={() => run(item, false)}
@@ -192,6 +203,8 @@ export function CommandPalette() {
             <span className="kbd">esc</span> close
           </span>
         </div>
+          </div>
+        </GlassSurface>
       </div>
     </div>
   );

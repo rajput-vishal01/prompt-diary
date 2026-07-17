@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 // promise-based dialogs, ledger-styled — replaces every window.prompt/confirm
 // usage: const name = await dialog.prompt({ title: "New folder" });
@@ -44,6 +45,7 @@ export function DialogHost() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     push = (p) => {
@@ -87,17 +89,27 @@ export function DialogHost() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [pending, close]);
 
-  if (!pending) return null;
-
-  const cancel = () => close(pending.kind === "prompt" ? null : false);
+  const cancel = () => pending && close(pending.kind === "prompt" ? null : false);
 
   return (
-    <div
-      className="anim-overlay fixed inset-0 z-[95] flex items-start justify-center bg-ink/30 pt-[26vh]"
+    <AnimatePresence>
+      {pending && (
+    <motion.div
+      className="fixed inset-0 z-[95] flex items-start justify-center bg-ink/30 pt-[26vh]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduce ? 0 : 0.15 }}
       onMouseDown={cancel}
     >
-      <div
-        className="anim-card w-full max-w-sm rounded-xl border border-line bg-raised p-5 shadow-[0_16px_48px_rgba(12,10,9,0.18)]"
+      {/* modal = center origin (never trigger-anchored); materializes with
+          scale + blur resolve, exits faster than it enters */}
+      <motion.div
+        className="glass w-full max-w-sm rounded-2xl p-5"
+        initial={{ opacity: 0, scale: reduce ? 1 : 0.96, filter: reduce ? "none" : "blur(4px)" }}
+        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+        exit={{ opacity: 0, scale: reduce ? 1 : 0.98, filter: reduce ? "none" : "blur(2px)" }}
+        transition={{ duration: reduce ? 0.1 : 0.2, ease: [0.23, 1, 0.32, 1] }}
         role="dialog"
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
@@ -154,7 +166,9 @@ export function DialogHost() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

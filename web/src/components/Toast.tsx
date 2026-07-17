@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 interface ToastItem {
   id: number;
@@ -21,6 +22,7 @@ export function toast(
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     pushToast = (t) => {
@@ -38,12 +40,20 @@ export function Toaster() {
 
   return (
     <div className="pointer-events-none fixed bottom-6 left-1/2 z-[100] flex -translate-x-1/2 flex-col items-center gap-2">
+      <AnimatePresence initial={false}>
       {items.map((t) => (
-        <div
+        <motion.div
           key={t.id}
           role="status"
-          // the ink pill — the app's one dark surface
-          className="anim-toast pointer-events-auto flex items-center gap-3 rounded-full bg-ink py-2.5 pl-4 pr-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(12,10,9,0.25)]"
+          layout
+          // enter and exit share one path (down = away), springs so a toast
+          // arriving mid-exit retargets smoothly instead of snapping
+          initial={{ opacity: 0, y: reduce ? 0 : 14, scale: reduce ? 1 : 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: reduce ? 0 : 14, scale: reduce ? 1 : 0.97 }}
+          transition={{ type: "spring", stiffness: 420, damping: 32 }}
+          // the ink-glass pill — the app's one dark material
+          className="glass-ink pointer-events-auto flex items-center gap-3 rounded-full py-2.5 pl-4 pr-5 text-sm font-medium text-white"
         >
           <span aria-hidden className={t.kind === "error" ? "text-red-300" : "text-[#6fcf97]"}>
             {t.kind === "error" ? "✕" : "✓"}
@@ -61,8 +71,9 @@ export function Toaster() {
               {t.action.label}
             </button>
           )}
-        </div>
+        </motion.div>
       ))}
+      </AnimatePresence>
     </div>
   );
 }
