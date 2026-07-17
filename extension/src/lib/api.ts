@@ -146,10 +146,12 @@ export function getThreads(): Promise<ThreadRef[]> {
   return api<Array<ThreadRef & { stepCount: number }>>("/api/v1/threads");
 }
 
-export function createThread(title: string, projectId?: string): Promise<ThreadRef> {
+// projectId is REQUIRED: a thread is always born inside a project — the
+// popup deliberately has no loose-thread creation path
+export function createThread(title: string, projectId: string): Promise<ThreadRef> {
   return api<ThreadRef>("/api/v1/threads", {
     method: "POST",
-    body: { title, projectId: projectId ?? null },
+    body: { title, projectId },
   });
 }
 

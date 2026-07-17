@@ -97,7 +97,6 @@ export function App() {
     void getProjects().then(setProjects).catch(() => setProjects([]));
   };
   const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
-  const [newThreadTitle, setNewThreadTitle] = useState("");
   // guided tour: one feature per step, arrows pointing at the real controls
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [tourRect, setTourRect] = useState<DOMRect | null>(null);
@@ -121,14 +120,14 @@ export function App() {
 
   const reload = () => void getVault().then(setVaultState);
 
-  // one ask flow for "new thread" and "new thread in project X"
-  const newThreadAsk = (p?: ProjectRef) => {
+  // threads are only ever created INSIDE a project (via its + button)
+  const newThreadAsk = (p: ProjectRef) => {
     setAskValue("");
     setAsk({
-      title: p ? `New thread in “${p.name}”` : "New thread",
+      title: `New thread in “${p.name}”`,
       placeholder: "Thread title",
       onSubmit: (title) =>
-        void createThread(title, p?.id).then((t) => {
+        void createThread(title, p.id).then((t) => {
           void setActiveThread(t);
           setRecording(t);
           setSyncMsg(`Recording → ${t.title}`);
@@ -235,7 +234,7 @@ export function App() {
     },
     {
       title: "Record a thread — your prompt recipe",
-      text: "A thread is the chain of prompts that produced one great result. Hit Record, pick or create a thread, and every save becomes its next step automatically. Projects on the dashboard shelve threads across different AIs.",
+      text: "A thread is the chain of prompts that produced one great result. Hit Record and pick a thread — every save becomes its next step automatically. Threads live inside projects: start one from a project’s + in the sidebar.",
       target: "record",
     },
     {
@@ -536,10 +535,6 @@ export function App() {
                 <span className="label">{t.title}</span>
               </button>
             ))}
-            <button className="nav-item add" onClick={() => newThreadAsk()}>
-              + New thread
-            </button>
-
             <div className="sidebar-section">Projects</div>
             {projects.map((p) => (
               <div key={p.id} className="row-pair">
@@ -890,33 +885,15 @@ export function App() {
               </button>
             ))}
             {recPicker.length === 0 && (
-              <p style={{ color: "var(--dim)", fontSize: 12 }}>No threads yet.</p>
+              <p style={{ color: "var(--dim)", fontSize: 12 }}>
+                No threads yet — start one from a project&rsquo;s + button in the
+                sidebar. Threads always live inside a project.
+              </p>
             )}
           </div>
-          <input
-            placeholder="New thread title…"
-            value={newThreadTitle}
-            onChange={(e) => setNewThreadTitle(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
           <div className="actions">
             <button className="btn" onClick={() => setRecPicker(null)}>
               Cancel
-            </button>
-            <button
-              className="btn primary"
-              disabled={!newThreadTitle.trim()}
-              onClick={() => {
-                void createThread(newThreadTitle.trim()).then((t) => {
-                  void setActiveThread(t);
-                  setRecording(t);
-                  setRecPicker(null);
-                  setNewThreadTitle("");
-                  refreshRecipes();
-                });
-              }}
-            >
-              Create & record
             </button>
           </div>
         </div>
