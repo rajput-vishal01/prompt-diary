@@ -53,18 +53,32 @@ export interface AddResult {
   duplicate: boolean;
 }
 
+// shared/src schema limits, enforced at THIS boundary: the vault has no
+// validation of its own, and one oversized save (a 60k-char page selection)
+// would make every future /sync push fail Zod validation — permanently.
+const TITLE_MAX = 200;
+const BODY_MAX = 50_000;
+const TAG_MAX = 50;
+const TAGS_MAX = 20;
+const CONVO_MAX = 300;
+
+const clampTags = (tags: string[]) =>
+  tags.slice(0, TAGS_MAX).map((t) => t.slice(0, TAG_MAX));
+
 export async function addPrompt(input: NewPrompt): Promise<AddResult> {
   const vault = await getVault();
-  // dedupe on exact body — the bubble/menu can be clicked twice on one selection
-  const existing = vault.prompts.find((p) => p.body === input.body.trim());
+  const body = input.body.trim().slice(0, BODY_MAX);
+  // dedupe on exact stored body — the bubble/menu can be clicked twice on one
+  // selection (bodies are stored trimmed, so compare the trimmed form)
+  const existing = vault.prompts.find((p) => p.body === body);
   if (existing) return { prompt: existing, duplicate: true };
   const prompt: Prompt = {
     id: crypto.randomUUID(),
     userId: LOCAL_USER,
     folderId: input.folderId ?? null,
-    title: input.title,
-    body: input.body,
-    tags: input.tags ?? [],
+    title: input.title.trim().slice(0, TITLE_MAX) || body.slice(0, 60) || "Untitled",
+    body,
+    tags: clampTags(input.tags ?? []),
     visibility: input.visibility ?? "private",
     teamId: input.teamId ?? null,
     useCount: 0,
@@ -74,7 +88,7 @@ export async function addPrompt(input: NewPrompt): Promise<AddResult> {
     outputAfter: null,
     imageBefore: null,
     imageAfter: null,
-    sourceConvo: input.sourceConvo ?? null,
+    sourceConvo: input.sourceConvo?.slice(0, CONVO_MAX) ?? null,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -99,10 +113,14 @@ export async function updatePrompt(
   patch: Partial<Omit<Prompt, "id" | "userId" | "createdAt">>,
 ): Promise<void> {
   const vault = await getVault();
+  const clamped = { ...patch };
+  if (clamped.title !== undefined) clamped.title = clamped.title.slice(0, TITLE_MAX);
+  if (clamped.body !== undefined) clamped.body = clamped.body.slice(0, BODY_MAX);
+  if (clamped.tags !== undefined) clamped.tags = clampTags(clamped.tags);
   await setVault({
     ...vault,
     prompts: vault.prompts.map((p) =>
-      p.id === id ? { ...p, ...patch, updatedAt: now() } : p,
+      p.id === id ? { ...p, ...clamped, updatedAt: now() } : p,
     ),
   });
 }

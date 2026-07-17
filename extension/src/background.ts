@@ -110,7 +110,7 @@ chrome.runtime.onMessage.addListener(
     sender,
     sendResponse,
   ) => {
-    if (msg?.type !== "save-prompt" || !msg.body) return;
+    if (msg?.type !== "save-prompt" || !msg.body?.trim()) return;
     void addPrompt({
       title: msg.title ?? msg.body.slice(0, TITLE_MAX),
       body: msg.body,

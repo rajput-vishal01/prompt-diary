@@ -25,6 +25,7 @@ import { PromptCard } from "./PromptCard";
 import { PromptEditor } from "./PromptEditor";
 import { AccountView } from "./AccountView";
 import {
+  api,
   createProject,
   createThread,
   getActiveThread,
@@ -276,10 +277,25 @@ export function App() {
     reload();
   };
 
-  const handleCopy = async (prompt: Prompt) => {
-    await navigator.clipboard.writeText(prompt.body);
+  // local bump + recents, mirrored to the server when signed in — useCount
+  // isn't part of the sync push, so a purely local bump would be reverted by
+  // the next sync's authoritative snapshot
+  const recordUse = async (prompt: Prompt) => {
     await bumpUseCount(prompt.id);
     await pushRecent(prompt.id);
+    if (auth) {
+      // awaited: insertOrCopy closes the popup right after, which would abort
+      // a fire-and-forget fetch before it ever left
+      await api(`/api/v1/prompts/${prompt.id}`, {
+        method: "PATCH",
+        body: { useCount: prompt.useCount + 1 },
+      }).catch(() => {}); // not yet synced / offline — the local bump stands
+    }
+  };
+
+  const handleCopy = async (prompt: Prompt) => {
+    await navigator.clipboard.writeText(prompt.body);
+    await recordUse(prompt);
     reload();
     searchRef.current?.focus(); // keep the keyboard loop alive after a click
   };
@@ -317,8 +333,7 @@ export function App() {
   // Enter: insert straight into the active tab's chatbox; copy if there isn't one
   const insertOrCopy = async (prompt: Prompt) => {
     if (await insertText(prompt.body)) {
-      await bumpUseCount(prompt.id);
-      await pushRecent(prompt.id);
+      await recordUse(prompt);
       window.close();
       return;
     }
