@@ -10,6 +10,11 @@ try {
 
 const nextConfig: NextConfig = {
   transpilePackages: ["shared"],
+  experimental: {
+    // react-icons/si is one giant module (every simple-icons glyph) — without
+    // this the landing page compiles and ships the whole set for 12 logos
+    optimizePackageImports: ["react-icons/si"],
+  },
   // Isolate the production build's output dir so a running `next dev` (which
   // owns `.next`) can't corrupt it and vice-versa — the two share `.next` by
   // default and clobber each other, producing phantom PageNotFoundError /
