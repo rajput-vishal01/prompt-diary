@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
+import { BrandLoading } from "@/components/StatusScreen";
 
 export default function DashboardLayout({
   children,
@@ -18,13 +19,10 @@ export default function DashboardLayout({
     if (!isPending && !session) router.replace("/login");
   }, [isPending, session, router]);
 
-  if (isPending || !session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-dim">
-        Loading…
-      </div>
-    );
-  }
+  // this session check gates EVERY hard load of the dashboard — it must show
+  // the designed loading surface, not bare text (which used to sit on screen
+  // masking loading.tsx for the whole check)
+  if (isPending || !session) return <BrandLoading />;
 
   return (
     // h-screen + overflow-hidden: the app chrome never scrolls; pages scroll

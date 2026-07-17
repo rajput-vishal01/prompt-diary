@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, Link2, X } from "lucide-react";
 import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
+import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
 
@@ -29,17 +30,6 @@ interface ProjectRow {
   name: string;
   color: string;
 }
-
-// same desaturated source language as the list rows — never a filled color
-const SOURCE_DOTS: Record<string, string> = {
-  chatgpt: "hsl(160 25% 50%)",
-  claude: "hsl(24 30% 55%)",
-  gemini: "hsl(217 30% 58%)",
-  perplexity: "hsl(190 25% 48%)",
-  poe: "hsl(260 22% 56%)",
-};
-
-const siteOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
 
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();

@@ -1,5 +1,18 @@
 import Link from "next/link";
 
+// The one loading visual for full-surface waits (route transitions, the
+// dashboard's session check) — a calm breathing wordmark, never a spinner
+// and never bare "Loading…" text.
+export function BrandLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg">
+      <span className="pd-breathe font-display text-2xl font-light tracking-tight text-ink">
+        Prompt <span className="text-accent">Diary</span>
+      </span>
+    </div>
+  );
+}
+
 // Shared editorial frame for every status surface — 404, error boundaries,
 // hard-empty states. One component so they read as one system. `compact` drops
 // the wordmark + full-height so it can sit inside the dashboard shell.

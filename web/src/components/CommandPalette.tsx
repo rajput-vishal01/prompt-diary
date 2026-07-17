@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Folder, Prompt } from "shared";
 import { api } from "@/lib/client-api";
+import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 
 type Item =
@@ -20,17 +21,6 @@ const ACTIONS: Array<{ label: string; go: string }> = [
   { label: "Public Gallery", go: "/gallery" },
   { label: "Profile", go: "/dashboard/profile" },
 ];
-
-// same desaturated source language as the list rows — never a filled color
-const SOURCE_DOTS: Record<string, string> = {
-  chatgpt: "hsl(160 25% 50%)",
-  claude: "hsl(24 30% 55%)",
-  gemini: "hsl(217 30% 58%)",
-  perplexity: "hsl(190 25% 48%)",
-  poe: "hsl(260 22% 56%)",
-};
-
-const siteOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
 
 export function CommandPalette() {
   const router = useRouter();

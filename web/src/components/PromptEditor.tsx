@@ -111,6 +111,9 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
 
   const flush = async () => {
     if (!id || savingRef.current || !lastSaved.current) return;
+    // an empty title/body would 400 server-side (schema min 1) and take the
+    // REST of the delta down with it — hold the save, same guard as autosave
+    if (!title.trim() || !body.trim()) return;
     savingRef.current = true;
     try {
       let delta = diff();
@@ -158,6 +161,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
   };
 
   const create = async () => {
+    if (!title.trim() || !body.trim()) return; // ⌘↵ can reach here with an empty form
     try {
       await api("/api/v1/prompts", { method: "POST", body: buildPayload() });
       toast("Prompt saved");

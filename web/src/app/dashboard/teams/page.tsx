@@ -132,8 +132,8 @@ function TeamsPageInner() {
             Teams
           </h1>
           <p className="mt-1 text-sm text-dim">
-            Shared prompt libraries — set a prompt&apos;s visibility to
-            “Team” to publish it to everyone here.
+            Shared prompt libraries — pick a team in the prompt editor&apos;s
+            Team menu to share a prompt with everyone here.
           </p>
         </div>
         <button className="btn-primary" onClick={() => void createTeam()}>
@@ -330,8 +330,8 @@ function TeamDetail({
           <div className="panel divide-y divide-line">
             {prompts.length === 0 && (
               <p className="px-4 py-10 text-center text-sm text-dim">
-                Nothing shared yet. Set a prompt&apos;s visibility to “Team” to
-                publish it here.
+                Nothing shared yet. Pick this team in the prompt editor&apos;s
+                Team menu to share a prompt here.
               </p>
             )}
             {prompts.map((p) => (

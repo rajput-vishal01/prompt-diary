@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { relativeTime } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 import { dialog } from "@/components/Dialog";
@@ -24,15 +25,6 @@ interface ThreadRow {
   finalOutput: string | null;
   stepCount: number;
   updatedAt: string;
-}
-
-function relativeTime(iso: string): string {
-  const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
-  return `${Math.floor(s / 604800)}w ago`;
 }
 
 export default function ProjectsPage() {

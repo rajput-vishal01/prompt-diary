@@ -8,33 +8,13 @@ import { Check, Copy, Globe, Lock, MoreHorizontal, Users } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import { FACETS, VISIBILITIES, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
+import { SOURCE_DOTS, relativeTime, sourceOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
 
 const emitChanged = () => window.dispatchEvent(new Event(FOLDERS_CHANGED_EVENT));
-
-// known chat sources — same pill for every source, only the dot color differs,
-// desaturated on purpose (never a filled colored badge)
-const SOURCE_DOTS: Record<string, string> = {
-  chatgpt: "hsl(160 25% 50%)",
-  claude: "hsl(24 30% 55%)",
-  gemini: "hsl(217 30% 58%)",
-  perplexity: "hsl(190 25% 48%)",
-  poe: "hsl(260 22% 56%)",
-};
-
-const sourceOf = (p: Prompt) => p.tags.find((t) => t in SOURCE_DOTS) ?? null;
-
-function relativeTime(iso: string): string {
-  const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
-  return `${Math.floor(s / 604800)}w ago`;
-}
 
 const excerptOf = (p: Prompt) => p.body.replace(/\s+/g, " ").trim();
 
