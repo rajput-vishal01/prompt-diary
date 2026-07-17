@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, Link2, X } from "lucide-react";
+import { ArrowLeft, Copy, GripVertical, ImagePlus, Link2, X } from "lucide-react";
 import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
 import { useApi } from "@/lib/query";
@@ -85,16 +85,37 @@ export default function ThreadPage() {
     reload();
   };
 
-  const move = (idx: number, dir: -1 | 1) => {
-    const ids = [...stepIds];
-    const target = idx + dir;
-    if (target < 0 || target >= ids.length) return;
-    const a = ids[idx];
-    const b = ids[target];
-    if (a === undefined || b === undefined) return;
-    ids[idx] = b;
-    ids[target] = a;
+  // drag-and-drop reordering — same language as the sidebar tree: grip on
+  // hover, brass indicator line above/below the drop target
+  const [dragStep, setDragStep] = useState<number | null>(null);
+  const [dropStep, setDropStep] = useState<{ idx: number; zone: "before" | "after" } | null>(null);
+
+  const applyReorder = (ids: string[]) => {
+    if (!thread || ids.join() === stepIds.join()) return;
+    // optimistic: the list re-sorts instantly; the PATCH + reload reconcile
+    setThread({
+      ...thread,
+      steps: ids
+        .map((pid, i) => {
+          const s = thread.steps.find((x) => x.prompt.id === pid);
+          return s ? { ...s, order: i } : null;
+        })
+        .filter((s): s is Step => s !== null),
+    });
     void setSteps(ids);
+  };
+
+  const dropReorder = () => {
+    if (dragStep === null || !dropStep) return;
+    const ids = [...stepIds];
+    const [moved] = ids.splice(dragStep, 1);
+    if (moved === undefined) return;
+    let target = dropStep.idx + (dropStep.zone === "after" ? 1 : 0);
+    if (dragStep < target) target -= 1;
+    ids.splice(target, 0, moved);
+    setDragStep(null);
+    setDropStep(null);
+    applyReorder(ids);
   };
 
   const copyAll = () => {
@@ -257,8 +278,42 @@ export default function ThreadPage() {
             return (
               <div
                 key={s.prompt.id}
-                className="group flex gap-4 px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-soft"
+                className={`group relative flex gap-4 px-4 py-3.5 transition-colors duration-[120ms] ease-out hover:bg-soft ${
+                  dragStep === i ? "opacity-40" : ""
+                }`}
+                onDragOver={(e) => {
+                  if (dragStep === null) return;
+                  e.preventDefault();
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setDropStep({ idx: i, zone: e.clientY < r.top + r.height / 2 ? "before" : "after" });
+                }}
+                onDragLeave={() => setDropStep((d) => (d?.idx === i ? null : d))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  dropReorder();
+                }}
               >
+                {dropStep?.idx === i && dropStep.zone === "before" && (
+                  <div className="absolute -top-px left-2 right-2 h-0.5 rounded bg-brass" />
+                )}
+                {dropStep?.idx === i && dropStep.zone === "after" && (
+                  <div className="absolute -bottom-px left-2 right-2 h-0.5 rounded bg-brass" />
+                )}
+                <span
+                  draggable
+                  aria-label="Drag to reorder"
+                  className="-ml-1 w-0 shrink-0 cursor-grab self-center overflow-hidden text-dim opacity-0 transition-all duration-[120ms] active:cursor-grabbing group-hover:w-4 group-hover:opacity-100"
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    setDragStep(i);
+                  }}
+                  onDragEnd={() => {
+                    setDragStep(null);
+                    setDropStep(null);
+                  }}
+                >
+                  <GripVertical size={14} />
+                </span>
                 <span className="w-7 shrink-0 pt-0.5 font-mono text-xs tabular-nums text-dim">
                   {String(i + 1).padStart(2, "0")}
                 </span>
@@ -284,26 +339,6 @@ export default function ThreadPage() {
                         }}
                       >
                         <Copy size={14} />
-                      </button>
-                      </Tip>
-                      <Tip label="Move up">
-                      <button
-                        aria-label="Move up"
-                        className="icon-btn hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
-                        disabled={i === 0}
-                        onClick={() => move(i, -1)}
-                      >
-                        <ArrowUp size={14} />
-                      </button>
-                      </Tip>
-                      <Tip label="Move down">
-                      <button
-                        aria-label="Move down"
-                        className="icon-btn hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
-                        disabled={i === arr.length - 1}
-                        onClick={() => move(i, 1)}
-                      >
-                        <ArrowDown size={14} />
                       </button>
                       </Tip>
                       <Tip label="Remove from thread (prompt is kept)">
