@@ -136,17 +136,10 @@ body {
 
 /* ---------- landing page (brand register) ---------- */
 
-/* infinite marquee of supported AI sites — two copies, translate half */
-.pd-marquee {
-  display: flex;
-  width: max-content;
-  animation: pd-marquee 36s linear infinite;
-}
-
-@keyframes pd-marquee {
-  to {
-    transform: translateX(-50%);
-  }
+/* the specular hero CTA matches .btn-primary's scale */
+.pd-cta {
+  font-size: 15px;
+  padding: 13px 26px;
 }
 
 /* hero glow word — blurred Pd behind the headline, pastel atmosphere only */

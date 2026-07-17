@@ -1,0 +1,78 @@
+/* vendored from reactbits.dev (MIT) — GlassSurface.
+   Fallback surfaces re-tinted to Editorial Ink (warm white / warm shadow)
+   instead of the stock blue-gray glassmorphism. */
+.glass-surface {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: opacity 0.26s ease-out;
+}
+
+.glass-surface__filter {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  z-index: -1;
+}
+
+.glass-surface__content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: inherit;
+  position: relative;
+  z-index: 1;
+}
+
+.glass-surface--svg {
+  background: hsl(0 0% 100% / var(--glass-frost, 0));
+  backdrop-filter: var(--filter-id, url(#glass-filter)) saturate(var(--glass-saturation, 1));
+  box-shadow:
+    0 0 2px 1px color-mix(in oklch, black, transparent 85%) inset,
+    0 0 10px 4px color-mix(in oklch, black, transparent 90%) inset,
+    0px 4px 16px rgba(12, 10, 9, 0.05),
+    0px 8px 24px rgba(12, 10, 9, 0.05),
+    0px 16px 56px rgba(12, 10, 9, 0.05);
+}
+
+.glass-surface--fallback {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  border: 1px solid rgba(214, 211, 209, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 40px rgba(12, 10, 9, 0.1);
+}
+
+@supports not (backdrop-filter: blur(10px)) {
+  .glass-surface--fallback {
+    background: #ffffff;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+      0 4px 16px rgba(12, 10, 9, 0.08);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface--svg,
+  .glass-surface--fallback {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #d6d3d1;
+  }
+}
+
+.glass-surface:focus-visible {
+  outline: 2px solid #0c0a09;
+  outline-offset: 2px;
+}

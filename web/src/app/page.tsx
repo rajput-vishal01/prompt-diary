@@ -2,11 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { ArrowRight, ArrowUp } from "lucide-react";
+import {
+  SiClaude,
+  SiDeepseek,
+  SiGithubcopilot,
+  SiGooglegemini,
+  SiMeta,
+  SiMistralai,
+  SiPerplexity,
+  SiPoe,
+  SiQwen,
+  SiX,
+} from "react-icons/si";
+import { GlassSurface, GradualBlur, LogoLoop, SpecularButton, Strands } from "@/components/bits";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -23,9 +37,35 @@ const MENU_LINKS = [
 // pastel washes behind the glass mocks — decoration only, never component fills
 const ORB_WASHES = ["bg-orb-mint", "bg-orb-peach", "bg-orb-lavender", "bg-orb-sky"];
 
-const MARQUEE_SITES = [
-  "ChatGPT", "Claude", "Gemini", "Perplexity", "Poe", "DeepSeek",
-  "Grok", "Copilot", "Le Chat", "Kimi", "Qwen", "Meta AI",
+// hero strand ribbons ride the same pastel orb tokens — atmosphere, not neon
+const STRAND_COLORS = ["#a7e5d3", "#f4c5a8", "#c8b8e0", "#a8c8e8"];
+
+// every model we ride along with, as icon+name lockups for the logo loop.
+// ChatGPT/Kimi/Grok have no simple-icons mark (trademark takedowns) — text-only
+// (Grok gets the X mark, its home platform).
+const siteLogo = (label: string, icon?: React.ReactNode) => ({
+  node: (
+    <span className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.14em] text-dim">
+      {icon}
+      {label}
+    </span>
+  ),
+  title: label,
+});
+
+const AI_LOGOS = [
+  siteLogo("ChatGPT"),
+  siteLogo("Claude", <SiClaude size={15} />),
+  siteLogo("Gemini", <SiGooglegemini size={15} />),
+  siteLogo("Perplexity", <SiPerplexity size={15} />),
+  siteLogo("Poe", <SiPoe size={15} />),
+  siteLogo("DeepSeek", <SiDeepseek size={15} />),
+  siteLogo("Grok", <SiX size={13} />),
+  siteLogo("Copilot", <SiGithubcopilot size={15} />),
+  siteLogo("Le Chat", <SiMistralai size={15} />),
+  siteLogo("Kimi"),
+  siteLogo("Qwen", <SiQwen size={15} />),
+  siteLogo("Meta AI", <SiMeta size={15} />),
 ];
 
 const CAPABILITIES = [
@@ -160,14 +200,49 @@ const FEATURES = [
   },
 ];
 
+// the nav's contents render identically inside the glass pill and over the
+// dark menu overlay — only the surrounding surface changes
+function HeaderNav({ menuOpen, onToggleMenu }: { menuOpen: boolean; onToggleMenu: () => void }) {
+  return (
+    <>
+      <Link href="/" className="font-display text-[22px] font-light tracking-tight">
+        Prompt Diary
+      </Link>
+      <div className="flex items-center gap-5">
+        <Link
+          href="/login"
+          className="hidden rounded-full border border-current px-4 py-1.5 text-sm font-medium transition-[opacity,transform] duration-150 hover:opacity-70 active:scale-[0.97] md:block"
+        >
+          Start free
+        </Link>
+        <button
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          className={`pd-burger ${menuOpen ? "open" : ""}`}
+          onClick={onToggleMenu}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ---------------------------------------------------------------- page
 
 export default function Home() {
   const root = useRef<HTMLDivElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [hoverCap, setHoverCap] = useState<number | null>(null);
+  // WebGL layers (strands, specular CTA) mount only when motion is welcome
+  const [reducedMotion, setReducedMotion] = useState(true);
+
+  useEffect(() => {
+    setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
   // Lenis smooth scroll — the 412 signature feel (1.2s, exponential ease-out)
   useEffect(() => {
@@ -189,8 +264,7 @@ export default function Home() {
     };
   }, []);
 
-  // header hides scrolling down, returns scrolling up — and materializes as
-  // glass once it leaves the hero's top edge
+  // header hides scrolling down, returns scrolling up
   useEffect(() => {
     const header = document.getElementById("pd-header");
     if (!header) return;
@@ -198,7 +272,6 @@ export default function Home() {
     const onScroll = () => {
       const y = window.scrollY;
       header.style.transform = y > last && y > 120 ? "translateY(-100%)" : "translateY(0)";
-      setScrolled(y > 32); // no-op re-render unless the boolean flips
       last = y;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -277,42 +350,34 @@ export default function Home() {
 
   return (
     <div ref={root} className="min-h-screen overflow-x-clip bg-bg text-ink selection:bg-ink selection:text-bg">
-      {/* ---------- header: fixed; becomes Ink Glass chrome once scrolled ----------
-          the glass fill keeps ink text legible over light AND dark bands —
-          the material does the work the old mix-blend-difference trick did */}
+      {/* ---------- header: a floating refractive glass pill ----------
+          GlassSurface bends the page through its edge (SVG displacement in
+          Chromium, Ink Glass frost elsewhere) — legible over light AND dark
+          bands because the material does the work */}
       <header
         id="pd-header"
         className="fixed inset-x-0 top-0 z-50 px-4 transition-transform duration-300 ease-out md:px-6"
       >
-        <div
-          className={`mx-auto mt-3 flex max-w-6xl items-center justify-between rounded-full py-2.5 transition-[background-color,border-color,box-shadow,padding-left,padding-right,color] duration-300 ease-out ${
-            menuOpen
-              ? "px-5 text-bg"
-              : scrolled
-                ? "glass px-5 text-ink"
-                : "border border-transparent px-2 text-ink"
-          }`}
-        >
-          <Link href="/" className="font-display text-[22px] font-light tracking-tight">
-            Prompt Diary
-          </Link>
-          <div className="flex items-center gap-5">
-            <Link
-              href="/login"
-              className="hidden rounded-full border border-current px-4 py-1.5 text-sm font-medium transition-[opacity,transform] duration-150 hover:opacity-70 active:scale-[0.97] md:block"
+        <div className="mx-auto mt-3 max-w-6xl">
+          {menuOpen ? (
+            <div className="flex h-14 items-center justify-between px-6 text-bg">
+              <HeaderNav menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((o) => !o)} />
+            </div>
+          ) : (
+            <GlassSurface
+              width="100%"
+              height={56}
+              borderRadius={28}
+              backgroundOpacity={0.12}
+              saturation={1.5}
+              distortionScale={-130}
+              displace={0.4}
             >
-              Start free
-            </Link>
-            <button
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              className={`pd-burger ${menuOpen ? "open" : ""}`}
-              onClick={() => setMenuOpen((o) => !o)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          </div>
+              <div className="flex w-full items-center justify-between px-4 text-ink">
+                <HeaderNav menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((o) => !o)} />
+              </div>
+            </GlassSurface>
+          )}
         </div>
       </header>
 
@@ -343,14 +408,34 @@ export default function Home() {
       </div>
 
       {/* ---------- hero ---------- */}
-      <section className="relative flex min-h-[94vh] flex-col justify-center px-6 pt-28 md:px-10">
-        {/* blurred glow word — pastel atmosphere, never a component fill */}
+      <section className="relative flex min-h-[94vh] flex-col justify-center overflow-hidden px-6 pt-28 md:px-10">
+        {/* atmosphere: the blurred glow word + live pastel strands flowing
+            behind the type (WebGL — skipped entirely under reduced motion) */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
           <span
             className="pd-glow-word select-none bg-gradient-to-br from-orb-mint via-orb-peach to-orb-lavender bg-clip-text font-display text-[42vw] font-light italic leading-none text-transparent"
           >
             Pd
           </span>
+          {!reducedMotion && (
+            <div className="absolute inset-0">
+              <Strands
+                colors={STRAND_COLORS}
+                count={4}
+                speed={0.32}
+                amplitude={1.15}
+                waviness={0.9}
+                thickness={0.55}
+                glow={2.1}
+                taper={2.4}
+                spread={1.1}
+                intensity={0.5}
+                saturation={1.15}
+                opacity={0.9}
+                scale={1.25}
+              />
+            </div>
+          )}
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl">
@@ -376,9 +461,32 @@ export default function Home() {
               and carry whole conversations between models.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/login" className="btn-primary px-6 py-3 text-[15px]">
-                Start your diary
-              </Link>
+              {reducedMotion ? (
+                <Link href="/login" className="btn-primary px-6 py-3 text-[15px]">
+                  Start your diary
+                </Link>
+              ) : (
+                // ink pill with a live specular rim that leans toward the cursor
+                <SpecularButton
+                  size="md"
+                  radius={999}
+                  tint="#0c0a09"
+                  tintOpacity={0.92}
+                  textColor="#fafafa"
+                  lineColor="#ffffff"
+                  baseColor="#57534e"
+                  intensity={1}
+                  shineSize={12}
+                  shineFade={42}
+                  thickness={1}
+                  followMouse
+                  proximity={240}
+                  className="pd-cta"
+                  onClick={() => router.push("/login")}
+                >
+                  Start your diary
+                </SpecularButton>
+              )}
               <Link href="/gallery" className="btn px-6 py-3 text-[15px]">
                 Browse the gallery
               </Link>
@@ -388,22 +496,35 @@ export default function Home() {
             </p>
           </div>
         </div>
+
+        {/* the atmosphere dissolves progressively where the hero hands off */}
+        <GradualBlur
+          target="parent"
+          position="bottom"
+          height="5rem"
+          strength={1.6}
+          divCount={5}
+          curve="bezier"
+          exponential
+          opacity={1}
+          zIndex={20}
+        />
       </section>
 
-      {/* ---------- marquee: every model we ride along with ---------- */}
-      <section className="overflow-hidden border-y border-line py-5" aria-label="Supported AI sites">
-        <div className="pd-marquee">
-          {[0, 1].map((copy) => (
-            <div key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center">
-              {MARQUEE_SITES.map((s) => (
-                <span key={`${copy}-${s}`} className="flex items-center font-mono text-xs uppercase tracking-[0.14em] text-dim">
-                  <span className="px-6">{s}</span>
-                  <span className="text-line-strong">·</span>
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
+      {/* ---------- logo loop: every model we ride along with ----------
+          velocity-smoothed marquee — decelerates under the cursor, edges
+          dissolve into the canvas */}
+      <section className="border-y border-line py-5" aria-label="Supported AI sites">
+        <LogoLoop
+          logos={AI_LOGOS}
+          speed={55}
+          logoHeight={18}
+          gap={56}
+          hoverSpeed={14}
+          fadeOut
+          fadeOutColor="#f5f5f5"
+          ariaLabel="Supported AI sites"
+        />
       </section>
 
       {/* ---------- cinematic band: the idea, spelled large ---------- */}
