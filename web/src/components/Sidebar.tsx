@@ -103,11 +103,22 @@ export function Sidebar() {
   const activeTab = onPrompts ? searchParams.get("tab") : null;
   const activeProject = pathname === "/dashboard/projects" ? searchParams.get("p") : null;
   const activeThread = pathname.startsWith("/dashboard/t/") ? pathname.split("/").pop() : null;
+  const activePrompt = pathname.startsWith("/dashboard/p/") ? pathname.split("/").pop() : null;
   const activeTeam = pathname === "/dashboard/teams" ? searchParams.get("t") : null;
 
   const navigate = (href: string) => router.push(href);
 
-  // ---------- My Prompts: Pinned pseudo-folder (fixed) + folders ----------
+  // ---------- My Prompts: Pinned pseudo-folder (fixed) + folders,
+  // each expanding to its prompts so switching happens from the tree ----------
+
+  const promptLeaf = (p: Prompt): TreeNode => ({
+    id: p.id,
+    label: p.title,
+    icon: <FileText />,
+    href: `/dashboard/p/${p.id}`,
+    // rename/delete live in the editor — this section's handlers are
+    // folder-scoped, a prompt leaf must not reach them
+  });
 
   const promptNodes: TreeNode[] = [
     {
@@ -116,12 +127,14 @@ export function Sidebar() {
       icon: <Star className={activeTab === "pinned" ? "fill-brass text-brass" : ""} />,
       href: "/dashboard?tab=pinned",
       fixed: true,
+      children: prompts.filter((p) => p.pinned).map(promptLeaf),
     },
     ...folders.map((f) => ({
       id: f.id,
       label: f.name,
       icon: <FolderIcon style={{ color: f.color }} />,
       href: `/dashboard?folder=${f.id}`,
+      children: prompts.filter((p) => p.folderId === f.id).map(promptLeaf),
       canRename: true,
       canDelete: true,
       canDrag: true,
@@ -365,7 +378,7 @@ export function Sidebar() {
             title="My Prompts"
             titleHref="/dashboard"
             nodes={promptNodes}
-            activeId={activeTab === "pinned" ? "pinned" : activeFolder}
+            activeId={activeTab === "pinned" ? "pinned" : (activePrompt ?? activeFolder)}
             isTitleActive={onPrompts && !activeFolder && !activeTab}
             onNavigate={navigate}
             onRename={renameItem("folders")}

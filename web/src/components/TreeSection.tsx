@@ -178,8 +178,14 @@ function TreeRow({
         style={{ paddingLeft: 4 }}
         onClick={() => {
           if (ctx.renamingId === node.id) return;
-          if (node.href) ctx.onNavigate(node.href);
-          else if (hasChildren) ctx.toggleNode(node.id);
+          // clicking a parent both reveals its children and navigates — the
+          // nesting must never hide behind the 12px chevron alone
+          if (node.href) {
+            if (hasChildren && !isOpen) ctx.toggleNode(node.id);
+            ctx.onNavigate(node.href);
+          } else if (hasChildren) {
+            ctx.toggleNode(node.id);
+          }
         }}
         onKeyDown={(e) => ctx.onRowKeyDown(e, node)}
       >
