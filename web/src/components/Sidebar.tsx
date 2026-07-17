@@ -422,7 +422,8 @@ export function Sidebar() {
             emptyLabel="No teams yet"
           />
 
-          {/* Tags — derived, always visible, click to filter / click again to clear */}
+          {/* Tags — derived, click to filter / click again to clear.
+              Collapsible like every other section (state persists) */}
           <TreeSection
             id="tags"
             title="Tags"
@@ -430,7 +431,6 @@ export function Sidebar() {
             nodes={tagNodes}
             activeId={activeTag ? `tag:${activeTag}` : null}
             onNavigate={navigate}
-            staticSection
           />
 
           <div className="mt-1 flex flex-col gap-0.5 border-t border-line pt-3">
