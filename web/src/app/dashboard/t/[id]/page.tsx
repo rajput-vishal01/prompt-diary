@@ -9,6 +9,7 @@ import { useApi } from "@/lib/query";
 import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { Select } from "@/components/ui/Select";
 import { Tip } from "@/components/ui/Tooltip";
 
@@ -391,8 +392,7 @@ export default function ThreadPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-soft">
           {thread.finalImage && (
             <div className="relative m-3 mb-0 overflow-hidden rounded-lg border border-line">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={thread.finalImage} alt="final output" className="max-h-36 w-full object-contain" />
+              <ZoomableImage src={thread.finalImage} alt="final output" imgClassName="max-h-36 w-full object-contain" buttonPosition="tl" />
               <button
                 className="absolute right-2 top-2 rounded-md bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
                 onClick={() => {

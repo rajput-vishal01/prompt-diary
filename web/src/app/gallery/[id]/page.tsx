@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
 import { toast } from "@/components/Toast";
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { Tip } from "@/components/ui/Tooltip";
 
 type GalleryDetail = Prompt & { authorName: string };
@@ -189,8 +190,7 @@ export default function GalleryDetailPage() {
                 </p>
                 <div className="rounded-xl border border-line bg-raised p-4">
                   {prompt.imageBefore && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={prompt.imageBefore} alt="before output" className="mb-3 max-h-56 w-full rounded-lg object-contain" />
+                    <ZoomableImage src={prompt.imageBefore} alt="before output" wrapClassName="mb-3" imgClassName="max-h-56 w-full rounded-lg object-contain" />
                   )}
                   <p className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-dim">
                     {prompt.outputBefore ?? (prompt.imageBefore ? "" : "No sample provided.")}
@@ -203,8 +203,7 @@ export default function GalleryDetailPage() {
                 </p>
                 <div className="rounded-xl border border-line-strong bg-raised p-4">
                   {prompt.imageAfter && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={prompt.imageAfter} alt="after output" className="mb-3 max-h-56 w-full rounded-lg object-contain" />
+                    <ZoomableImage src={prompt.imageAfter} alt="after output" wrapClassName="mb-3" imgClassName="max-h-56 w-full rounded-lg object-contain" />
                   )}
                   <p className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-ink">
                     {prompt.outputAfter ?? (prompt.imageAfter ? "" : "No sample provided.")}

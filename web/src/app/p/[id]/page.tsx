@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { prompts, user } from "@/db/schema";
 import { canAccessPrompt } from "@/lib/permissions";
 import { CopyButton } from "@/components/CopyButton";
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { PageVeil } from "@/components/PageVeil";
 import { ShareCta, ShareHeaderBand } from "@/components/ShareChrome";
 
@@ -106,11 +107,11 @@ export default async function PublicPromptPage({ params }: Params) {
               </p>
               <div className="rounded-xl border border-line bg-raised p-4">
                 {p.imageBefore && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <ZoomableImage
                     src={p.imageBefore}
                     alt="output before"
-                    className="mb-3 max-h-56 w-full rounded-lg object-contain"
+                    wrapClassName="mb-3"
+                    imgClassName="max-h-56 w-full rounded-lg object-contain"
                   />
                 )}
                 {p.outputBefore && (
@@ -128,11 +129,11 @@ export default async function PublicPromptPage({ params }: Params) {
               </p>
               <div className="rounded-xl border border-line bg-raised p-4">
                 {p.imageAfter && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <ZoomableImage
                     src={p.imageAfter}
                     alt="output after"
-                    className="mb-3 max-h-56 w-full rounded-lg object-contain"
+                    wrapClassName="mb-3"
+                    imgClassName="max-h-56 w-full rounded-lg object-contain"
                   />
                 )}
                 {p.outputAfter && (

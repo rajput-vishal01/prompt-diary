@@ -8,6 +8,7 @@ import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { Tip } from "@/components/ui/Tooltip";
 import { Select } from "@/components/ui/Select";
 
@@ -499,8 +500,7 @@ function OutputPane({
       </div>
       {image && (
         <div className="relative mx-4 mt-2 overflow-hidden rounded-lg border border-line">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="output screenshot" className="max-h-40 w-full object-contain" />
+          <ZoomableImage src={image} alt="output screenshot" imgClassName="max-h-40 w-full object-contain" buttonPosition="tl" />
           <button
             className="absolute right-2 top-2 rounded-md bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold text-white"
             onClick={() => onImage(null)}

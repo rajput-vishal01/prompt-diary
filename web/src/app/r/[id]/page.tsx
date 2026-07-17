@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { user } from "@/db/schema";
 import { loadThreadForViewer } from "@/lib/threads";
 import { CopyButton } from "@/components/CopyButton";
+import { ZoomableImage } from "@/components/ZoomableImage";
 import { PageVeil } from "@/components/PageVeil";
 import { ShareCta, ShareHeaderBand } from "@/components/ShareChrome";
 
@@ -130,11 +131,10 @@ export default async function PublicThreadPage({ params }: Params) {
           </p>
           <div className="overflow-hidden rounded-xl bg-soft">
             {t.finalImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ZoomableImage
                 src={t.finalImage}
                 alt="final output"
-                className="max-h-72 w-full border-b border-line object-contain"
+                imgClassName="max-h-72 w-full border-b border-line object-contain"
               />
             )}
             {t.finalOutput && (

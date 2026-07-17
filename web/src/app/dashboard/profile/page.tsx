@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Camera } from "lucide-react";
 import { uploadImage } from "@/lib/upload";
 import { authClient, useSession } from "@/lib/auth-client";
+import { Lightbox } from "@/components/ZoomableImage";
+import { Tip } from "@/components/ui/Tooltip";
 
 // section anatomy is deliberate: hairline top border + caption label. Later
 // sections (API keys, danger zone) slot in without touching the others.
@@ -30,6 +33,7 @@ export default function ProfilePage() {
   const [verifySent, setVerifySent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarZoom, setAvatarZoom] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
 
   const changeAvatar = async (file: File) => {
@@ -102,28 +106,50 @@ export default function ProfilePage() {
 
       {/* identity — avatar + editable headline name */}
       <div className="flex items-center gap-5 pb-1">
-        <button
-          className="group relative shrink-0 rounded-full"
-          aria-label="Change photo"
-          disabled={avatarUploading}
-          onClick={() => avatarRef.current?.click()}
-        >
+        {/* photo click = full-screen view; the camera badge owns uploads */}
+        <span className="group relative shrink-0">
           {session.user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={session.user.image}
-              alt="profile"
-              className="h-16 w-16 rounded-full border border-line object-cover"
-            />
+            <>
+              <button
+                className="block rounded-full"
+                aria-label="View photo full screen"
+                onClick={() => setAvatarZoom(true)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={session.user.image}
+                  alt="profile"
+                  className="h-16 w-16 cursor-zoom-in rounded-full border border-line object-cover"
+                />
+              </button>
+              <Lightbox
+                src={session.user.image}
+                alt="profile photo"
+                open={avatarZoom}
+                onClose={() => setAvatarZoom(false)}
+              />
+            </>
           ) : (
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-tint font-display text-2xl font-light text-ink">
+            <button
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-tint font-display text-2xl font-light text-ink"
+              aria-label="Add photo"
+              disabled={avatarUploading}
+              onClick={() => avatarRef.current?.click()}
+            >
               {(session.user.name || session.user.email).charAt(0).toUpperCase()}
-            </span>
+            </button>
           )}
-          <span className="absolute inset-0 hidden items-center justify-center rounded-full bg-ink/50 text-[10px] font-semibold uppercase tracking-wide text-white group-hover:flex">
-            {avatarUploading ? "…" : "Change"}
-          </span>
-        </button>
+          <Tip label={avatarUploading ? "Uploading…" : "Change photo"}>
+            <button
+              className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-raised text-dim shadow-soft transition-[background-color,color,transform] duration-150 hover:bg-hover hover:text-ink active:scale-[0.97]"
+              aria-label="Change photo"
+              disabled={avatarUploading}
+              onClick={() => avatarRef.current?.click()}
+            >
+              {avatarUploading ? "…" : <Camera size={12} />}
+            </button>
+          </Tip>
+        </span>
         <input
           ref={avatarRef}
           type="file"
