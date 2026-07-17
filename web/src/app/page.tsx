@@ -1,291 +1,595 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
+import Lenis from "lenis";
+import { ArrowRight, ArrowUp } from "lucide-react";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const SPECIMEN = [
+// ---------------------------------------------------------------- data
+
+const MENU_LINKS = [
+  { label: "Home", href: "/" },
+  { label: "Gallery", href: "/gallery" },
+  { label: "Sign in", href: "/login" },
+  { label: "Start free", href: "/login" },
+  { label: "Privacy", href: "/privacy" },
+];
+
+const MARQUEE_SITES = [
+  "ChatGPT", "Claude", "Gemini", "Perplexity", "Poe", "DeepSeek",
+  "Grok", "Copilot", "Le Chat", "Kimi", "Qwen", "Meta AI",
+];
+
+const CAPABILITIES = [
   {
-    title: "Senior code reviewer",
-    body: "You are a senior code reviewer. For each diff I paste, list correctness bugs first, then security issues, then style nits. Cite line numbers. Be terse.",
-    tags: ["code-review", "dev"],
-    vis: "public" as const,
-    uses: 214,
+    title: "Folders, tags & facets",
+    note: "organize",
+    preview: "Folders like bookmarks, tags like labels — plus computed style facets (few-shot, chain-of-thought, role-play, template) detected from the text itself.",
   },
   {
-    title: "Cold email that gets replies",
-    body: "Write a 4-sentence cold email. Sentence 1 names something specific about their company. Sentence 2 states the problem…",
-    tags: ["sales"],
-    vis: "team" as const,
-    uses: 87,
+    title: "Command palette",
+    note: "⌘K",
+    preview: "Search prompts, folders and actions from anywhere in the dashboard. Enter copies, shift-enter opens.",
   },
   {
-    title: "Explain like I'm a junior",
-    body: "Explain this concept assuming I know Python but nothing about the domain. Use one concrete example, no analogies to cooking.",
-    tags: ["learning"],
-    vis: "private" as const,
-    uses: 31,
+    title: "Public gallery",
+    note: "share",
+    preview: "Publish a prompt open-source. Browse the community's, bookmark the good ones, add them to your diary in one click.",
+  },
+  {
+    title: "Share pages",
+    note: "/p · /r",
+    preview: "Every public prompt and recipe gets a clean page anyone can read — no account needed. Private steps stay redacted.",
+  },
+  {
+    title: "Teams & spend",
+    note: "together",
+    preview: "Shared prompt libraries with roles, plus a usage dashboard: daily trends, member leaderboard, and per-model spend.",
+  },
+  {
+    title: "Offline-first sync",
+    note: "everywhere",
+    preview: "The extension is a full vault on its own — no account required. Sign in and it follows you across devices, last write wins.",
   },
 ];
 
-const VIS_COLOR = {
-  public: "text-ink",
-  team: "text-amber",
-  private: "text-dim",
-};
+// ---------------------------------------------------------------- mockups
+// the product drawn in CSS — no stock screenshots
+
+function PopupMock() {
+  return (
+    <div className="w-64 rounded-xl border border-line bg-raised p-3 shadow-soft">
+      <div className="flex h-8 items-center rounded-lg border border-line-strong px-2.5 text-xs text-dim">
+        rewrite in my voice…
+        <span className="kbd ml-auto">↵</span>
+      </div>
+      {["Editorial rewrite pass", "Bug report normalizer", "Launch email v3"].map((t, i) => (
+        <div key={t} className={`mt-1.5 rounded-lg px-2.5 py-2 ${i === 0 ? "bg-soft shadow-[inset_2px_0_0_#0c0a09]" : ""}`}>
+          <p className="truncate text-xs font-medium text-ink">{t}</p>
+          <p className="mt-0.5 truncate font-mono text-[10px] text-dim">Rewrite the following in a tighter…</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ThreadMock() {
+  return (
+    <div className="w-64 rounded-xl border border-line bg-raised p-3 shadow-soft">
+      <p className="px-1 text-xs font-medium text-ink">Launch email recipe</p>
+      {["Draft the angle", "Tighten the hook", "Final subject lines"].map((t, i) => (
+        <div key={t} className="mt-1.5 flex items-center gap-2 rounded-lg bg-soft px-2.5 py-2">
+          <span className="font-mono text-[10px] tabular-nums text-dim">{String(i + 1).padStart(2, "0")}</span>
+          <span className="truncate text-xs text-ink">{t}</span>
+        </div>
+      ))}
+      <div className="mt-1.5 rounded-lg bg-tint px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-dim">
+        final output ↓
+      </div>
+    </div>
+  );
+}
+
+function TransferMock() {
+  return (
+    <div className="flex w-64 flex-col items-center gap-2 rounded-xl border border-line bg-raised p-4 shadow-soft">
+      <div className="flex w-full items-center justify-between">
+        <span className="chip">ChatGPT · 14 messages</span>
+        <ArrowRight size={14} className="text-dim" />
+        <span className="chip">Claude</span>
+      </div>
+      <div className="w-full rounded-lg bg-soft p-2.5 font-mono text-[10px] leading-relaxed text-dim">
+        [Context from a previous conversation]
+        <br />User: draft the pricing page…
+        <br />Assistant: here&apos;s the structure…
+      </div>
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-success">continues where you left off</span>
+    </div>
+  );
+}
+
+function WidgetMock() {
+  return (
+    <div className="w-56 rounded-xl border border-line bg-raised p-3 shadow-soft">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-display italic">Pd</span>
+        <span className="text-dim">ChatGPT · 3h</span>
+        <span className="ml-auto tabular-nums text-dim">11/15</span>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-tint">
+        <div className="h-full w-3/4 rounded-full bg-amber" />
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-amber">
+        Thinking <span className="ml-auto tabular-nums">3/5 · 24h</span>
+      </div>
+      <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-[#f7ead6]">
+        <div className="h-full w-3/5 rounded-full bg-amber" />
+      </div>
+    </div>
+  );
+}
+
+const FEATURES = [
+  {
+    title: "Save from anywhere",
+    body: "Select text on any AI site and it's in your vault before the reply finishes streaming. Launcher popup, Alt+P, one keystroke to paste it back.",
+    mock: <PopupMock />,
+  },
+  {
+    title: "Threads are recipes",
+    body: "Not transcripts — the ordered chain of prompts that produced one great result. Record as you work, replay any time, shelve them into projects.",
+    mock: <ThreadMock />,
+  },
+  {
+    title: "Carry the context",
+    body: "Deep in a chat but want a different model? Capture the conversation and continue it on another AI, exactly where you left off.",
+    mock: <TransferMock />,
+  },
+  {
+    title: "Know your limits",
+    body: "A quiet on-page meter estimates your sends against each model's caps — thinking modes tracked separately, because one Max message isn't one message.",
+    mock: <WidgetMock />,
+  },
+];
+
+// ---------------------------------------------------------------- page
 
 export default function Home() {
   const root = useRef<HTMLDivElement>(null);
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const lenisRef = useRef<Lenis | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hoverCap, setHoverCap] = useState<number | null>(null);
+
+  // Lenis smooth scroll — the 412 signature feel (1.2s, exponential ease-out)
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    });
+    lenisRef.current = lenis;
+    let raf = requestAnimationFrame(function loop(time) {
+      lenis.raf(time);
+      raf = requestAnimationFrame(loop);
+    });
+    lenis.on("scroll", ScrollTrigger.update);
+    return () => {
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
+
+  // header hides scrolling down, returns scrolling up
+  useEffect(() => {
+    const header = document.getElementById("pd-header");
+    if (!header) return;
+    let last = 0;
+    const onScroll = () => {
+      const y = window.scrollY;
+      header.style.transform = y > last && y > 120 ? "translateY(-100%)" : "translateY(0)";
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // menu overlay: stop the page under it, stagger the links in
+  useEffect(() => {
+    const lenis = lenisRef.current;
+    if (menuOpen) {
+      lenis?.stop();
+      document.body.style.overflow = "hidden";
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        gsap.fromTo(
+          ".menu-link",
+          { y: 48, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: "power3.out", delay: 0.1 },
+        );
+      }
+    } else {
+      lenis?.start();
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
 
   useGSAP(
     () => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      gsap
-        .timeline({ defaults: { ease: "power3.out" } })
-        .fromTo(
-          "[data-hero] > *",
-          { opacity: 0, y: 16 },
-          { opacity: 1, y: 0, duration: 0.6, stagger: 0.09 },
-        )
-        .fromTo(
-          "[data-specimen]",
-          { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.55 },
-          "-=0.35",
-        )
-        .fromTo(
-          "[data-specimen-row]",
-          { opacity: 0 },
-          { opacity: 1, duration: 0.3, stagger: 0.08 },
-          "-=0.2",
-        );
+      // hero lines rise out of overflow-hidden wrappers
+      gsap.from(".hero-line", {
+        yPercent: 110,
+        duration: 0.9,
+        stagger: 0.12,
+        ease: "power4.out",
+        delay: 0.15,
+      });
+      gsap.from("[data-hero-sub] > *", {
+        opacity: 0,
+        y: 16,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: "power3.out",
+        delay: 0.7,
+      });
+      // generic scroll reveals
+      gsap.utils.toArray<HTMLElement>(".st-reveal").forEach((el) => {
+        gsap.from(el, {
+          opacity: 0,
+          y: 32,
+          duration: 0.8,
+          ease: "power3.out",
+          scrollTrigger: { trigger: el, start: "top 80%", once: true },
+        });
+      });
+      // the manifesto line reveals word by word at 80% in view
+      gsap.from(".quote-word", {
+        opacity: 0.12,
+        stagger: 0.06,
+        duration: 0.4,
+        ease: "none",
+        scrollTrigger: { trigger: "[data-quote]", start: "top 80%", end: "top 40%", scrub: true },
+      });
     },
     { scope: root },
   );
 
-  const copySpecimen = (idx: number, body: string) => {
-    void navigator.clipboard.writeText(body);
-    setCopiedIdx(idx);
-    setTimeout(() => setCopiedIdx(null), 1200);
+  const toTop = () => {
+    if (lenisRef.current) lenisRef.current.scrollTo(0, { duration: 1.5 });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const quote = "The prompt that finally worked is an asset. Treat it like one.".split(" ");
+
   return (
-    <div ref={root} className="min-h-screen overflow-x-clip">
-      {/* top-nav — 64px, canvas, wordmark left, actions right */}
-      <header>
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <span className="font-display text-[22px] font-light tracking-tight">
+    <div ref={root} className="min-h-screen overflow-x-clip bg-bg text-ink selection:bg-ink selection:text-bg">
+      {/* ---------- header: fixed, inverts over dark bands ---------- */}
+      <header
+        id="pd-header"
+        className="fixed inset-x-0 top-0 z-50 text-white mix-blend-difference transition-transform duration-300 ease-out"
+      >
+        <div className="flex items-center justify-between px-6 py-6 md:px-10">
+          <Link href="/" className="font-display text-[22px] font-light tracking-tight">
             Prompt Diary
-          </span>
-          <nav className="flex items-center gap-2 text-[15px]">
-            <Link
-              href="/gallery"
-              className="rounded-full px-3.5 py-2 font-medium text-ink transition-colors hover:bg-hover"
-            >
-              Gallery
-            </Link>
+          </Link>
+          <div className="flex items-center gap-6">
             <Link
               href="/login"
-              className="rounded-full border border-line-strong px-4 py-2 font-medium text-ink transition-colors hover:bg-hover"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-full bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-deep"
+              className="hidden rounded-full border border-white px-4 py-1.5 text-sm font-medium transition-opacity hover:opacity-70 md:block"
             >
               Start free
             </Link>
-          </nav>
+            <button
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              className={`pd-burger ${menuOpen ? "open" : ""}`}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6">
-        {/* hero band — centered display headline over atmospheric orbs */}
-        <section className="relative pb-16 pt-20 text-center md:pb-24 md:pt-28">
-          {/* pure atmosphere: pastel gradient orbs, never containing content */}
-          <div aria-hidden className="absolute inset-0 -z-10">
-            <div
-              className="orb orb-drift left-[8%] top-[10%] h-72 w-72"
-              style={{ background: "radial-gradient(circle, #a7e5d3 0%, transparent 70%)" }}
-            />
-            <div
-              className="orb orb-drift-late right-[10%] top-[4%] h-80 w-80"
-              style={{ background: "radial-gradient(circle, #f4c5a8 0%, transparent 70%)" }}
-            />
-            <div
-              className="orb orb-drift bottom-[0%] left-[38%] h-64 w-64"
-              style={{ background: "radial-gradient(circle, #c8b8e0 0%, transparent 70%)" }}
-            />
-          </div>
+      {/* ---------- menu overlay ---------- */}
+      <div
+        className={`fixed inset-0 z-40 flex flex-col justify-center bg-ink px-8 transition-opacity duration-300 md:px-16 ${
+          menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        <nav className="flex flex-col gap-1">
+          {MENU_LINKS.map((l, i) => (
+            <Link
+              key={l.label}
+              href={l.href}
+              onClick={() => setMenuOpen(false)}
+              className="menu-link group flex items-baseline gap-4 py-1"
+            >
+              <span className="font-mono text-xs tabular-nums text-bg/40">{String(i + 1).padStart(2, "0")}</span>
+              <span className="font-display text-[11vw] font-light uppercase leading-[1.02] tracking-[-0.02em] text-bg transition-opacity group-hover:opacity-60 md:text-[5.5vw]">
+                {l.label}
+              </span>
+            </Link>
+          ))}
+        </nav>
+        <p className="mt-10 max-w-sm text-sm leading-relaxed text-bg/50">
+          A password manager for prompts. Save, organize, sync, and share — on your terms.
+        </p>
+      </div>
 
-          <div data-hero className="mx-auto max-w-3xl">
-            <h1 className="font-display text-[40px] font-light leading-[1.05] tracking-[-0.03em] [text-wrap:balance] md:text-[64px]">
-              Your best prompts, kept.
-            </h1>
-            <p className="mx-auto mt-6 max-w-[52ch] text-[16px] leading-relaxed text-body">
-              The prompt that finally worked is twenty scrolls deep in last
-              week&apos;s chat. Prompt Diary is a password manager for prompts —
-              save from any page, organize, sync, and share on your terms.
+      {/* ---------- hero ---------- */}
+      <section className="relative flex min-h-[94vh] flex-col justify-center px-6 pt-28 md:px-10">
+        {/* blurred glow word — pastel atmosphere, never a component fill */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden">
+          <span
+            className="pd-glow-word select-none bg-gradient-to-br from-orb-mint via-orb-peach to-orb-lavender bg-clip-text font-display text-[42vw] font-light italic leading-none text-transparent"
+          >
+            Pd
+          </span>
+        </div>
+
+        <div className="relative z-10 mx-auto w-full max-w-6xl">
+          <h1 className="font-display font-light uppercase leading-[0.96] tracking-[-0.03em]">
+            {["Your best", "prompts,", "kept."].map((line) => (
+              <span key={line} className="block overflow-hidden">
+                <span className="hero-line block text-[clamp(52px,10vw,96px)]">{line}</span>
+              </span>
+            ))}
+          </h1>
+
+          <div data-hero-sub className="relative mt-8 max-w-xl">
+            {/* margin note — editorial annotation in the writer's hand */}
+            <p
+              aria-hidden
+              className="absolute -top-14 right-0 hidden -rotate-6 font-display text-xl italic text-amber [filter:drop-shadow(0_4px_6px_rgba(0,0,0,0.15))] md:block lg:-right-40"
+            >
+              like a password manager — for prompts
             </p>
-            <div className="mt-9 flex items-center justify-center gap-3">
-              <Link
-                href="/login"
-                className="rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-accent-deep"
-              >
+            <p className="text-[17px] leading-relaxed text-body">
+              The prompt that finally worked is twenty scrolls deep in last week&apos;s
+              chat. Save it from any AI site, organize it, reuse it in one keystroke,
+              and carry whole conversations between models.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/login" className="btn-primary px-6 py-3 text-[15px]">
                 Start your diary
               </Link>
-              <Link
-                href="/gallery"
-                className="rounded-full border border-line-strong px-5 py-2.5 text-[15px] font-medium text-ink transition-colors hover:bg-hover"
-              >
+              <Link href="/gallery" className="btn px-6 py-3 text-[15px]">
                 Browse the gallery
               </Link>
             </div>
-            <p className="mt-5 text-[13px] text-dim">
+            <p className="mt-4 text-[13px] text-dim">
               Free · works offline · your private prompts never leave your vault
             </p>
           </div>
+        </div>
+      </section>
 
-          {/* the product, not a screenshot of it — click a row, it copies */}
-          <div
-            data-specimen
-            className="mx-auto mt-16 max-w-2xl overflow-hidden rounded-2xl border border-line bg-raised text-left shadow-soft"
-          >
-            <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-              <span className="text-xs font-medium text-dim">
-                the diary · try clicking a row
-              </span>
-              <span className="font-display text-sm font-light italic">Pd</span>
-            </div>
-            <div className="divide-y divide-line">
-              {SPECIMEN.map((s, i) => (
-                <button
-                  key={s.title}
-                  data-specimen-row
-                  className="block w-full cursor-pointer px-4 py-3 text-left transition-colors hover:bg-hover"
-                  onClick={() => copySpecimen(i, s.body)}
-                >
-                  <span className="flex items-baseline gap-2">
-                    <span className="flex-1 truncate text-sm font-medium">
-                      {s.title}
-                    </span>
-                    {copiedIdx === i && (
-                      <span className="text-xs font-semibold text-success">
-                        Copied ✓
-                      </span>
-                    )}
-                  </span>
-                  <span className="mt-1 line-clamp-2 block font-mono text-xs leading-relaxed text-body">
-                    {s.body}
-                  </span>
-                  <span className="mt-2 flex items-center gap-3">
-                    <span className={`vis-badge ${VIS_COLOR[s.vis]}`}>{s.vis}</span>
-                    {s.tags.map((t) => (
-                      <span key={t} className="chip">
-                        {t}
-                      </span>
-                    ))}
-                    <span className="ml-auto text-xs tabular-nums text-dim">
-                      {s.uses}×
-                    </span>
-                  </span>
-                </button>
+      {/* ---------- marquee: every model we ride along with ---------- */}
+      <section className="overflow-hidden border-y border-line py-5" aria-label="Supported AI sites">
+        <div className="pd-marquee">
+          {[0, 1].map((copy) => (
+            <div key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center">
+              {MARQUEE_SITES.map((s) => (
+                <span key={`${copy}-${s}`} className="flex items-center font-mono text-xs uppercase tracking-[0.14em] text-dim">
+                  <span className="px-6">{s}</span>
+                  <span className="text-line-strong">·</span>
+                </span>
               ))}
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
+      </section>
 
-        {/* the flow, told as diary entries — display serif heads, hairline rules */}
-        <section className="border-t border-line">
-          <div className="grid gap-x-16 border-b border-line py-14 md:grid-cols-[16rem_1fr]">
-            <h2 className="font-display text-[32px] font-light leading-[1.13] tracking-[-0.01em]">
-              Save
-            </h2>
-            <p className="mt-3 max-w-prose text-[16px] leading-relaxed text-body md:mt-2">
-              Highlight the prompt in ChatGPT, Claude, or anywhere else →
-              right-click → <span className="font-medium text-ink">Save to Prompt Diary</span>.
-              It&apos;s in your vault before the reply finishes streaming. No
-              account needed — the extension is a full offline vault on its own.
+      {/* ---------- cinematic band: the idea, spelled large ---------- */}
+      <section className="relative overflow-hidden bg-ink px-6 py-28 text-bg md:px-10 md:py-40">
+        <div aria-hidden className="pointer-events-none absolute -left-40 top-0 h-[32rem] w-[32rem] rounded-full bg-orb-lavender/20 blur-[150px]" />
+        <div aria-hidden className="pointer-events-none absolute -right-40 bottom-0 h-[32rem] w-[32rem] rounded-full bg-orb-peach/20 blur-[150px]" />
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="st-reveal relative">
+            <span
+              aria-hidden
+              className="absolute -top-10 left-2 -rotate-6 font-display text-2xl italic text-amber [filter:drop-shadow(0_4px_6px_rgba(0,0,0,0.6))]"
+            >
+              the vault
+            </span>
+            <p className="font-display text-[clamp(40px,7vw,88px)] font-light uppercase leading-[1.02] tracking-[-0.02em]">
+              Save the prompt.
             </p>
           </div>
-          <div className="grid gap-x-16 border-b border-line py-14 md:grid-cols-[16rem_1fr]">
-            <h2 className="font-display text-[32px] font-light leading-[1.13] tracking-[-0.01em]">
-              Find it again
-            </h2>
-            <p className="mt-3 max-w-prose text-[16px] leading-relaxed text-body md:mt-2">
-              Folders, tags, pins, search — then one click to copy it back into
-              any chat. The diary keeps count of what you actually reuse, so
-              your best material rises.
+
+          <div className="st-reveal relative mt-6 md:ml-[14%]">
+            <p className="font-display text-[clamp(40px,7vw,88px)] font-light uppercase leading-[1.02] tracking-[-0.02em]">
+              Keep the{" "}
+              <span className="relative inline-block">
+                recipe.
+                <svg aria-hidden viewBox="0 0 100 20" className="absolute -bottom-3 left-0 w-full text-amber" preserveAspectRatio="none">
+                  <path d="M0 10 Q 50 0 100 15" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" />
+                </svg>
+              </span>
             </p>
+            <span
+              aria-hidden
+              className="absolute -right-4 -top-8 -rotate-12 font-display text-xl italic text-amber [filter:drop-shadow(0_4px_6px_rgba(0,0,0,0.6))] md:right-[18%]"
+            >
+              recipes, not transcripts
+            </span>
           </div>
-          <div className="grid gap-x-16 py-14 md:grid-cols-[16rem_1fr]">
-            <h2 className="font-display text-[32px] font-light leading-[1.13] tracking-[-0.01em]">
-              Share on your terms
-            </h2>
-            <div className="mt-3 space-y-4 md:mt-2">
-              <p className="max-w-prose text-[16px] leading-relaxed text-body">
-                Every prompt has a dial, and it starts fully closed:
-              </p>
-              <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-                <span>
-                  <span className="vis-badge text-dim">private</span>
-                  <span className="ml-2 text-body">only you, ever</span>
+
+          <div className="st-reveal relative mt-6 md:ml-[6%]">
+            <svg aria-hidden viewBox="0 0 100 100" className="absolute -left-12 top-3 hidden h-9 w-9 text-bg/30 md:block">
+              <path d="M25 25 L75 75 M75 25 L25 75" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+            </svg>
+            <p className="font-display text-[clamp(40px,7vw,88px)] font-light uppercase leading-[1.02] tracking-[-0.02em]">
+              Carry the context.
+            </p>
+            <span
+              aria-hidden
+              className="absolute -bottom-9 left-6 -rotate-3 font-display text-xl italic text-amber [filter:drop-shadow(0_4px_6px_rgba(0,0,0,0.6))]"
+            >
+              no more twenty scrolls deep
+            </span>
+          </div>
+
+          <p className="st-reveal mt-20 max-w-md text-[15px] leading-relaxed text-bg/60">
+            Great prompts get lost in chat history. Prompt Diary captures them at the
+            moment they work, chains them into reusable recipes, and moves whole
+            conversations between models — so the work compounds.
+          </p>
+        </div>
+      </section>
+
+      {/* ---------- flagship features: the product, drawn ---------- */}
+      <section className="px-6 py-24 md:px-10 md:py-32">
+        <div className="mx-auto max-w-6xl">
+          <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">What it does</p>
+          <h2 className="st-reveal mt-2 max-w-2xl font-display text-[clamp(30px,4vw,44px)] font-light leading-[1.1] tracking-[-0.01em]">
+            Four moves that make prompts compound.
+          </h2>
+
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="st-reveal group relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-line bg-raised md:aspect-[4/3]"
+              >
+                <span className="absolute left-5 top-4 font-mono text-xs tabular-nums text-dim">
+                  {String(i + 1).padStart(2, "0")}
                 </span>
-                <span>
-                  <span className="vis-badge text-amber">team</span>
-                  <span className="ml-2 text-body">your team&apos;s shared library</span>
-                </span>
-                <span>
-                  <span className="vis-badge text-ink">public</span>
-                  <span className="ml-2 text-body">open-source it to the gallery</span>
-                </span>
+                <div className="scale-90 transition-transform duration-300 ease-out group-hover:scale-95 md:scale-100 md:group-hover:scale-105">
+                  {f.mock}
+                </div>
+                {/* hover veil — title rises from below */}
+                <div className="absolute inset-0 flex flex-col justify-end bg-ink/85 p-6 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
+                  <h3 className="translate-y-8 font-display text-2xl font-light text-bg transition-transform duration-300 group-hover:translate-y-0">
+                    {f.title}
+                  </h3>
+                  <p className="mt-2 max-w-sm translate-y-8 text-sm leading-relaxed text-bg/70 transition-transform delay-75 duration-300 group-hover:translate-y-0">
+                    {f.body}
+                  </p>
+                </div>
+                {/* mobile caption (no hover) */}
+                <p className="absolute inset-x-5 bottom-4 text-sm font-medium text-ink md:hidden">{f.title}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- capabilities: hover list with floating previews ---------- */}
+      <section className="border-y border-line bg-raised px-6 py-24 md:px-10 md:py-32">
+        <div className="relative mx-auto max-w-6xl">
+          <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">And everything around them</p>
+          <ul className="mt-8">
+            {CAPABILITIES.map((c, i) => (
+              <li
+                key={c.title}
+                className="st-reveal relative border-t border-line last:border-b"
+                onMouseEnter={() => setHoverCap(i)}
+                onMouseLeave={() => setHoverCap(null)}
+              >
+                <div
+                  className={`flex items-baseline justify-between gap-6 py-6 transition-opacity duration-300 md:py-8 ${
+                    hoverCap !== null && hoverCap !== i ? "opacity-20" : "opacity-100"
+                  }`}
+                >
+                  <h3 className="font-display text-[clamp(26px,4.5vw,56px)] font-light uppercase leading-none tracking-[-0.02em] text-ink">
+                    {c.title}
+                  </h3>
+                  <span className="shrink-0 font-display text-lg italic text-amber">{c.note}</span>
+                </div>
+                {/* floating preview — desktop only, never intercepts the pointer */}
+                <div
+                  aria-hidden
+                  className={`pointer-events-none absolute right-[6%] top-1/2 z-10 hidden w-[22rem] max-w-[26vw] -translate-y-1/2 rotate-2 rounded-xl border border-line bg-bg p-4 shadow-soft transition-opacity duration-200 lg:block ${
+                    hoverCap === i ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <p className="text-sm leading-relaxed text-body">{c.preview}</p>
+                </div>
+                {/* mobile: preview inline */}
+                <p className="pb-6 text-sm leading-relaxed text-dim lg:hidden">{c.preview}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ---------- manifesto ---------- */}
+      <section data-quote className="px-6 py-32 text-center md:py-44">
+        <p className="mx-auto max-w-3xl font-display text-[clamp(28px,4.5vw,52px)] font-light leading-[1.2] tracking-[-0.01em] text-ink">
+          {quote.map((w, i) => (
+            <span key={i} className="quote-word inline-block">
+              {w}
+              {i < quote.length - 1 ? " " : ""}
+            </span>
+          ))}
+        </p>
+        <p className="st-reveal mx-auto mt-6 max-w-md text-sm leading-relaxed text-dim">
+          Private by default. Team when you choose. Public when you&apos;re proud of it.
+        </p>
+      </section>
+
+      {/* ---------- closing band + giant wordmark footer ---------- */}
+      <footer className="relative overflow-hidden bg-ink px-6 pt-24 text-bg md:px-10 md:pt-32">
+        <div aria-hidden className="pointer-events-none absolute -right-32 top-0 h-[28rem] w-[28rem] rounded-full bg-orb-mint/15 blur-[150px]" />
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-start justify-between gap-10 md:flex-row md:items-end">
+            <div>
+              <h2 className="st-reveal font-display text-[clamp(34px,5vw,64px)] font-light uppercase leading-[1.02] tracking-[-0.02em]">
+                Start keeping
+                <br />
+                what works.
+              </h2>
+              <div className="st-reveal mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/login"
+                  className="rounded-full bg-bg px-6 py-3 text-[15px] font-medium text-ink transition-opacity hover:opacity-85"
+                >
+                  Start your diary — free
+                </Link>
+                <Link
+                  href="/gallery"
+                  className="rounded-full border border-bg/40 px-6 py-3 text-[15px] font-medium text-bg transition-colors hover:border-bg"
+                >
+                  See the gallery
+                </Link>
               </div>
             </div>
+            <button
+              onClick={toTop}
+              aria-label="Back to top"
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-bg/40 text-bg transition-colors hover:border-bg"
+            >
+              <ArrowUp size={18} />
+            </button>
           </div>
-        </section>
 
-        {/* cta band — centered display head, single ink pill */}
-        <section className="relative border-t border-line py-24 text-center">
-          <div aria-hidden className="absolute inset-0 -z-10">
-            <div
-              className="orb orb-drift-late left-[30%] top-[15%] h-56 w-56"
-              style={{ background: "radial-gradient(circle, #a8c8e8 0%, transparent 70%)" }}
-            />
-            <div
-              className="orb orb-drift right-[28%] top-[30%] h-48 w-48"
-              style={{ background: "radial-gradient(circle, #e8b8c4 0%, transparent 70%)" }}
-            />
+          <div className="mt-16 flex flex-wrap items-center gap-x-8 gap-y-2 border-t border-bg/15 pt-6 text-sm text-bg/50">
+            <span>© {new Date().getFullYear()} Prompt Diary</span>
+            <Link href="/gallery" className="transition-colors hover:text-bg">Gallery</Link>
+            <Link href="/privacy" className="transition-colors hover:text-bg">Privacy</Link>
+            <Link href="/login" className="transition-colors hover:text-bg">Sign in</Link>
           </div>
-          <h2 className="font-display text-[36px] font-light leading-[1.17] tracking-[-0.01em] [text-wrap:balance]">
-            Stop losing your best prompts.
-          </h2>
-          <Link
-            href="/login"
-            className="mt-8 inline-flex rounded-full bg-accent px-5 py-2.5 text-[15px] font-medium text-white transition-colors hover:bg-accent-deep"
-          >
-            Start your diary
-          </Link>
-        </section>
-      </main>
-
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-10 text-[15px] text-body">
-          <span className="font-display font-light italic">Prompt Diary</span>
-          <span className="flex items-center gap-5">
-            <Link href="/gallery" className="hover:text-ink">
-              Gallery
-            </Link>
-            <Link href="/privacy" className="hover:text-ink">
-              Privacy
-            </Link>
-            <span className="text-dim">Local-first. Open at heart.</span>
-          </span>
         </div>
+
+        {/* the wordmark bleeds off the bottom edge — deliberately */}
+        <p
+          aria-hidden
+          className="pointer-events-none relative -mb-[2vw] mt-10 select-none whitespace-nowrap text-center font-display text-[12.5vw] font-light uppercase leading-[0.8] tracking-[-0.03em] text-bg/90"
+        >
+          Prompt Diary
+        </p>
       </footer>
     </div>
   );

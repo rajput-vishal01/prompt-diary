@@ -134,6 +134,43 @@ body {
   animation: orb-drift 22s ease-in-out -8s infinite reverse;
 }
 
+/* ---------- landing page (brand register) ---------- */
+
+/* infinite marquee of supported AI sites — two copies, translate half */
+.pd-marquee {
+  display: flex;
+  width: max-content;
+  animation: pd-marquee 36s linear infinite;
+}
+
+@keyframes pd-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* hero glow word — blurred Pd behind the headline, pastel atmosphere only */
+.pd-glow-word {
+  filter: blur(clamp(30px, 6vw, 64px));
+  opacity: 0.55;
+  mix-blend-mode: multiply; /* light canvas: multiply keeps pastels luminous */
+}
+
+/* hamburger — middle line is deliberately 3/4 width until hover (the quirk) */
+.pd-burger span {
+  display: block;
+  height: 2px;
+  background: currentColor;
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease-out, width 300ms ease-out;
+}
+.pd-burger span:nth-child(1) { width: 24px; }
+.pd-burger span:nth-child(2) { width: 18px; margin-top: 6px; }
+.pd-burger span:nth-child(3) { width: 24px; margin-top: 6px; }
+.pd-burger:hover span:nth-child(2) { width: 24px; }
+.pd-burger.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+.pd-burger.open span:nth-child(2) { opacity: 0; }
+.pd-burger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); width: 24px; }
+
 /* ---------- micro-motion: state-conveying only, 150–250ms, ease-out ---------- */
 
 /* (route-change fade-rise lives in dashboard/template.tsx via GSAP) */
