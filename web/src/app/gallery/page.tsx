@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Bookmark, Copy } from "lucide-react";
 import type { Facet } from "shared";
 import { FACETS, promptFacets } from "shared";
@@ -48,6 +49,7 @@ export default function GalleryPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -206,44 +208,50 @@ export default function GalleryPage() {
               )}
             </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              <button
-                className={`chip cursor-pointer transition-colors ${
-                  !showRecipes && !bookmarkedOnly ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
-                }`}
-                onClick={() => {
-                  setShowRecipes(false);
-                  setBookmarkedOnly(false);
-                }}
-              >
-                Prompts
-              </button>
-              <Tip label="Public recipes — ordered prompt chains with their final output">
+            {/* three distinct control genera, not one flat pill row:
+                segmented tabs (what) · state toggle (whose) · facet chips (style) */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-3">
+              <span className="flex h-8 items-center overflow-hidden rounded-lg border border-line-strong">
                 <button
-                  className={`chip cursor-pointer transition-colors ${
-                    showRecipes ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                  className={`h-full px-3.5 text-[13px] font-medium transition-colors ${
+                    !showRecipes ? "bg-tint text-ink" : "text-dim hover:text-ink"
                   }`}
-                  onClick={() => setShowRecipes((v) => !v)}
+                  aria-pressed={!showRecipes}
+                  onClick={() => setShowRecipes(false)}
                 >
-                  Recipes
+                  Prompts
                 </button>
-              </Tip>
-              {session && (
+                <Tip label="Public recipes — ordered prompt chains with their final output">
+                  <button
+                    className={`h-full px-3.5 text-[13px] font-medium transition-colors ${
+                      showRecipes ? "bg-tint text-ink" : "text-dim hover:text-ink"
+                    }`}
+                    aria-pressed={showRecipes}
+                    onClick={() => setShowRecipes(true)}
+                  >
+                    Recipes
+                  </button>
+                </Tip>
+              </span>
+              {session && !showRecipes && (
                 <button
-                  className={`chip cursor-pointer transition-colors ${
-                    bookmarkedOnly ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${
+                    bookmarkedOnly
+                      ? "border-ink bg-tint text-ink"
+                      : "border-line-strong text-dim hover:bg-hover hover:text-ink"
                   }`}
-                  onClick={() => {
-                    setShowRecipes(false);
-                    setBookmarkedOnly((v) => !v);
-                  }}
+                  aria-pressed={bookmarkedOnly}
+                  onClick={() => setBookmarkedOnly((v) => !v)}
                 >
-                  ★ Bookmarked
+                  <Bookmark size={13} className={bookmarkedOnly ? "fill-brass text-brass" : ""} />
+                  Bookmarked
                 </button>
               )}
               {!showRecipes && (
-                <>
-                  <span className="mx-1 h-4 w-px bg-line-strong" aria-hidden />
+                <span className="flex flex-wrap items-center gap-1.5 border-l border-line pl-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-dim">
+                    style
+                  </span>
                   {FACETS.map((f) => (
                     <Tip key={f} label={`Filter by ${f} style (detected from the prompt text)`}>
                       <button
@@ -252,13 +260,14 @@ export default function GalleryPage() {
                             ? "border-ink bg-tint text-ink"
                             : "text-dim hover:text-ink"
                         }`}
+                        aria-pressed={facetSel.includes(f)}
                         onClick={() => toggleFacet(f)}
                       >
                         {f}
                       </button>
                     </Tip>
                   ))}
-                </>
+                </span>
               )}
             </div>
           </div>
@@ -316,11 +325,23 @@ export default function GalleryPage() {
                       <div className="skeleton mt-3 h-16 w-full" />
                     </div>
                   ))}
-                {!loading &&
-                  visible.map((p) => (
-                    <div
+                {!loading && (
+                  <AnimatePresence mode="popLayout">
+                  {visible.map((p, i) => (
+                    <motion.div
                       key={p.id}
-                      className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
+                      layout
+                      // fresh cards stagger in; cards surviving a filter change
+                      // keep their key and glide (layout) instead of re-entering
+                      initial={reduce ? false : { opacity: 0, y: 14 }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        transition: { duration: 0.35, delay: Math.min(i * 0.03, 0.25), ease: [0.23, 1, 0.32, 1] },
+                      }}
+                      exit={reduce ? undefined : { opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
+                      whileHover={reduce ? undefined : { y: -4, transition: { type: "spring", stiffness: 380, damping: 26 } }}
+                      className="group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
                       onClick={() => router.push(`/gallery/${p.id}`)}
                     >
                       <span className="flex items-center gap-1.5 pr-16">
@@ -383,8 +404,10 @@ export default function GalleryPage() {
                           </button>
                         )}
                       </span>
-                    </div>
+                    </motion.div>
                   ))}
+                  </AnimatePresence>
+                )}
               </div>
             </>
           )}

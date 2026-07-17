@@ -213,18 +213,23 @@ function ProjectsPageInner() {
             </span>
           </button>
         ))}
-        <Tip label="Threads with 3+ steps — the prompt was iterated toward the output">
-          <button
-            className={`ml-auto inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
-              loopingOnly
-                ? "border-accent bg-accent text-white"
-                : "border-line-strong text-dim hover:bg-hover hover:text-ink"
-            }`}
-            onClick={() => setLoopingOnly((v) => !v)}
-          >
-            looping
-          </button>
-        </Tip>
+        {/* a FILTER, not another project selector — state-toggle language
+            (tint fill), separated from the selector chips by a hairline */}
+        <span className="ml-auto border-l border-line pl-3">
+          <Tip label="Threads with 3+ steps — the prompt was iterated toward the output">
+            <button
+              className={`inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+                loopingOnly
+                  ? "border-ink bg-tint text-ink"
+                  : "border-line-strong text-dim hover:bg-hover hover:text-ink"
+              }`}
+              aria-pressed={loopingOnly}
+              onClick={() => setLoopingOnly((v) => !v)}
+            >
+              looping
+            </button>
+          </Tip>
+        </span>
       </div>
 
       {/* thread ledger — two-line manuscript rows */}
