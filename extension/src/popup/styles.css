@@ -133,6 +133,12 @@ button {
   font-size: 11.5px;
 }
 
+/* project row = open-on-dashboard button + a slim "start thread here" button */
+.row-pair {
+  display: flex;
+  align-items: center;
+}
+
 .nav-item .dot {
   width: 7px;
   height: 7px;

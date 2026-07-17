@@ -102,6 +102,9 @@ style.textContent = `
     cursor: pointer;
     user-select: none;
     min-width: 150px;
+    /* the est/help line would otherwise set the intrinsic width (~520px);
+       cap it and let text wrap */
+    max-width: 280px;
   }
   .pd-limit-head {
     display: flex;

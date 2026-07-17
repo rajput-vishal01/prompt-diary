@@ -254,7 +254,11 @@ function TreeRow({
             {node.badge}
           </span>
         )}
-        <span className="hidden shrink-0 items-center gap-0.5 group-hover/row:flex">
+        {/* has-[[data-state=open]] keeps the tray (and the menu's anchor)
+            mounted while the portaled menu is open — if the tray display:nones
+            on hover-out, the anchor rect collapses to 0x0 and the open menu
+            teleports to the viewport's top-left corner */}
+        <span className="hidden shrink-0 items-center gap-0.5 has-[[data-state=open]]:flex group-hover/row:flex">
           {(node.onAdd || node.onAddChild) && (
             <button
               aria-label="New inside"

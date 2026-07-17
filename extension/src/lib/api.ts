@@ -146,8 +146,27 @@ export function getThreads(): Promise<ThreadRef[]> {
   return api<Array<ThreadRef & { stepCount: number }>>("/api/v1/threads");
 }
 
-export function createThread(title: string): Promise<ThreadRef> {
-  return api<ThreadRef>("/api/v1/threads", { method: "POST", body: { title } });
+export function createThread(title: string, projectId?: string): Promise<ThreadRef> {
+  return api<ThreadRef>("/api/v1/threads", {
+    method: "POST",
+    body: { title, projectId: projectId ?? null },
+  });
+}
+
+export interface ProjectRef {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export function getProjects(): Promise<ProjectRef[]> {
+  return api<ProjectRef[]>("/api/v1/projects");
+}
+
+/** Deep-dive on a project lives on the web dashboard. */
+export async function openProject(id: string): Promise<void> {
+  const base = await getApiUrl();
+  await chrome.tabs.create({ url: `${base}/dashboard/projects?p=${id}` });
 }
 
 export function createProject(name: string): Promise<{ id: string; name: string }> {

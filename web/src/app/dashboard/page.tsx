@@ -449,7 +449,9 @@ function PromptsPageInner() {
               </span>
               {/* absolute overlay on the hover bg — appearing must not shift
                   the meta cluster or re-truncate the title (checklist C) */}
-              <span className="absolute bottom-0 right-4 top-0 hidden items-center bg-soft pl-2 group-hover:flex">
+              {/* has-[...]: keep the tray visible while its menu is open, else
+                  the portaled menu loses its anchor and jumps to the corner */}
+              <span className="absolute bottom-0 right-4 top-0 hidden items-center bg-soft pl-2 has-[[data-state=open]]:flex group-hover:flex">
                 <RowActions p={p} />
               </span>
             </div>
@@ -486,7 +488,7 @@ function PromptsPageInner() {
                   </span>
                 </div>
                 {/* hover-reveal copy — same interaction language as the list */}
-                <span className="absolute right-3 top-3 hidden group-hover:flex">
+                <span className="absolute right-3 top-3 hidden has-[[data-state=open]]:flex group-hover:flex">
                   <RowActions p={p} ghostBg />
                 </span>
               </div>

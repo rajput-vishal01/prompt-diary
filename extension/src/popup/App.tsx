@@ -30,12 +30,15 @@ import {
   createThread,
   getActiveThread,
   getAuth,
+  getProjects,
   getTeams,
   getThreads,
+  openProject,
   setActiveThread,
   signOut,
   tryCookieSession,
   type AuthState,
+  type ProjectRef,
   type TeamRow,
   type ThreadRef,
 } from "../lib/api";
@@ -85,6 +88,14 @@ export function App() {
   const [recents, setRecents] = useState<string[]>([]);
   const [hotkey, setHotkey] = useState<string>("");
   const [recording, setRecording] = useState<ThreadRef | null>(null);
+  // sidebar recipe lists — without these, threads/projects only ever existed
+  // inside the Record picker overlay and looked like they were never created
+  const [threads, setThreads] = useState<ThreadRef[]>([]);
+  const [projects, setProjects] = useState<ProjectRef[]>([]);
+  const refreshRecipes = () => {
+    void getThreads().then(setThreads).catch(() => setThreads([]));
+    void getProjects().then(setProjects).catch(() => setProjects([]));
+  };
   const [recPicker, setRecPicker] = useState<ThreadRef[] | null>(null);
   const [newThreadTitle, setNewThreadTitle] = useState("");
   // guided tour: one feature per step, arrows pointing at the real controls
@@ -110,6 +121,23 @@ export function App() {
 
   const reload = () => void getVault().then(setVaultState);
 
+  // one ask flow for "new thread" and "new thread in project X"
+  const newThreadAsk = (p?: ProjectRef) => {
+    setAskValue("");
+    setAsk({
+      title: p ? `New thread in “${p.name}”` : "New thread",
+      placeholder: "Thread title",
+      onSubmit: (title) =>
+        void createThread(title, p?.id).then((t) => {
+          void setActiveThread(t);
+          setRecording(t);
+          setSyncMsg(`Recording → ${t.title}`);
+          setTimeout(() => setSyncMsg(null), 2000);
+          refreshRecipes();
+        }),
+    });
+  };
+
   // launcher behavior: typing ANYWHERE in the popup lands in the search box —
   // clicking a chip/row steals focus, and search must never "stop working"
   useEffect(() => {
@@ -129,6 +157,16 @@ export function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // (re)load the sidebar recipe lists whenever the session appears/changes
+  useEffect(() => {
+    if (auth) refreshRecipes();
+    else {
+      setThreads([]);
+      setProjects([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth]);
 
   useEffect(() => {
     reload();
@@ -474,25 +512,56 @@ export function App() {
               <CircleDot size={12} />
               <span className="label">{recording ? recording.title : "Record"}</span>
             </button>
-            <button
-              className="nav-item add"
-              onClick={() => {
-                setAskValue("");
-                setAsk({
-                  title: "New thread",
-                  placeholder: "Thread title",
-                  onSubmit: (title) =>
-                    void createThread(title).then((t) => {
-                      void setActiveThread(t);
-                      setRecording(t);
-                      setSyncMsg(`Recording → ${t.title}`);
-                      setTimeout(() => setSyncMsg(null), 2000);
-                    }),
-                });
-              }}
-            >
+            {threads.map((t) => (
+              <button
+                key={t.id}
+                className={`nav-item ${recording?.id === t.id ? "recording" : ""}`}
+                title={
+                  recording?.id === t.id
+                    ? "Recording here — click to stop"
+                    : `Record to “${t.title}”`
+                }
+                onClick={() => {
+                  if (recording?.id === t.id) {
+                    void setActiveThread(null).then(() => setRecording(null));
+                  } else {
+                    void setActiveThread(t).then(() => setRecording(t));
+                  }
+                }}
+              >
+                <span
+                  className="dot"
+                  style={{ background: recording?.id === t.id ? "var(--danger)" : "var(--line-strong)" }}
+                />
+                <span className="label">{t.title}</span>
+              </button>
+            ))}
+            <button className="nav-item add" onClick={() => newThreadAsk()}>
               + New thread
             </button>
+
+            <div className="sidebar-section">Projects</div>
+            {projects.map((p) => (
+              <div key={p.id} className="row-pair">
+                <button
+                  className="nav-item"
+                  style={{ flex: 1, minWidth: 0 }}
+                  title={`Open “${p.name}” on the dashboard`}
+                  onClick={() => void openProject(p.id)}
+                >
+                  <span className="dot" style={{ background: p.color }} />
+                  <span className="label">{p.name}</span>
+                </button>
+                <button
+                  className="nav-item add"
+                  style={{ width: 24, flex: "none", justifyContent: "center", padding: "5px 2px" }}
+                  title={`Start a thread in “${p.name}”`}
+                  onClick={() => newThreadAsk(p)}
+                >
+                  +
+                </button>
+              </div>
+            ))}
             <button
               className="nav-item add"
               onClick={() => {
@@ -504,6 +573,7 @@ export function App() {
                     void createProject(name).then(() => {
                       setSyncMsg("Project created");
                       setTimeout(() => setSyncMsg(null), 2000);
+                      refreshRecipes();
                     }),
                 });
               }}
@@ -842,6 +912,7 @@ export function App() {
                   setRecording(t);
                   setRecPicker(null);
                   setNewThreadTitle("");
+                  refreshRecipes();
                 });
               }}
             >
