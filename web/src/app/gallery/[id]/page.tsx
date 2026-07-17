@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { Sidebar } from "@/components/Sidebar";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 
 type GalleryDetail = Prompt & { authorName: string };
 
@@ -127,17 +128,18 @@ export default function GalleryDetailPage() {
               <Copy size={13} className={copied ? "text-success" : ""} />
               {copied ? "Copied" : "Copy prompt"}
             </button>
+            <Tip label={bookmarked ? "Remove bookmark" : "Bookmark for later"}>
             <button
               className="btn"
-              title={bookmarked ? "Remove bookmark" : "Bookmark for later"}
               onClick={() => void toggleBookmark()}
             >
               <Bookmark size={13} className={bookmarked ? "fill-brass text-brass" : ""} />
               {bookmarked ? "Bookmarked" : "Bookmark"}
             </button>
+            </Tip>
+            <Tip label="Copy a public share link">
             <button
               className="btn"
-              title="Copy a public share link"
               onClick={() => {
                 void navigator.clipboard.writeText(`${location.origin}/p/${prompt.id}`);
                 toast("Share link copied");
@@ -145,6 +147,7 @@ export default function GalleryDetailPage() {
             >
               <Link2 size={13} /> Share
             </button>
+            </Tip>
             {session &&
               (owned ? (
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-success">

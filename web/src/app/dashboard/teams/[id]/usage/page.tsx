@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 
 // Team usage dashboard — the interactive read on the same estimated numbers
 // the team page shows as a stat block. Owner-only, Pro-gated (402) when
@@ -318,15 +319,15 @@ export default function TeamUsageDashboard() {
                 {sites.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-1.5 border-t border-line pt-3">
                     {sites.map((s) => (
-                      <button
-                        key={s}
-                        className={`chip gap-1.5 transition-opacity ${hiddenSites.has(s) ? "opacity-40" : ""}`}
-                        title={hiddenSites.has(s) ? `Show ${s}` : `Hide ${s}`}
-                        onClick={() => toggleSite(s)}
-                      >
-                        <span className="h-2 w-2 rounded-full" style={{ background: colorOf(s) }} />
-                        {s}
-                      </button>
+                      <Tip key={s} label={hiddenSites.has(s) ? `Show ${s}` : `Hide ${s}`}>
+                        <button
+                          className={`chip gap-1.5 transition-opacity ${hiddenSites.has(s) ? "opacity-40" : ""}`}
+                          onClick={() => toggleSite(s)}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: colorOf(s) }} />
+                          {s}
+                        </button>
+                      </Tip>
                     ))}
                     {(hiddenSites.size > 0 || selectedMember) && (
                       <button

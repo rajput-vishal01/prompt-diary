@@ -9,6 +9,7 @@ import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { signOut, useSession } from "@/lib/auth-client";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 import { TreeSection, type TreeNode } from "@/components/TreeSection";
 
 interface ProjectRow {
@@ -465,13 +466,14 @@ export function Sidebar() {
             <span className="block truncate text-sm font-semibold">{session.user.name}</span>
             <span className="block truncate text-xs text-dim">{session.user.email}</span>
           </span>
-          <button
-            className="text-xs font-semibold text-dim hover:text-danger"
-            title="Sign out"
-            onClick={() => void signOut().then(() => router.push("/"))}
-          >
-            Exit
-          </button>
+          <Tip label="Sign out">
+            <button
+              className="text-xs font-semibold text-dim hover:text-danger"
+              onClick={() => void signOut().then(() => router.push("/"))}
+            >
+              Exit
+            </button>
+          </Tip>
         </div>
 
         {/* drag-to-resize edge */}

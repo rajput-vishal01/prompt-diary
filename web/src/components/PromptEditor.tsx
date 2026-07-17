@@ -7,6 +7,7 @@ import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 import { Select } from "@/components/ui/Select";
 
 interface TeamRow {
@@ -371,9 +372,9 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           ]}
         />
         {visibility === "public" && id && (
+          <Tip label="Anyone with the link can view this prompt">
           <button
             className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line-strong px-4 text-sm font-medium text-dim transition-colors hover:bg-hover hover:text-ink"
-            title="Anyone with the link can view this prompt"
             onClick={() => {
               void navigator.clipboard.writeText(`${location.origin}/p/${id}`);
               toast("Share link copied");
@@ -381,6 +382,7 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           >
             <Link2 size={14} /> Share link
           </button>
+          </Tip>
         )}
         {/* same star vocabulary as the sidebar's Pinned */}
         <button

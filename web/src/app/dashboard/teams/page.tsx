@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
 import { dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 // the Sidebar's Teams tree refetches on this event — fire it whenever team
@@ -343,14 +344,15 @@ function TeamDetail({
                   <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">
                     {p.title}
                   </span>
-                  <button
-                    aria-label="Copy prompt"
-                    title={copiedId === p.id ? "Copied!" : "Copy prompt"}
-                    className="hidden h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink group-hover:flex"
-                    onClick={() => copy(p)}
-                  >
-                    <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
-                  </button>
+                  <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
+                    <button
+                      aria-label="Copy prompt"
+                      className="hidden h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink group-hover:flex"
+                      onClick={() => copy(p)}
+                    >
+                      <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
+                    </button>
+                  </Tip>
                 </div>
                 <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">
                   {p.body}
@@ -487,7 +489,6 @@ function TeamDetail({
               <Link
                 href={`/dashboard/teams/${team.id}/usage`}
                 className="panel block px-4 py-3 transition-colors hover:border-line-strong"
-                title="Open the usage dashboard"
               >
                 <p className="font-display text-2xl font-light tabular-nums text-ink">
                   ~{spendTotal >= 1000 ? `${(spendTotal / 1000).toFixed(1)}k` : spendTotal}

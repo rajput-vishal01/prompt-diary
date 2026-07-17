@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, IBM_Plex_Mono, Instrument_Sans } from "next/font/g
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import { DialogHost } from "@/components/Dialog";
+import { TipProvider } from "@/components/ui/Tooltip";
 
 // Instrument Sans: the UI/body face — humanist grotesque, deliberately NOT
 // Inter (the ubiquitous default is the fastest way to read as template).
@@ -43,9 +44,11 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${mono.variable} ${display.variable} font-sans`}
       >
-        {children}
-        <Toaster />
-        <DialogHost />
+        <TipProvider>
+          {children}
+          <Toaster />
+          <DialogHost />
+        </TipProvider>
       </body>
     </html>
   );

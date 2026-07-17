@@ -104,7 +104,7 @@ export default function ProfilePage() {
       <div className="flex items-center gap-5 pb-1">
         <button
           className="group relative shrink-0 rounded-full"
-          title="Change photo"
+          aria-label="Change photo"
           disabled={avatarUploading}
           onClick={() => avatarRef.current?.click()}
         >
@@ -217,7 +217,6 @@ export default function ProfilePage() {
             onClick={() => {
               void navigator.clipboard.writeText("chrome://extensions/shortcuts");
             }}
-            title="Click to copy"
           >
             chrome://extensions/shortcuts
           </button>{" "}

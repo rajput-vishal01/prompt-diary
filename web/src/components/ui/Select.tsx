@@ -23,7 +23,6 @@ type Props = {
   /** trigger sizing/width classes, e.g. "h-11 w-36" — matches old .input selects */
   className?: string;
   ariaLabel?: string;
-  title?: string;
   disabled?: boolean;
 };
 
@@ -33,7 +32,7 @@ const NONE = "__none__";
 const toRadix = (v: string) => (v === "" ? NONE : v);
 const fromRadix = (v: string) => (v === NONE ? "" : v);
 
-export function Select({ value, onValueChange, options, className = "", ariaLabel, title, disabled }: Props) {
+export function Select({ value, onValueChange, options, className = "", ariaLabel, disabled }: Props) {
   // render the selected label ourselves: Radix's <Value> only learns item
   // text when items MOUNT (i.e. on first open), so it SSRs — and first
   // paints — as an empty trigger. We own the options list; look it up.
@@ -42,7 +41,6 @@ export function Select({ value, onValueChange, options, className = "", ariaLabe
     <SelectPrimitive.Root value={toRadix(value)} onValueChange={(v) => onValueChange(fromRadix(v))} disabled={disabled}>
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
-        title={title}
         className={`input select-trigger group flex cursor-pointer items-center justify-between gap-2 text-left active:scale-[0.98] data-[state=open]:border-ink disabled:cursor-default disabled:opacity-50 ${className}`}
       >
         <span className="truncate">{selectedLabel}</span>

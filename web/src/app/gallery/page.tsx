@@ -11,6 +11,7 @@ import { useSession } from "@/lib/auth-client";
 import { PageVeil } from "@/components/PageVeil";
 import { Sidebar } from "@/components/Sidebar";
 import { toast } from "@/components/Toast";
+import { Tip } from "@/components/ui/Tooltip";
 
 interface GalleryPrompt {
   id: string;
@@ -217,15 +218,16 @@ export default function GalleryPage() {
               >
                 Prompts
               </button>
-              <button
-                className={`chip cursor-pointer transition-colors ${
-                  showRecipes ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
-                }`}
-                title="Public recipes — ordered prompt chains with their final output"
-                onClick={() => setShowRecipes((v) => !v)}
-              >
-                Recipes
-              </button>
+              <Tip label="Public recipes — ordered prompt chains with their final output">
+                <button
+                  className={`chip cursor-pointer transition-colors ${
+                    showRecipes ? "border-ink bg-tint text-ink" : "text-dim hover:text-ink"
+                  }`}
+                  onClick={() => setShowRecipes((v) => !v)}
+                >
+                  Recipes
+                </button>
+              </Tip>
               {session && (
                 <button
                   className={`chip cursor-pointer transition-colors ${
@@ -243,18 +245,18 @@ export default function GalleryPage() {
                 <>
                   <span className="mx-1 h-4 w-px bg-line-strong" aria-hidden />
                   {FACETS.map((f) => (
-                    <button
-                      key={f}
-                      className={`chip cursor-pointer transition-colors ${
-                        facetSel.includes(f)
-                          ? "border-ink bg-tint text-ink"
-                          : "text-dim hover:text-ink"
-                      }`}
-                      title={`Filter by ${f} style (detected from the prompt text)`}
-                      onClick={() => toggleFacet(f)}
-                    >
-                      {f}
-                    </button>
+                    <Tip key={f} label={`Filter by ${f} style (detected from the prompt text)`}>
+                      <button
+                        className={`chip cursor-pointer transition-colors ${
+                          facetSel.includes(f)
+                            ? "border-ink bg-tint text-ink"
+                            : "text-dim hover:text-ink"
+                        }`}
+                        onClick={() => toggleFacet(f)}
+                      >
+                        {f}
+                      </button>
+                    </Tip>
                   ))}
                 </>
               )}
@@ -320,7 +322,6 @@ export default function GalleryPage() {
                       key={p.id}
                       className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
                       onClick={() => router.push(`/gallery/${p.id}`)}
-                      title="Open"
                     >
                       <span className="flex items-center gap-1.5 pr-16">
                         {p.bookmarked && <Bookmark size={13} className="shrink-0 fill-brass text-brass" />}
@@ -355,22 +356,24 @@ export default function GalleryPage() {
                         className="absolute right-3 top-3 hidden items-center gap-0.5 rounded-lg bg-raised group-hover:flex"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          aria-label="Copy prompt"
-                          title={copiedId === p.id ? "Copied!" : "Copy prompt"}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
-                          onClick={() => copy(p)}
-                        >
-                          <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
-                        </button>
-                        <button
-                          aria-label={p.bookmarked ? "Remove bookmark" : "Bookmark"}
-                          title={p.bookmarked ? "Remove bookmark" : "Bookmark"}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
-                          onClick={() => void toggleBookmark(p)}
-                        >
-                          <Bookmark size={14} className={p.bookmarked ? "fill-brass text-brass" : ""} />
-                        </button>
+                        <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
+                          <button
+                            aria-label="Copy prompt"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                            onClick={() => copy(p)}
+                          >
+                            <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
+                          </button>
+                        </Tip>
+                        <Tip label={p.bookmarked ? "Remove bookmark" : "Bookmark"}>
+                          <button
+                            aria-label={p.bookmarked ? "Remove bookmark" : "Bookmark"}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                            onClick={() => void toggleBookmark(p)}
+                          >
+                            <Bookmark size={14} className={p.bookmarked ? "fill-brass text-brass" : ""} />
+                          </button>
+                        </Tip>
                         {session && !ownedSourceIds.has(p.id) && (
                           <button
                             className="ml-1 whitespace-nowrap rounded-full border border-line-strong px-2.5 py-1 text-[11px] font-medium text-ink transition-colors hover:bg-hover"

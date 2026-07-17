@@ -9,6 +9,7 @@ import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
 import { Select } from "@/components/ui/Select";
+import { Tip } from "@/components/ui/Tooltip";
 
 interface Step {
   order: number;
@@ -158,7 +159,6 @@ export default function ThreadPage() {
         <Select
           className="h-9 max-w-32"
           ariaLabel="Visibility"
-          title="Public recipes get a share page anyone can view"
           value={thread.visibility}
           onValueChange={(val) => {
             const v = val as "private" | "public";
@@ -173,16 +173,17 @@ export default function ThreadPage() {
           ]}
         />
         {thread.visibility === "public" && (
-          <button
-            className="btn"
-            title="Anyone with the link can view this recipe"
-            onClick={() => {
-              void navigator.clipboard.writeText(`${location.origin}/r/${thread.id}`);
-              toast("Share link copied");
-            }}
-          >
-            <Link2 size={13} /> Share
-          </button>
+          <Tip label="Anyone with the link can view this recipe">
+            <button
+              className="btn"
+              onClick={() => {
+                void navigator.clipboard.writeText(`${location.origin}/r/${thread.id}`);
+                toast("Share link copied");
+              }}
+            >
+              <Link2 size={13} /> Share
+            </button>
+          </Tip>
         )}
         <button className="btn" onClick={copyAll}>
           <Copy size={13} /> Copy all
@@ -270,9 +271,9 @@ export default function ThreadPage() {
                       </span>
                     )}
                     <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover:flex">
+                      <Tip label="Copy step">
                       <button
                         aria-label="Copy step"
-                        title="Copy step"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
                         onClick={() => {
                           void navigator.clipboard.writeText(s.prompt.body);
@@ -281,32 +282,36 @@ export default function ThreadPage() {
                       >
                         <Copy size={14} />
                       </button>
+                      </Tip>
+                      <Tip label="Move up">
                       <button
                         aria-label="Move up"
-                        title="Move up"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
                         disabled={i === 0}
                         onClick={() => move(i, -1)}
                       >
                         <ArrowUp size={14} />
                       </button>
+                      </Tip>
+                      <Tip label="Move down">
                       <button
                         aria-label="Move down"
-                        title="Move down"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
                         disabled={i === arr.length - 1}
                         onClick={() => move(i, 1)}
                       >
                         <ArrowDown size={14} />
                       </button>
+                      </Tip>
+                      <Tip label="Remove from thread (prompt is kept)">
                       <button
                         aria-label="Remove step"
-                        title="Remove from thread (prompt is kept)"
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
                         onClick={() => void setSteps(stepIds.filter((x) => x !== s.prompt.id))}
                       >
                         <X size={14} />
                       </button>
+                      </Tip>
                     </span>
                   </div>
                   <p className="mt-1 line-clamp-2 font-mono text-xs leading-relaxed tracking-tight text-dim">

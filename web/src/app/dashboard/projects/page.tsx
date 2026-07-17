@@ -7,6 +7,7 @@ import { api } from "@/lib/client-api";
 import { relativeTime } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { Menu, MenuItem } from "@/components/ui/Menu";
+import { Tip } from "@/components/ui/Tooltip";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 import { dialog } from "@/components/Dialog";
 
@@ -212,17 +213,18 @@ function ProjectsPageInner() {
             </span>
           </button>
         ))}
-        <button
-          className={`ml-auto inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
-            loopingOnly
-              ? "border-accent bg-accent text-white"
-              : "border-line-strong text-dim hover:bg-hover hover:text-ink"
-          }`}
-          title="Threads with 3+ steps — the prompt was iterated toward the output"
-          onClick={() => setLoopingOnly((v) => !v)}
-        >
-          looping
-        </button>
+        <Tip label="Threads with 3+ steps — the prompt was iterated toward the output">
+          <button
+            className={`ml-auto inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+              loopingOnly
+                ? "border-accent bg-accent text-white"
+                : "border-line-strong text-dim hover:bg-hover hover:text-ink"
+            }`}
+            onClick={() => setLoopingOnly((v) => !v)}
+          >
+            looping
+          </button>
+        </Tip>
       </div>
 
       {/* thread ledger — two-line manuscript rows */}
@@ -248,7 +250,6 @@ function ProjectsPageInner() {
                 key={t.id}
                 className="group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
                 onClick={() => router.push(`/dashboard/t/${t.id}`)}
-                title="Open"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
@@ -256,9 +257,9 @@ function ProjectsPageInner() {
                       {t.title}
                     </span>
                     {t.finalOutput && (
-                      <span className="shrink-0 text-xs font-medium text-success" title="Has a final output">
-                        shipped ✓
-                      </span>
+                      <Tip label="Has a final output">
+                        <span className="shrink-0 text-xs font-medium text-success">shipped ✓</span>
+                      </Tip>
                     )}
                   </span>
                   <span className="block truncate font-mono text-sm leading-5 tracking-tight text-dim">
@@ -281,9 +282,9 @@ function ProjectsPageInner() {
                     {relativeTime(t.updatedAt)}
                   </span>
                   <span className="hidden items-center gap-0.5 group-hover:flex">
+                    <Tip label="Rename thread">
                     <button
                       aria-label="Rename thread"
-                      title="Rename"
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -292,9 +293,10 @@ function ProjectsPageInner() {
                     >
                       <Pencil size={14} />
                     </button>
+                    </Tip>
+                    <Tip label="Delete thread">
                     <button
                       aria-label="Delete thread"
-                      title="Delete"
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -303,6 +305,7 @@ function ProjectsPageInner() {
                     >
                       <Trash2 size={14} />
                     </button>
+                    </Tip>
                   </span>
                 </span>
               </div>

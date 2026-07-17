@@ -12,6 +12,7 @@ import { SOURCE_DOTS, relativeTime, sourceOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { Select } from "@/components/ui/Select";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/components/ui/Menu";
+import { Tip } from "@/components/ui/Tooltip";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
@@ -233,19 +234,19 @@ function PromptsPageInner() {
   // hover-revealed icon actions shared by both views
   const RowActions = ({ p, ghostBg }: { p: Prompt; ghostBg?: boolean }) => (
     <span className="relative flex shrink-0 items-center gap-0.5">
-      <button
-        aria-label="Copy prompt"
-        title="Copy prompt"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
-        onClick={(e) => copy(p, e)}
-      >
-        {copiedId === p.id ? <Check size={15} className="text-success" /> : <Copy size={15} />}
-      </button>
+      <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
+        <button
+          aria-label="Copy prompt"
+          className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
+          onClick={(e) => copy(p, e)}
+        >
+          {copiedId === p.id ? <Check size={15} className="text-success" /> : <Copy size={15} />}
+        </button>
+      </Tip>
       <Menu
         trigger={
           <button
             aria-label="More actions"
-            title="More"
             className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -310,7 +311,7 @@ function PromptsPageInner() {
           <button className="btn-primary h-7 px-3 text-[13px]" onClick={() => void chainCluster()}>
             Chain into thread
           </button>
-          <button className="text-dim hover:text-ink" title="Dismiss" onClick={dismissCluster}>
+          <button className="text-dim hover:text-ink" aria-label="Dismiss" onClick={dismissCluster}>
             ✕
           </button>
         </div>
@@ -355,13 +356,11 @@ function PromptsPageInner() {
         </div>
         {activeTag && (
           <div className="mt-2.5">
-            <button
-              className="chip gap-1.5 hover:bg-hover"
-              title="Clear tag filter"
-              onClick={() => router.push("/dashboard")}
-            >
-              Tag: {activeTag} <span className="text-dim">×</span>
-            </button>
+            <Tip label="Clear tag filter">
+              <button className="chip gap-1.5 hover:bg-hover" onClick={() => router.push("/dashboard")}>
+                Tag: {activeTag} <span className="text-dim">×</span>
+              </button>
+            </Tip>
           </div>
         )}
       </div>
@@ -421,7 +420,6 @@ function PromptsPageInner() {
               key={p.id}
               className="ledger-row group relative flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
               onClick={() => router.push(`/dashboard/p/${p.id}`)}
-              title="Open"
             >
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
@@ -436,16 +434,17 @@ function PromptsPageInner() {
               </span>
               <span className="flex shrink-0 items-center gap-3">
                 {sourceBadge(p)}
-                <span title={p.visibility === "public" ? "public" : p.teamId ? "shared with team" : "private"}>
-                  <VisibilityIcon p={p} />
-                </span>
-                {p.useCount > 0 && (
-                  <span
-                    className="text-[11px] font-semibold uppercase tabular-nums tracking-wide text-dim"
-                    title={`Copied ${p.useCount} time${p.useCount === 1 ? "" : "s"}`}
-                  >
-                    {p.useCount}×
+                <Tip label={p.visibility === "public" ? "public" : p.teamId ? "shared with team" : "private"}>
+                  <span tabIndex={-1}>
+                    <VisibilityIcon p={p} />
                   </span>
+                </Tip>
+                {p.useCount > 0 && (
+                  <Tip label={`Copied ${p.useCount} time${p.useCount === 1 ? "" : "s"}`}>
+                    <span className="text-[11px] font-semibold uppercase tabular-nums tracking-wide text-dim">
+                      {p.useCount}×
+                    </span>
+                  </Tip>
                 )}
               </span>
               {/* absolute overlay on the hover bg — appearing must not shift
@@ -464,7 +463,6 @@ function PromptsPageInner() {
                 key={p.id}
                 className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
                 onClick={() => router.push(`/dashboard/p/${p.id}`)}
-                title="Open"
               >
                 <span className="flex items-center gap-1.5 pr-8">
                   {p.pinned && <span className="text-xs text-brass">★</span>}
