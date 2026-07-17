@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import { DialogHost } from "@/components/Dialog";
 
-// Inter is the brand's UI/body face (DESIGN.md) — the shadcn init swapped in
-// Geist as a template side effect; restored here.
-const sans = Inter({
+// Instrument Sans: the UI/body face — humanist grotesque, deliberately NOT
+// Inter (the ubiquitous default is the fastest way to read as template).
+const sans = Instrument_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-sans",
@@ -18,12 +18,12 @@ const mono = IBM_Plex_Mono({
   variable: "--font-mono",
 });
 
-// display serif stays at weight 300 — the editorial signature. Never bold.
-// (Newsreader Light is the open substitute for the licensed Waldenburg.)
-const display = Newsreader({
+// Bricolage Grotesque: the display voice — an editorial grotesque with real
+// character at light weights and punch at medium. Display stays 300–500;
+// 600+ is off-limits (the system whispers, it doesn't shout).
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  style: ["normal", "italic"],
-  weight: ["300", "400"],
+  weight: ["300", "400", "500"],
   variable: "--font-display",
 });
 

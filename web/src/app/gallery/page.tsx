@@ -8,6 +8,7 @@ import type { Facet } from "shared";
 import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { useSession } from "@/lib/auth-client";
+import { PageVeil } from "@/components/PageVeil";
 import { Sidebar } from "@/components/Sidebar";
 import { toast } from "@/components/Toast";
 
@@ -151,6 +152,7 @@ export default function GalleryPage() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <PageVeil />
       {/* logged-in users arrive from the dashboard — keep them in its shell */}
       <Suspense>
         <Sidebar />

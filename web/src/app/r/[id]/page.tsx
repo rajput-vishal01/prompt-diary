@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { user } from "@/db/schema";
 import { loadThreadForViewer } from "@/lib/threads";
 import { CopyButton } from "@/components/CopyButton";
+import { PageVeil } from "@/components/PageVeil";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,6 +39,7 @@ export default async function PublicThreadPage({ params }: Params) {
 
   return (
     <main className="mx-auto max-w-2xl px-6 pb-16">
+      <PageVeil />
       <header className="flex items-center justify-between border-b border-line py-5">
         <Link href="/" className="font-display text-xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>

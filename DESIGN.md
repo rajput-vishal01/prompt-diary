@@ -31,11 +31,13 @@ backgrounds. Dark mode: not shipped.
 
 ## Typography
 
-- **Display**: Newsreader at weight **300** (open substitute for licensed
-  Waldenburg Light) — landing headlines, wordmark, section heads. Negative
-  tracking (-0.01em to -0.03em by size). **Never bold display copy.**
-- **UI sans**: Inter 400/500/600 (via next/font) / system-ui (extension
-  popup). Body carries +0.011em letter-spacing — the editorial dialect.
+- **Display**: Bricolage Grotesque **300–500** — landing headlines, wordmark,
+  section heads. An editorial grotesque with real character; light for
+  elegance, medium (500) only for the hero. Negative tracking (-0.01em to
+  -0.03em by size). **Never 600+ display copy.**
+- **UI sans**: Instrument Sans 400/500/600 (via next/font) / system-ui
+  (extension popup). Deliberately not Inter — the ubiquitous default reads as
+  template. Body carries +0.011em letter-spacing — the editorial dialect.
 - **Prompt bodies**: IBM Plex Mono (dashboard) / ui-monospace (extension).
   Always. Prompts are artifacts.
 - **Instrument density kept**: 13px UI type, 32px control height (`h-8`),
