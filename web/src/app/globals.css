@@ -221,6 +221,38 @@ body {
   .glass-ink { background: #0c0a09; }
 }
 
+/* select trigger — one owned transition list so it can't fight the .input
+   utility's transition-colors (order in the generated CSS is unpredictable) */
+.select-trigger {
+  transition:
+    border-color 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+/* overlay materialize — the Ink Glass entrance: scale + blur resolve, never
+   from nothing. Origin comes from the component (trigger-anchored for
+   poppers, center for modals). Exit is faster than entry. */
+.glass-pop[data-state='open'] {
+  animation: glass-pop-in 160ms var(--ease-out-quart);
+}
+.glass-pop[data-state='closed'] {
+  animation: glass-pop-out 120ms var(--ease-out-quart) forwards;
+}
+@keyframes glass-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(4px);
+  }
+}
+@keyframes glass-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+    filter: blur(2px);
+  }
+}
+
 /* ---------- micro-motion: state-conveying only, 150–250ms, ease-out ---------- */
 
 /* (route-change fade-rise lives in dashboard/template.tsx via GSAP) */

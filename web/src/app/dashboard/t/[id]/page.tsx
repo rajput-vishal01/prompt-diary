@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { Select } from "@/components/ui/Select";
 
 interface Step {
   order: number;
@@ -138,39 +139,39 @@ export default function ThreadPage() {
           {saveState === "saving" && <span className="text-dim">Saving…</span>}
           {saveState === "saved" && <span className="text-success">Saved ✓</span>}
         </span>
-        <select
-          className="input h-9 max-w-40"
+        <Select
+          className="h-9 max-w-40"
+          ariaLabel="Project"
           value={thread.projectId ?? ""}
-          onChange={(e) => {
-            const v = e.target.value || null;
+          onValueChange={(val) => {
+            const v = val || null;
             setThread({ ...thread, projectId: v });
             // reload so a failed save reverts the select instead of lying,
             // matching the visibility select below
             void patch({ projectId: v }).then(reload);
           }}
-        >
-          <option value="">No project</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input h-9 max-w-32"
+          options={[
+            { value: "", label: "No project" },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+        />
+        <Select
+          className="h-9 max-w-32"
+          ariaLabel="Visibility"
           title="Public recipes get a share page anyone can view"
           value={thread.visibility}
-          onChange={(e) => {
-            const v = e.target.value as "private" | "public";
+          onValueChange={(val) => {
+            const v = val as "private" | "public";
             setThread({ ...thread, visibility: v });
             // reload after the round-trip — publishing can 403 on unverified
             // email, and the select must snap back rather than lie
             void patch({ visibility: v }).then(reload);
           }}
-        >
-          <option value="private">Private</option>
-          <option value="public">Public</option>
-        </select>
+          options={[
+            { value: "private", label: "Private" },
+            { value: "public", label: "Public" },
+          ]}
+        />
         {thread.visibility === "public" && (
           <button
             className="btn"

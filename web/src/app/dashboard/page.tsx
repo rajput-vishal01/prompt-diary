@@ -10,6 +10,7 @@ import { FACETS, VISIBILITIES, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
 import { SOURCE_DOTS, relativeTime, sourceOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
+import { Select } from "@/components/ui/Select";
 import { FOLDERS_CHANGED_EVENT } from "@/components/Sidebar";
 
 gsap.registerPlugin(useGSAP);
@@ -383,18 +384,16 @@ function PromptsPageInner() {
             />
             <span className="kbd absolute right-3 top-1/2 -translate-y-1/2">/</span>
           </div>
-          <select
-            className="input h-11 w-36"
+          <Select
+            className="h-11 w-36"
+            ariaLabel="Filter by visibility"
             value={visFilter}
-            onChange={(e) => setVisFilter(e.target.value)}
-          >
-            <option value="">All visibility</option>
-            {VISIBILITIES.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
+            onValueChange={setVisFilter}
+            options={[
+              { value: "", label: "All visibility" },
+              ...VISIBILITIES.map((v) => ({ value: v, label: v })),
+            ]}
+          />
           <span className="flex h-11 items-center overflow-hidden rounded-lg border border-line-strong">
             {(["list", "cards"] as const).map((v) => (
               <button

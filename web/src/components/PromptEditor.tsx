@@ -7,6 +7,7 @@ import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
+import { Select } from "@/components/ui/Select";
 
 interface TeamRow {
   id: string;
@@ -339,30 +340,36 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
           value={tags}
           onChange={(e) => setTags(e.target.value)}
         />
-        <select className="input h-11 max-w-44" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-          <option value="">No folder</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input h-11 max-w-44"
+        <Select
+          className="h-11 max-w-44"
+          ariaLabel="Folder"
+          value={folderId}
+          onValueChange={setFolderId}
+          options={[
+            { value: "", label: "No folder" },
+            ...folders.map((f) => ({ value: f.id, label: f.name })),
+          ]}
+        />
+        <Select
+          className="h-11 max-w-44"
+          ariaLabel="Visibility"
           value={visibility}
-          onChange={(e) => setVisibility(e.target.value as Visibility)}
-        >
-          <option value="private">Private (closed)</option>
-          <option value="public">Public (open source)</option>
-        </select>
-        <select className="input h-11 max-w-44" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-          <option value="">No team</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              Share: {t.name}
-            </option>
-          ))}
-        </select>
+          onValueChange={(v) => setVisibility(v as Visibility)}
+          options={[
+            { value: "private", label: "Private (closed)" },
+            { value: "public", label: "Public (open source)" },
+          ]}
+        />
+        <Select
+          className="h-11 max-w-44"
+          ariaLabel="Team sharing"
+          value={teamId}
+          onValueChange={setTeamId}
+          options={[
+            { value: "", label: "No team" },
+            ...teams.map((t) => ({ value: t.id, label: `Share: ${t.name}` })),
+          ]}
+        />
         {visibility === "public" && id && (
           <button
             className="inline-flex h-11 items-center gap-1.5 rounded-full border border-line-strong px-4 text-sm font-medium text-dim transition-colors hover:bg-hover hover:text-ink"
