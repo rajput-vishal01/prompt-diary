@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Folder, Prompt, Visibility } from "shared";
 import type { NewPrompt } from "../lib/vault";
 import type { TeamRow } from "../lib/api";
+import { GlassSelect } from "./GlassSelect";
 
 interface Props {
   prompt: Prompt | null; // null = creating
@@ -72,36 +73,40 @@ export function PromptEditor({
       <div className="row">
         <div>
           <div className="field-label">Folder</div>
-          <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-            <option value="">No folder</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+          <GlassSelect
+            ariaLabel="Folder"
+            value={folderId}
+            onChange={setFolderId}
+            options={[
+              { value: "", label: "No folder" },
+              ...folders.map((f) => ({ value: f.id, label: f.name })),
+            ]}
+          />
         </div>
         <div>
           <div className="field-label">Visibility</div>
-          <select
+          <GlassSelect
+            ariaLabel="Visibility"
             value={visibility}
-            onChange={(e) => setVisibility(e.target.value as Visibility)}
-          >
-            <option value="private">Private (closed)</option>
-            <option value="public">Public (open)</option>
-          </select>
+            onChange={(v) => setVisibility(v as Visibility)}
+            options={[
+              { value: "private", label: "Private (closed)" },
+              { value: "public", label: "Public (open)" },
+            ]}
+          />
         </div>
         {teams.length > 0 && (
           <div>
             <div className="field-label">Team</div>
-            <select value={teamId ?? ""} onChange={(e) => setTeamId(e.target.value)}>
-              <option value="">No team</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+            <GlassSelect
+              ariaLabel="Team"
+              value={teamId ?? ""}
+              onChange={setTeamId}
+              options={[
+                { value: "", label: "No team" },
+                ...teams.map((t) => ({ value: t.id, label: t.name })),
+              ]}
+            />
           </div>
         )}
       </div>

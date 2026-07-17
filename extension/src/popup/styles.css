@@ -222,10 +222,21 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: var(--tint);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   border-bottom: 1px solid var(--line);
   font-size: 12.5px;
   color: var(--ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .handoff-banner {
+    background: var(--tint);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .handoff-icon {
@@ -468,15 +479,59 @@ button {
 
 /* ---------- editor / manage overlays ---------- */
 
+/* the overlay is a floating glass SHEET, not a page swap: the list stays
+   visible underneath, dimmed by the scrim ring (the 100vmax spread shadow)
+   and blurred through the sheet's backdrop-filter */
 .editor {
   position: absolute;
-  inset: 0;
-  background: var(--bg);
+  inset: 10px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.62));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(214, 211, 209, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 40px rgba(12, 10, 9, 0.14),
+    0 0 0 100vmax rgba(12, 10, 9, 0.28);
   display: flex;
   flex-direction: column;
   padding: 14px;
   gap: 9px;
   z-index: 10;
+  animation: sheet-in 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* materialize: scale + blur resolve, never from nothing (mirrors the web
+   app's .glass-pop values; no shared file across bundles) */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+    filter: blur(4px);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .editor {
+    background: #ffffff;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .editor {
+    background: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor,
+  .tour-card,
+  .gselect-list {
+    animation: none;
+  }
 }
 
 .editor h2 {
@@ -492,8 +547,7 @@ button {
 }
 
 .editor input,
-.editor textarea,
-.editor select {
+.editor textarea {
   width: 100%;
   background: var(--raised);
   border: 1px solid var(--line-strong);
@@ -512,8 +566,7 @@ button {
 }
 
 .editor input:focus,
-.editor textarea:focus,
-.editor select:focus {
+.editor textarea:focus {
   border-color: var(--ink);
 }
 
@@ -557,6 +610,95 @@ button {
   font-weight: 600;
   color: var(--dim);
   margin-bottom: -5px;
+}
+
+/* ---------- glass select: owned listbox, replaces native selects ---------- */
+
+.gselect {
+  position: relative;
+}
+
+.gselect-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+
+.gselect-trigger:focus-visible {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.gselect-trigger svg {
+  flex-shrink: 0;
+  color: var(--dim);
+}
+
+.gselect-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* opens UPWARD — the selects live near the popup's bottom edge */
+.gselect-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 20;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.66));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(214, 211, 209, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 12px 40px rgba(12, 10, 9, 0.14);
+  transform-origin: bottom center;
+  animation: sheet-in 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .gselect-list {
+    background: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.gselect-option {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* highlight rides the glass: white lift + ink left rule (same language as
+   the web app's menu items) */
+.gselect-option.active {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.gselect-option.selected {
+  font-weight: 600;
 }
 
 /* thread-picker rows (record overlay) */
@@ -746,12 +888,24 @@ button {
   left: 12px;
   right: 12px;
   bottom: 12px;
-  background: var(--raised);
-  border: 1px solid var(--line-strong);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.66));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(214, 211, 209, 0.55);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(12, 10, 9, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 8px 24px rgba(12, 10, 9, 0.12);
   padding: 14px 16px 12px;
   animation: tour-in 220ms ease-out;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tour-card {
+    background: var(--raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 @keyframes tour-in {
