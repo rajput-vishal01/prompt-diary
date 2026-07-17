@@ -20,7 +20,9 @@ export default function DashboardTemplate({
       gsap.fromTo(
         ref.current,
         { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" },
+        // clearProps: a leftover inline transform would make this wrapper a
+        // containing block that hijacks any fixed-position descendant
+        { opacity: 1, y: 0, duration: 0.25, ease: "power2.out", clearProps: "transform,opacity" },
       );
     },
     { scope: ref },
