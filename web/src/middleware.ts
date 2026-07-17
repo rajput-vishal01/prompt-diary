@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAllowedExtensionOrigin } from "@/lib/extension-origin";
 
 // CORS for the chrome extension calling /api/* with a bearer token.
 // Extension origins are chrome-extension://<id>; cookies are not used
@@ -25,13 +26,16 @@ function hasSessionCookie(request: NextRequest): boolean {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // signed-in users skip the marketing/login pages entirely
-  if ((pathname === "/" || pathname === "/login") && hasSessionCookie(request)) {
+  // signed-in users skip the marketing page. /login is deliberately NOT
+  // redirected: the cookie's presence doesn't prove the session is alive, and
+  // when it's dead the dashboard bounces back to /login — bouncing /login to
+  // /dashboard on the same stale cookie made that an infinite redirect loop.
+  if (pathname === "/" && hasSessionCookie(request)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   const origin = request.headers.get("origin") ?? "";
-  const isExtension = origin.startsWith("chrome-extension://");
+  const isExtension = isAllowedExtensionOrigin(origin);
 
   if (request.method === "OPTIONS" && isExtension) {
     return new NextResponse(null, {
@@ -51,5 +55,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/api/:path*"],
+  matcher: ["/", "/api/:path*"],
 };

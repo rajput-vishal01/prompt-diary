@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { destroyAllUserImages } from "./cloudinary";
+import { isAllowedExtensionOrigin } from "./extension-origin";
 import { canSendMail, sendMail, verificationEmailHtml } from "./mailer";
 
 const googleEnabled =
@@ -90,8 +91,8 @@ export const auth = betterAuth({
   plugins: [bearer()],
   trustedOrigins: (request) => {
     const origin = request?.headers.get("origin") ?? "";
-    // the extension's origin is chrome-extension://<generated-id>
-    if (origin.startsWith("chrome-extension://")) return [origin];
+    // chrome-extension://<id> — any id in dev, EXTENSION_IDS-pinned in prod
+    if (isAllowedExtensionOrigin(origin)) return [origin];
     // dev: trust any localhost port (next dev hops ports when 3000 is taken)
     if (
       process.env.NODE_ENV !== "production" &&
