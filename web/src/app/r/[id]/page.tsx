@@ -7,6 +7,7 @@ import { user } from "@/db/schema";
 import { loadThreadForViewer } from "@/lib/threads";
 import { CopyButton } from "@/components/CopyButton";
 import { PageVeil } from "@/components/PageVeil";
+import { ShareCta, ShareHeaderBand } from "@/components/ShareChrome";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,8 +39,9 @@ export default async function PublicThreadPage({ params }: Params) {
     .join("\n\n");
 
   return (
-    <main className="mx-auto max-w-2xl px-6 pb-16">
+    <main className="relative mx-auto max-w-2xl px-6 pb-16">
       <PageVeil />
+      <ShareHeaderBand />
       <header className="flex items-center justify-between border-b border-line py-5">
         <Link href="/" className="font-display text-xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>
@@ -58,7 +60,7 @@ export default async function PublicThreadPage({ params }: Params) {
           {t.steps.length === 1 ? "step" : "steps"}
         </p>
         <div className="mt-2 flex items-start justify-between gap-4">
-          <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+          <h1 className="font-display text-[34px] font-light leading-[1.15] tracking-[-0.01em] text-ink md:text-4xl">
             {t.title}
           </h1>
           {copyable && <CopyButton text={copyable} label="Copy recipe" />}
@@ -135,12 +137,7 @@ export default async function PublicThreadPage({ params }: Params) {
         <p className="text-xs text-dim">
           Prompt Diary — save the prompts, keep the recipe.
         </p>
-        <Link
-          href="/"
-          className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink"
-        >
-          Start your diary
-        </Link>
+        <ShareCta label="Start your diary" />
       </footer>
     </main>
   );

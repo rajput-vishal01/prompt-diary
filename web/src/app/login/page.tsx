@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, signUp } from "@/lib/auth-client";
 import { PageVeil } from "@/components/PageVeil";
+import { SpecularButton } from "@/components/bits";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +15,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // SSR renders the plain submit; the specular pill mounts only when motion is welcome
+  const [motionOK, setMotionOK] = useState(false);
+  useEffect(() => {
+    setMotionOK(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +46,10 @@ export default function LoginPage() {
   <PageVeil />
   {/* soft blue glow rising from the bottom, fading to nothing by mid-page */}
   <div aria-hidden className="auth-glow z-0" />
+  {/* the card is glass so the auth glow breathes through it */}
   <form
     onSubmit={submit}
-    className="relative z-10 w-full max-w-sm space-y-4 rounded-xl border border-line bg-raised p-8"
+    className="glass relative z-10 w-full max-w-sm space-y-4 rounded-2xl p-8"
   >
         <Link href="/" className="block text-center font-display text-2xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>
@@ -81,13 +88,36 @@ export default function LoginPage() {
 
         {error && <p className="text-sm text-danger">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-md bg-accent py-2.5 font-semibold text-white transition-colors hover:bg-accent-deep disabled:opacity-50"
-        >
-          {busy ? "…" : mode === "signin" ? "Sign in" : "Sign up"}
-        </button>
+        {motionOK ? (
+          <SpecularButton
+            type="submit"
+            size="md"
+            radius={10}
+            tint="#0c0a09"
+            tintOpacity={0.92}
+            textColor="#fafafa"
+            lineColor="#ffffff"
+            baseColor="#57534e"
+            intensity={1}
+            shineSize={12}
+            shineFade={42}
+            thickness={1}
+            followMouse
+            proximity={200}
+            disabled={busy}
+            className="w-full"
+          >
+            {busy ? "…" : mode === "signin" ? "Sign in" : "Sign up"}
+          </SpecularButton>
+        ) : (
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-md bg-accent py-2.5 font-semibold text-white transition-colors hover:bg-accent-deep disabled:opacity-50"
+          >
+            {busy ? "…" : mode === "signin" ? "Sign in" : "Sign up"}
+          </button>
+        )}
 
         <div className="flex items-center gap-3 text-xs text-dim">
           <span className="h-px flex-1 bg-line" />

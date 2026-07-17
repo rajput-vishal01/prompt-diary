@@ -6,6 +6,7 @@ import { prompts, user } from "@/db/schema";
 import { canAccessPrompt } from "@/lib/permissions";
 import { CopyButton } from "@/components/CopyButton";
 import { PageVeil } from "@/components/PageVeil";
+import { ShareCta, ShareHeaderBand } from "@/components/ShareChrome";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,8 +35,9 @@ export default async function PublicPromptPage({ params }: Params) {
   if (!p) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 pb-16">
+    <main className="relative mx-auto max-w-2xl px-6 pb-16">
       <PageVeil />
+      <ShareHeaderBand />
       <header className="flex items-center justify-between border-b border-line py-5">
         <Link href="/" className="font-display text-xl font-light tracking-tight">
           Prompt <span className="text-accent">Diary</span>
@@ -52,7 +54,7 @@ export default async function PublicPromptPage({ params }: Params) {
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-dim">
           Shared prompt · by {p.authorName}
         </p>
-        <h1 className="mt-2 font-display text-3xl font-light tracking-[-0.01em] text-ink">
+        <h1 className="mt-2 font-display text-[34px] font-light leading-[1.15] tracking-[-0.01em] text-ink md:text-4xl">
           {p.title}
         </h1>
         {p.tags.length > 0 && (
@@ -135,12 +137,7 @@ export default async function PublicPromptPage({ params }: Params) {
         <p className="text-xs text-dim">
           Prompt Diary — a vault for your best AI prompts.
         </p>
-        <Link
-          href="/"
-          className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink"
-        >
-          Start your diary
-        </Link>
+        <ShareCta label="Start your diary" />
       </footer>
     </main>
   );
