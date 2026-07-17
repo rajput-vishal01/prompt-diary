@@ -37,18 +37,20 @@ style.textContent = `
     display: none;
     align-items: center;
     gap: 6px;
-    background: #ffffff;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.7));
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
     color: #0c0a09;
-    border: 1px solid #e7e5e4;
+    border: 1px solid rgba(214, 211, 209, 0.6);
     border-radius: 8px;
     padding: 5px 10px;
     font: 600 12px/1 system-ui, sans-serif;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 4px 16px rgba(0, 0, 0, 0.08);
     user-select: none;
   }
   .pd-bubble:hover, .pd-composer:hover {
-    background: #f0efed;
+    background: rgba(255, 255, 255, 0.94);
     border-color: #292524;
   }
   .pd-composer {
@@ -69,9 +71,13 @@ style.textContent = `
     left: 50%;
     bottom: 28px;
     transform: translateX(-50%);
-    background: #0c0a09;
+    background: rgba(12, 10, 9, 0.86);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     color: #fff;
-    border-radius: 8px;
+    border-radius: 9999px;
     padding: 8px 16px;
     font: 600 12.5px/1 system-ui, sans-serif;
     display: none;
@@ -84,13 +90,15 @@ style.textContent = `
     display: none;
     flex-direction: column;
     gap: 6px;
-    background: #ffffff;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72));
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
     color: #0c0a09;
-    border: 1px solid #e7e5e4;
+    border: 1px solid rgba(214, 211, 209, 0.6);
     border-radius: 10px;
     padding: 8px 12px;
     font: 500 11.5px/1.4 system-ui, sans-serif;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 4px 16px rgba(0, 0, 0, 0.08);
     cursor: pointer;
     user-select: none;
     min-width: 150px;
@@ -136,7 +144,7 @@ style.textContent = `
   .pd-limit-est { color: #a8a29e; font-size: 10px; }
   /* the head doubles as the drag handle */
   .pd-limit-head { cursor: move; }
-  .pd-limit.dragging { transition: none; box-shadow: 0 8px 28px rgba(0,0,0,0.16); }
+  .pd-limit.dragging { transition: none; box-shadow: inset 0 1px 0 rgba(255,255,255,0.65), 0 8px 28px rgba(0,0,0,0.16); }
   .pd-limit.dragging .pd-limit-fill, .pd-limit.dragging .pd-limit-subfill { transition: none; }
   .pd-limit-model {
     display: flex; align-items: center; gap: 5px;
@@ -165,6 +173,24 @@ style.textContent = `
     transition: width 300ms ease-out;
   }
   .pd-limit-sub.over .pd-limit-subfill { background: #dc2626; }
+  /* hard solid fallbacks — arbitrary host pages, old engines, a11y prefs.
+     blur stays <=16px and only on these small fixed elements (perf guard). */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .pd-bubble, .pd-composer, .pd-limit { background: #ffffff; }
+    .pd-toast { background: #0c0a09; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .pd-bubble, .pd-composer, .pd-limit {
+      background: #ffffff;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .pd-toast {
+      background: #0c0a09;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
 `;
 shadow.appendChild(style);
 
