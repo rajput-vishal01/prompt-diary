@@ -287,6 +287,11 @@ export default function Home() {
   const stackCard = `stack-card relative overflow-hidden rounded-t-[2.5rem] border-t border-line ${
     reducedMotion ? "" : "sticky top-0"
   }`;
+  // dwell runway: each wrapper is taller than its pinned card, so the card
+  // holds still for ~half a viewport of scrolling — time to actually read —
+  // before the next card slides over it
+  const stackStep = reducedMotion ? "" : "min-h-[145dvh]";
+  const stackStepLast = reducedMotion ? "" : "min-h-[120dvh]";
   const active = FEATURES[activeFeature] ?? FEATURES[0]!;
 
   return (
@@ -491,6 +496,7 @@ export default function Home() {
           each new card sliding over the last while it sinks back ============ */}
 
       {/* ---------- card 1: the idea, spelled large ---------- */}
+      <div className={stackStep}>
       <section className={`${stackCard} bg-ink text-bg`}>
         <div aria-hidden className="pointer-events-none absolute -left-40 top-0 h-[32rem] w-[32rem] rounded-full bg-orb-lavender/20 blur-[150px]" />
         <div aria-hidden className="pointer-events-none absolute -right-40 bottom-0 h-[32rem] w-[32rem] rounded-full bg-orb-peach/20 blur-[150px]" />
@@ -536,8 +542,10 @@ export default function Home() {
           </p>
         </div>
       </section>
+      </div>
 
       {/* ---------- card 2: what it does — the feature stage ---------- */}
+      <div className={stackStep}>
       <section className={`${stackCard} bg-bg shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]`}>
         <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col justify-center px-6 py-24 md:px-10">
           <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">What it does</p>
@@ -605,8 +613,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* ---------- card 3: capabilities — hover list with popping previews ---------- */}
+      <div className={stackStep}>
       <section className={`${stackCard} border-line bg-raised`}>
         <div className="relative mx-auto flex min-h-[100dvh] max-w-6xl flex-col justify-center px-6 py-24 md:px-10">
           <p className="st-reveal text-xs font-semibold uppercase tracking-[0.08em] text-dim">And everything around them</p>
@@ -654,8 +664,10 @@ export default function Home() {
           </ul>
         </div>
       </section>
+      </div>
 
       {/* ---------- card 4: manifesto ---------- */}
+      <div className={stackStepLast}>
       <section data-quote className={`${stackCard} bg-bg text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]`}>
         <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col items-center justify-center px-6 py-24">
           <p className="mx-auto max-w-3xl font-display text-[clamp(28px,4.5vw,52px)] font-light leading-[1.2] tracking-[-0.01em] text-ink">
@@ -671,6 +683,7 @@ export default function Home() {
           </p>
         </div>
       </section>
+      </div>
 
       {/* ---------- closing band + wordmark footer (fits any viewport) ---------- */}
       <footer className="relative overflow-hidden bg-ink px-6 pt-24 text-bg md:px-10 md:pt-32">

@@ -89,17 +89,59 @@ glass on content is the dated-glassmorphism failure mode.
   scale from their trigger side, modals stay center-origin; keyboard-invoked
   surfaces (⌘K) get ≤100ms or nothing. Reduced motion → crossfade only.
 
+## Kinetic layer (the confirmed direction — "liquid glass + editorial calm")
+
+The product's look = Editorial Ink content + Ink Glass overlays + a kinetic
+accent layer built from vendored React Bits components (`components/bits/`,
+MIT). Register rule: **marketing surfaces are kinetic, the dashboard is calm.**
+A tool must never animate between the user and their rows.
+
+- **GlassSurface** — refractive SVG-displacement glass (Chromium; Ink Glass
+  frost fallback elsewhere, solid under `prefers-reduced-transparency`).
+  For chrome that floats permanently: the landing nav pill; later the
+  command palette. The nav is FIXED — it never hides on scroll.
+- **SpecularButton** — WebGL rim light that leans toward the cursor. Primary
+  CTAs on marketing surfaces only (hero, footer band). In-app CTAs stay
+  `.btn-primary`.
+- **Strands** — WebGL ribbon atmosphere behind hero-scale type. Saturated
+  ribbon tones (`#34d399 #fb923c #a78bfa #38bdf8`) — the pastel orb tokens
+  wash out on the light canvas; orbs stay for static washes, ribbons carry
+  the live color.
+- **GradualBlur / PageVeil** — progressive bottom-edge dissolve. `PageVeil`
+  (viewport-bottom, 4rem) ships on every public page: landing, gallery,
+  login, /p, /r. **Never the dashboard.**
+- **LogoLoop** — velocity-smoothed marquee with edge fades; decelerates
+  under the cursor.
+- **Sticky-stack scroll story** (marketing only): major sections are
+  rounded-top cards that pin at the viewport top and sink back
+  (scale 0.93, dim to 40%) as the next slides over. Every card gets a
+  **dwell runway** — its wrapper is ~145dvh vs the 100dvh card — so the
+  pinned card holds still long enough to read before the takeover starts.
+- **Menu morph** — the full-screen menu expands from the burger as a
+  dark-glass droplet (framer-motion clip-path circle), links stagger in;
+  it retracts on close. Overlays morph out of their triggers, never fade
+  in from nowhere.
+
+Libraries in play: lenis (smooth scroll), GSAP + ScrollTrigger (entrances,
+reveals, stack scrub), framer-motion (morphs, springs, crossfades), ogl
+(WebGL bits). All of it gates on `prefers-reduced-motion` — WebGL layers
+don't even mount.
+
 ## Landing (brand register)
 
-64px nav (wordmark left, outline + ink pills right) · centered hero with
-display serif over drifting pastel orbs (`.orb` + `.orb-drift`, 18–22s
-ease-in-out, reduced-motion kills them) · the interactive diary specimen as
-product imagery · hairline-ruled editorial story rows · CTA band · quiet
-footer. 96px-ish section rhythm, content caps ~1152px.
+Fixed refractive glass nav pill · split hero: display headline left,
+floating tilted glass product panels right (slow y-float loops) over live
+Strands ribbons + the blurred `Pd` glow word, hero-bottom GradualBlur ·
+LogoLoop of AI-brand lockups · the four-card sticky-stack story (ink
+manifesto band → feature stage → capabilities ledger with spring-pop
+previews → quote) · footer with SpecularButton CTA and the SVG
+`textLength`-fitted wordmark bleeding off the bottom edge. Content caps
+~1152px.
 
 ## Motion
 
 Dashboard: 150–200ms ease-out state feedback only (hover, press scale 0.97,
-copy confirmation) — no page-load choreography. Landing: one orchestrated
-GSAP entrance (hero copy → specimen rows) + orb drift. `prefers-reduced-motion`:
-everything off.
+copy confirmation) — no page-load choreography, no veil, no WebGL. Landing:
+lenis + one orchestrated GSAP entrance + the sticky-stack scrub + spring
+micro-interactions per the kinetic layer above. `prefers-reduced-motion`:
+everything off, WebGL unmounted, stack unstuck.
