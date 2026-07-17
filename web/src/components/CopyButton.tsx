@@ -3,8 +3,20 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-/** ghost copy pill for public share pages (server components can't own state) */
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+/**
+ * Ghost copy pill for public share pages (server components can't own state).
+ * countPromptId: pass the public prompt's id to record the copy for the
+ * gallery's "most copied" ranking.
+ */
+export function CopyButton({
+  text,
+  label = "Copy",
+  countPromptId,
+}: {
+  text: string;
+  label?: string;
+  countPromptId?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -13,6 +25,13 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
         void navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        if (countPromptId) {
+          void fetch("/api/v1/gallery/copied", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ promptId: countPromptId }),
+          }).catch(() => {});
+        }
       }}
     >
       {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}

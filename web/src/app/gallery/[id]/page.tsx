@@ -60,6 +60,8 @@ export default function GalleryDetailPage() {
     void navigator.clipboard.writeText(prompt.body);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
+    // count the copy — this powers the "most copied" sort
+    void api("/api/v1/gallery/copied", { method: "POST", body: { promptId: prompt.id } }).catch(() => {});
   };
 
   const toggleBookmark = async () => {

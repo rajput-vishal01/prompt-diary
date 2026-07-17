@@ -97,6 +97,8 @@ export default function GalleryPage() {
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 1200);
+    // count the copy — this powers the "most copied" sort
+    void api("/api/v1/gallery/copied", { method: "POST", body: { promptId: p.id } }).catch(() => {});
   };
 
   const toggleBookmark = async (p: GalleryPrompt) => {

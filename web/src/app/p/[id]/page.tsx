@@ -73,7 +73,7 @@ export default async function PublicPromptPage({ params }: Params) {
           <span className="flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-dim">
             The prompt
           </span>
-          <CopyButton text={p.body} label="Copy prompt" />
+          <CopyButton text={p.body} label="Copy prompt" countPromptId={p.id} />
         </div>
         <pre className="whitespace-pre-wrap rounded-xl bg-soft p-5 font-mono text-sm leading-relaxed tracking-tight text-ink">
           {p.body}
