@@ -17,9 +17,13 @@ export async function POST(req: NextRequest) {
 
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = `prompt-diary/${g.user.id}`;
-  // cloudinary signature: sha1 of sorted params + api secret
-  const toSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+  // pin the upload to image formats — signed params are enforced by
+  // Cloudinary, so a signed request can't smuggle raw/video/arbitrary files
+  // into the account (cost inflation / file hosting)
+  const allowedFormats = "jpg,jpeg,png,webp,gif,avif";
+  // cloudinary signature: sha1 of alphabetically-sorted params + api secret
+  const toSign = `allowed_formats=${allowedFormats}&folder=${folder}&timestamp=${timestamp}${apiSecret}`;
   const signature = createHash("sha1").update(toSign).digest("hex");
 
-  return jsonOk({ cloudName, apiKey, timestamp, folder, signature });
+  return jsonOk({ cloudName, apiKey, timestamp, folder, allowedFormats, signature });
 }

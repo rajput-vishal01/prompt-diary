@@ -81,13 +81,27 @@ describe("verifyWebhook (standard webhooks HMAC)", () => {
   test("accepts a valid signature and rejects a tampered payload", () => {
     process.env.POLAR_WEBHOOK_SECRET = `whsec_${secretB64}`;
     const payload = JSON.stringify({ type: "subscription.active" });
+    const now = String(Math.floor(Date.now() / 1000));
     const headers = {
       id: "msg_1",
-      timestamp: "1700000000",
-      signature: `v1,${sign("msg_1", "1700000000", payload)}`,
+      timestamp: now,
+      signature: `v1,${sign("msg_1", now, payload)}`,
     };
     expect(verifyWebhook(payload, headers)).toBe(true);
     expect(verifyWebhook(payload + "x", headers)).toBe(false);
+    delete process.env.POLAR_WEBHOOK_SECRET;
+  });
+
+  test("rejects a replayed (stale-timestamp) signature even when valid", () => {
+    process.env.POLAR_WEBHOOK_SECRET = `whsec_${secretB64}`;
+    const payload = JSON.stringify({ type: "subscription.active" });
+    const stale = String(Math.floor(Date.now() / 1000) - 10 * 60); // 10 min old
+    const headers = {
+      id: "msg_1",
+      timestamp: stale,
+      signature: `v1,${sign("msg_1", stale, payload)}`,
+    };
+    expect(verifyWebhook(payload, headers)).toBe(false);
     delete process.env.POLAR_WEBHOOK_SECRET;
   });
 

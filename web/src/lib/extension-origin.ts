@@ -11,6 +11,12 @@ const allowedIds = (process.env.EXTENSION_IDS ?? "")
 
 export function isAllowedExtensionOrigin(origin: string): boolean {
   if (!origin.startsWith("chrome-extension://")) return false;
-  if (allowedIds.length === 0) return true;
+  if (allowedIds.length === 0) {
+    // FAIL CLOSED in production: trusting any extension id there would let a
+    // random malicious extension the user installed ride their session
+    // cookie through the credentialed CORS grant. Unset ids are a
+    // dev-only convenience (unpacked installs get a new id per machine).
+    return process.env.NODE_ENV !== "production";
+  }
   return allowedIds.includes(origin.slice("chrome-extension://".length));
 }

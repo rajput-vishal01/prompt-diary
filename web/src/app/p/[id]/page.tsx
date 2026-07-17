@@ -26,7 +26,20 @@ async function loadPublicPrompt(id: string) {
 export async function generateMetadata({ params }: Params) {
   const { id } = await params;
   const p = await loadPublicPrompt(id);
-  return { title: p ? `${p.title} — Prompt Diary` : "Prompt — Prompt Diary" };
+  if (!p) return { title: "Prompt — Prompt Diary", robots: { index: false } };
+  const description = `${p.body.replace(/\s+/g, " ").slice(0, 155)}…`;
+  return {
+    title: `${p.title} — Prompt Diary`,
+    description,
+    alternates: { canonical: `/p/${p.id}` },
+    openGraph: {
+      title: p.title,
+      description,
+      url: `/p/${p.id}`,
+      type: "article",
+    },
+    twitter: { card: "summary", title: p.title, description },
+  };
 }
 
 export default async function PublicPromptPage({ params }: Params) {

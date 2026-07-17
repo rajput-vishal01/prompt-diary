@@ -3,7 +3,8 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import { ProjectCreateSchema } from "shared";
 import { db } from "@/db";
 import { projects, threads } from "@/db/schema";
-import { invalid, guard, jsonOk } from "@/lib/api";
+import { invalid, guard, jsonErr, jsonOk } from "@/lib/api";
+import { isTeamMember } from "@/lib/permissions";
 
 // GET /api/v1/projects — my projects with thread counts
 export async function GET(req: NextRequest) {
@@ -34,6 +35,11 @@ export async function POST(req: NextRequest) {
 
   const parsed = ProjectCreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error);
+
+  // same gate as prompts/threads: never accept a teamId the caller isn't in
+  if (parsed.data.teamId && !(await isTeamMember(g.user.id, parsed.data.teamId))) {
+    return jsonErr("Not a member of that team", 403);
+  }
 
   const [row] = await db
     .insert(projects)

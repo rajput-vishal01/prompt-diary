@@ -78,6 +78,11 @@ export function verifyWebhook(
   const secretRaw = process.env.POLAR_WEBHOOK_SECRET;
   if (!secretRaw || !headers.id || !headers.timestamp || !headers.signature) return false;
 
+  // replay window: a leaked (id, timestamp, signature, payload) tuple would
+  // otherwise verify forever — e.g. resurrecting a stale subscription.active
+  const ts = Number(headers.timestamp);
+  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 5 * 60) return false;
+
   // secrets are shown as "whsec_<base64>"
   const secret = Buffer.from(secretRaw.replace(/^whsec_/, ""), "base64");
   const expected = createHmac("sha256", secret)

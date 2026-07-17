@@ -25,7 +25,20 @@ async function loadPublicThread(id: string) {
 export async function generateMetadata({ params }: Params) {
   const { id } = await params;
   const t = await loadPublicThread(id);
-  return { title: t ? `${t.title} — Prompt Diary recipe` : "Recipe — Prompt Diary" };
+  if (!t) return { title: "Recipe — Prompt Diary", robots: { index: false } };
+  const description = `A ${t.steps.length}-step prompt recipe by ${t.authorName} — the ordered chain of prompts that produced one great result.`;
+  return {
+    title: `${t.title} — Prompt Diary recipe`,
+    description,
+    alternates: { canonical: `/r/${t.id}` },
+    openGraph: {
+      title: t.title,
+      description,
+      url: `/r/${t.id}`,
+      type: "article",
+    },
+    twitter: { card: "summary", title: t.title, description },
+  };
 }
 
 export default async function PublicThreadPage({ params }: Params) {

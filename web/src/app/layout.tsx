@@ -28,10 +28,31 @@ const display = Bricolage_Grotesque({
   variable: "--font-display",
 });
 
+const SITE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Prompt Diary",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Prompt Diary — a vault for your best AI prompts",
+    template: "%s — Prompt Diary",
+  },
   description:
-    "A password-manager-style vault for your best AI prompts. Save, organize, sync, and share.",
+    "A password-manager-style vault for your best AI prompts. Save from any AI site, organize, reuse in one keystroke, and carry whole conversations between models.",
+  openGraph: {
+    type: "website",
+    siteName: "Prompt Diary",
+    title: "Prompt Diary — a vault for your best AI prompts",
+    description:
+      "Save the prompt. Keep the recipe. Carry the context. A vault for your best AI prompts, from any AI site.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Prompt Diary — a vault for your best AI prompts",
+    description:
+      "Save the prompt. Keep the recipe. Carry the context.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

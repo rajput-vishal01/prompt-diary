@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins";
+import { Redis } from "@upstash/redis";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
@@ -10,6 +11,15 @@ import { canSendMail, sendMail, verificationEmailHtml } from "./mailer";
 
 const googleEnabled =
   !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+
+// Better Auth's built-in rate limiter (sign-in brute force etc.) stores
+// counters in per-instance MEMORY unless given a shared store — on serverless
+// every cold start resets it, so credential stuffing never hits the limit.
+// Wire it to the same Upstash Redis the API limiter uses when configured.
+const authRedis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? Redis.fromEnv()
+    : null;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -85,7 +95,23 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60,
     },
+    // sessions stay in Postgres even when secondaryStorage is configured —
+    // Redis is only the rate-limit counter store here
+    storeSessionInDatabase: true,
   },
+  ...(authRedis && {
+    secondaryStorage: {
+      get: async (key: string) => (await authRedis.get<string>(key)) ?? null,
+      set: async (key: string, value: string, ttl?: number) => {
+        if (ttl) await authRedis.set(key, value, { ex: ttl });
+        else await authRedis.set(key, value);
+      },
+      delete: async (key: string) => {
+        await authRedis.del(key);
+      },
+    },
+    rateLimit: { storage: "secondary-storage" as const },
+  }),
   // bearer(): lets the chrome extension authenticate with
   // "Authorization: Bearer <token>" instead of cookies
   plugins: [bearer()],

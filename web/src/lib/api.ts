@@ -82,6 +82,9 @@ export async function rateLimit(key: string): Promise<boolean> {
 }
 
 export function rateLimitKey(req: NextRequest, userId?: string): string {
+  // trust boundary: the first XFF hop is only authoritative behind a proxy
+  // that overwrites the header (Vercel does). Self-hosting behind anything
+  // else must normalize XFF at the edge or anonymous limits are spoofable.
   return (
     userId ??
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??

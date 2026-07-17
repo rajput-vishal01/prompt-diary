@@ -9,6 +9,7 @@ interface SignResponse {
   apiKey: string;
   timestamp: number;
   folder: string;
+  allowedFormats: string;
   signature: string;
 }
 
@@ -24,6 +25,7 @@ export async function uploadImage(file: File): Promise<string> {
   form.append("api_key", sign.apiKey);
   form.append("timestamp", String(sign.timestamp));
   form.append("folder", sign.folder);
+  form.append("allowed_formats", sign.allowedFormats);
   form.append("signature", sign.signature);
 
   const res = await fetch(
