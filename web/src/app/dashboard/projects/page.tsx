@@ -148,7 +148,7 @@ function ProjectsPageInner() {
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-4 flex items-center justify-between">
         {/* the one Waldenburg moment on this page */}
-        <h1 className="flex items-center gap-2 font-display text-2xl font-light tracking-tight">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-light tracking-[-0.015em]">
           {selectedProject?.name ?? "Projects"}
           {!isLoading && (
             <span className="font-sans text-sm font-normal tabular-nums text-dim">
@@ -161,7 +161,7 @@ function ProjectsPageInner() {
               trigger={
                 <button
                   aria-label="Project actions"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink"
+                  className="icon-btn hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink"
                 >
                   <MoreHorizontal size={15} />
                 </button>
@@ -187,7 +187,7 @@ function ProjectsPageInner() {
       {/* project shelf — chip navigation, same language as the popup */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         <button
-          className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+          className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,color,border-color,transform] duration-[120ms] active:scale-[0.97] ${
             selected === null
               ? "border-accent bg-accent text-white"
               : "border-line-strong text-dim hover:bg-hover hover:text-ink"
@@ -199,7 +199,7 @@ function ProjectsPageInner() {
         {projects.map((p) => (
           <button
             key={p.id}
-            className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+            className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,color,border-color,transform] duration-[120ms] active:scale-[0.97] ${
               selected === p.id
                 ? "border-accent bg-accent text-white"
                 : "border-line-strong text-dim hover:bg-hover hover:text-ink"
@@ -218,7 +218,7 @@ function ProjectsPageInner() {
         <span className="ml-auto border-l border-line pl-3">
           <Tip label="Threads with 3+ steps — the prompt was iterated toward the output">
             <button
-              className={`inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-colors duration-[120ms] ${
+              className={`inline-flex h-7 items-center rounded-full border px-3 text-[13px] font-medium transition-[background-color,color,border-color,transform] duration-[120ms] active:scale-[0.97] ${
                 loopingOnly
                   ? "border-ink bg-tint text-ink"
                   : "border-line-strong text-dim hover:bg-hover hover:text-ink"
@@ -290,7 +290,7 @@ function ProjectsPageInner() {
                     <Tip label="Rename thread">
                     <button
                       aria-label="Rename thread"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                      className="icon-btn hover:bg-ink/[0.06] hover:text-ink"
                       onClick={(e) => {
                         e.stopPropagation();
                         void renameThread(t);
@@ -302,7 +302,7 @@ function ProjectsPageInner() {
                     <Tip label="Delete thread">
                     <button
                       aria-label="Delete thread"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
+                      className="icon-btn hover:bg-danger/10 hover:text-danger"
                       onClick={(e) => {
                         e.stopPropagation();
                         void deleteThread(t);

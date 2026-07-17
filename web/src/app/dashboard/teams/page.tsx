@@ -129,7 +129,7 @@ function TeamsPageInner() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+          <h1 className="font-display text-2xl font-light tracking-[-0.015em] text-ink">
             Teams
           </h1>
           <p className="mt-1 text-sm text-dim">
@@ -304,17 +304,17 @@ function TeamDetail({
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center gap-3">
         <button
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-[background-color,color,transform] hover:bg-hover hover:text-ink active:scale-[0.97]"
           onClick={onBack}
         >
           <ArrowLeft size={15} /> Teams
         </button>
-        <h1 className="min-w-0 flex-1 truncate font-display text-2xl font-light tracking-[-0.01em] text-ink">
+        <h1 className="min-w-0 flex-1 truncate font-display text-2xl font-light tracking-[-0.015em] text-ink">
           {team.name}
         </h1>
         {isOwner && (
           <button
-            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-colors hover:bg-danger/5"
+            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-[background-color,transform] hover:bg-danger/5 active:scale-[0.97]"
             onClick={() => void deleteTeam()}
           >
             Delete team
@@ -347,7 +347,7 @@ function TeamDetail({
                   <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
                     <button
                       aria-label="Copy prompt"
-                      className="hidden h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink group-hover:flex"
+                      className="icon-btn hidden hover:bg-ink/[0.06] hover:text-ink group-hover:flex"
                       onClick={() => copy(p)}
                     >
                       <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />

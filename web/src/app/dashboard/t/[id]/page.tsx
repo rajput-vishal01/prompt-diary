@@ -130,7 +130,7 @@ export default function ThreadPage() {
           so Delete never renders past the viewport edge */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-colors hover:bg-hover hover:text-ink"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-body transition-[background-color,color,transform] hover:bg-hover hover:text-ink active:scale-[0.97]"
           onClick={() => router.push("/dashboard/projects")}
         >
           <ArrowLeft size={15} /> Projects
@@ -207,7 +207,7 @@ export default function ThreadPage() {
           </span>
         ) : (
           <button
-            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-colors hover:bg-danger/5"
+            className="rounded-lg px-2 py-1.5 text-sm text-danger transition-[background-color,transform] hover:bg-danger/5 active:scale-[0.97]"
             onClick={() => setConfirmingDelete(true)}
           >
             Delete
@@ -218,7 +218,7 @@ export default function ThreadPage() {
       {/* the page's one Waldenburg moment — an editable headline */}
       <div>
         <input
-          className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
+          className="w-full border-b border-transparent bg-transparent pb-1 font-display text-2xl font-light tracking-[-0.015em] text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
           placeholder="Untitled thread"
           value={thread.title}
           onChange={(e) => setThread({ ...thread, title: e.target.value })}
@@ -274,7 +274,7 @@ export default function ThreadPage() {
                       <Tip label="Copy step">
                       <button
                         aria-label="Copy step"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                        className="icon-btn hover:bg-ink/[0.06] hover:text-ink"
                         onClick={() => {
                           void navigator.clipboard.writeText(s.prompt.body);
                           toast("Step copied");
@@ -286,7 +286,7 @@ export default function ThreadPage() {
                       <Tip label="Move up">
                       <button
                         aria-label="Move up"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                        className="icon-btn hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
                         disabled={i === 0}
                         onClick={() => move(i, -1)}
                       >
@@ -296,7 +296,7 @@ export default function ThreadPage() {
                       <Tip label="Move down">
                       <button
                         aria-label="Move down"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                        className="icon-btn hover:bg-ink/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-30"
                         disabled={i === arr.length - 1}
                         onClick={() => move(i, 1)}
                       >
@@ -306,7 +306,7 @@ export default function ThreadPage() {
                       <Tip label="Remove from thread (prompt is kept)">
                       <button
                         aria-label="Remove step"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-danger/10 hover:text-danger"
+                        className="icon-btn hover:bg-danger/10 hover:text-danger"
                         onClick={() => void setSteps(stepIds.filter((x) => x !== s.prompt.id))}
                       >
                         <X size={14} />
@@ -356,7 +356,7 @@ export default function ThreadPage() {
             </span>
           </span>
           <button
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:bg-hover disabled:opacity-50"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-2.5 py-1 text-xs font-medium text-ink transition-[background-color,transform] hover:bg-hover active:scale-[0.97] disabled:opacity-50"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >

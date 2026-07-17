@@ -96,7 +96,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-10">
-      <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+      <h1 className="font-display text-2xl font-light tracking-[-0.015em] text-ink">
         Profile
       </h1>
 
@@ -138,7 +138,7 @@ export default function ProfilePage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <input
-              className="w-full min-w-0 border-b border-transparent bg-transparent pb-0.5 font-display text-2xl font-light tracking-tight text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
+              className="w-full min-w-0 border-b border-transparent bg-transparent pb-0.5 font-display text-2xl font-light tracking-[-0.015em] text-ink outline-none transition-colors placeholder:text-dim focus:border-line-strong"
               value={name}
               maxLength={100}
               placeholder="Your name"
@@ -325,7 +325,7 @@ function DangerZone({ email }: { email: string }) {
             and uploaded images.
           </p>
           <button
-            className="shrink-0 rounded-full border border-danger/40 px-4 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/5"
+            className="shrink-0 rounded-full border border-danger/40 px-4 py-1.5 text-xs font-medium text-danger transition-[background-color,transform] hover:bg-danger/5 active:scale-[0.97]"
             onClick={() => setOpen(true)}
           >
             Delete account
@@ -382,7 +382,7 @@ function DangerZone({ email }: { email: string }) {
               Cancel
             </button>
             <button
-              className="rounded-full bg-danger px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/90 disabled:cursor-default disabled:opacity-50"
+              className="rounded-full bg-danger px-4 py-1.5 text-xs font-medium text-white transition-[background-color,transform] hover:bg-danger/90 active:scale-[0.97] disabled:cursor-default disabled:opacity-50"
               disabled={confirmEmail.trim().toLowerCase() !== email.toLowerCase() || deleting}
               onClick={() => void deleteAccount()}
             >

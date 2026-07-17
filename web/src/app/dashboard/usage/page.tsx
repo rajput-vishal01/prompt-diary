@@ -72,7 +72,7 @@ export default function UsagePage() {
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-1 flex items-baseline justify-between">
-        <h1 className="font-display text-3xl font-light tracking-[-0.01em] text-ink">
+        <h1 className="font-display text-2xl font-light tracking-[-0.015em] text-ink">
           Usage
         </h1>
         {!isLoading && total > 0 && (

@@ -237,7 +237,7 @@ function PromptsPageInner() {
       <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
         <button
           aria-label="Copy prompt"
-          className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
+          className={`icon-btn hover:bg-ink/[0.06] hover:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
           onClick={(e) => copy(p, e)}
         >
           {copiedId === p.id ? <Check size={15} className="text-success" /> : <Copy size={15} />}
@@ -247,7 +247,7 @@ function PromptsPageInner() {
         trigger={
           <button
             aria-label="More actions"
-            className={`flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
+            className={`icon-btn hover:bg-ink/[0.06] hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink ${ghostBg ? "bg-raised/90" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal size={15} />
@@ -289,7 +289,7 @@ function PromptsPageInner() {
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="mb-4 flex items-baseline justify-between">
         {/* the one Waldenburg moment on this page */}
-        <h1 className="font-display text-2xl font-light tracking-tight">
+        <h1 className="font-display text-2xl font-light tracking-[-0.015em]">
           {pinnedTab ? "Pinned" : (activeFolder?.name ?? "My Prompts")}
           {!isLoading && (
             <span className="ml-2.5 font-sans text-sm font-normal tabular-nums text-dim">
@@ -357,7 +357,7 @@ function PromptsPageInner() {
         {activeTag && (
           <div className="mt-2.5">
             <Tip label="Clear tag filter">
-              <button className="chip gap-1.5 hover:bg-hover" onClick={() => router.push("/dashboard")}>
+              <button className="chip gap-1.5 transition-[background-color,transform] hover:bg-hover active:scale-[0.97]" onClick={() => router.push("/dashboard")}>
                 Tag: {activeTag} <span className="text-dim">×</span>
               </button>
             </Tip>

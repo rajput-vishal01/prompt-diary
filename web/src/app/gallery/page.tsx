@@ -380,7 +380,7 @@ export default function GalleryPage() {
                         <Tip label={copiedId === p.id ? "Copied ✓" : "Copy prompt"}>
                           <button
                             aria-label="Copy prompt"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                            className="icon-btn hover:bg-ink/[0.06] hover:text-ink"
                             onClick={() => copy(p)}
                           >
                             <Copy size={14} className={copiedId === p.id ? "text-success" : ""} />
@@ -389,7 +389,7 @@ export default function GalleryPage() {
                         <Tip label={p.bookmarked ? "Remove bookmark" : "Bookmark"}>
                           <button
                             aria-label={p.bookmarked ? "Remove bookmark" : "Bookmark"}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-ink/[0.06] hover:text-ink"
+                            className="icon-btn hover:bg-ink/[0.06] hover:text-ink"
                             onClick={() => void toggleBookmark(p)}
                           >
                             <Bookmark size={14} className={p.bookmarked ? "fill-brass text-brass" : ""} />
