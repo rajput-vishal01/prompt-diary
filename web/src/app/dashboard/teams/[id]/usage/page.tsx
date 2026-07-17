@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { toast } from "@/components/Toast";
 import { Tip } from "@/components/ui/Tooltip";
 
@@ -47,40 +48,36 @@ const dayLabel = (d: string) => d.slice(5).replace("-", "/");
 export default function TeamUsageDashboard() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [rows, setRows] = useState<DailyRow[]>([]);
-  const [members, setMembers] = useState<MemberRow[]>([]);
-  const [prompts, setPrompts] = useState<TeamPrompt[]>([]);
-  const [teamName, setTeamName] = useState("");
-  const [state, setState] = useState<"loading" | "ok" | "gated" | "forbidden">("loading");
+  const { data: teamList } = useApi<Array<{ id: string; name: string }>>("/api/v1/teams");
+  const teamName = teamList ? teamList.find((t) => t.id === id)?.name ?? "Team" : "";
+  const { data: membersData } = useApi<{ members: MemberRow[] }>(`/api/v1/teams/${id}/members`);
+  const members = membersData?.members ?? [];
+  const { data: prompts = [] } = useApi<TeamPrompt[]>(`/api/v1/teams/${id}/prompts`);
+  const {
+    data: rows = [],
+    isLoading: usageLoading,
+    error: usageError,
+  } = useApi<DailyRow[]>(`/api/v1/teams/${id}/usage?granularity=day`);
+  // same four states the old fetch machine produced, derived from the query:
+  // 402 "Pro plan" → gated, "Forbidden" → forbidden, any other error → ok (empty)
+  const state: "loading" | "ok" | "gated" | "forbidden" = usageLoading
+    ? "loading"
+    : usageError?.message.includes("Pro plan")
+      ? "gated"
+      : usageError?.message.includes("Forbidden")
+        ? "forbidden"
+        : "ok";
+  useEffect(() => {
+    if (
+      usageError &&
+      !usageError.message.includes("Pro plan") &&
+      !usageError.message.includes("Forbidden")
+    )
+      toast("Could not load usage", { kind: "error" });
+  }, [usageError]);
   const [range, setRange] = useState<Range>(14);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [hiddenSites, setHiddenSites] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    void api<Array<{ id: string; name: string }>>("/api/v1/teams")
-      .then((ts) => setTeamName(ts.find((t) => t.id === id)?.name ?? "Team"))
-      .catch(() => {});
-    void api<{ members: MemberRow[] }>(`/api/v1/teams/${id}/members`)
-      .then((d) => setMembers(d.members))
-      .catch(() => {});
-    void api<TeamPrompt[]>(`/api/v1/teams/${id}/prompts`)
-      .then(setPrompts)
-      .catch(() => {});
-    void api<DailyRow[]>(`/api/v1/teams/${id}/usage?granularity=day`)
-      .then((d) => {
-        setRows(d);
-        setState("ok");
-      })
-      .catch((e: unknown) => {
-        const msg = e instanceof Error ? e.message : "";
-        if (msg.includes("Pro plan")) setState("gated");
-        else if (msg.includes("Forbidden")) setState("forbidden");
-        else {
-          toast("Could not load usage", { kind: "error" });
-          setState("ok");
-        }
-      });
-  }, [id]);
 
   // ---------- derived, all client-side so the toggles are instant ----------
 

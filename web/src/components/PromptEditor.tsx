@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ImagePlus, Link2, Star } from "lucide-react";
 import type { Folder, Prompt, Visibility } from "shared";
 import { api } from "@/lib/client-api";
@@ -20,6 +21,7 @@ type Props = { id: string | null; defaultFolderId?: string | null };
 
 export function PromptEditor({ id, defaultFolderId = null }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(id === null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -43,10 +45,20 @@ export function PromptEditor({ id, defaultFolderId = null }: Props) {
   const savingRef = useRef(false);
 
   useEffect(() => {
-    void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
-    void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
+    // cache-first one-shot reads: instant when the layout hydration or a row
+    // hover already primed the cache, a plain fetch otherwise. Deliberately
+    // NOT reactive useApi — a background refetch must never overwrite the
+    // user's in-progress edits.
+    const oneShot = <T,>(path: string) =>
+      queryClient.fetchQuery<T>({
+        queryKey: [path],
+        queryFn: () => api<T>(path),
+        staleTime: 30_000,
+      });
+    void oneShot<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
+    void oneShot<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
     if (!id) return;
-    void api<Prompt>(`/api/v1/prompts/${id}`)
+    void oneShot<Prompt>(`/api/v1/prompts/${id}`)
       .then((p) => {
         setPrompt(p);
         setTitle(p.title);

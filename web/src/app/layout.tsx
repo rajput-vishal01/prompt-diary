@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import { DialogHost } from "@/components/Dialog";
 import { TipProvider } from "@/components/ui/Tooltip";
+import { QueryProvider } from "@/lib/query";
 
 // Instrument Sans: the UI/body face — humanist grotesque, deliberately NOT
 // Inter (the ubiquitous default is the fastest way to read as template).
@@ -65,11 +66,13 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${mono.variable} ${display.variable} font-sans`}
       >
-        <TipProvider>
-          {children}
-          <Toaster />
-          <DialogHost />
-        </TipProvider>
+        <QueryProvider>
+          <TipProvider>
+            {children}
+            <Toaster />
+            <DialogHost />
+          </TipProvider>
+        </QueryProvider>
       </body>
     </html>
   );

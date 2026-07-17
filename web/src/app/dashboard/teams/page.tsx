@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Copy } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { useSession } from "@/lib/auth-client";
 import { dialog } from "@/components/Dialog";
 import { toast } from "@/components/Toast";
@@ -74,35 +75,24 @@ export default function TeamsPage() {
 function TeamsPageInner() {
   const searchParams = useSearchParams();
   const teamParam = searchParams.get("t"); // sidebar deep-link
-  const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [invites, setInvites] = useState<InviteRow[]>([]);
-  const [selected, setSelected] = useState<TeamRow | null>(null);
-
-  const reload = () => {
-    void api<TeamRow[]>("/api/v1/teams").then((rows) => {
-      setTeams(rows);
-      setSelected((cur) => rows.find((r) => r.id === cur?.id) ?? null);
-    });
-    void api<InviteRow[]>("/api/v1/invites").then(setInvites);
-  };
-
-  useEffect(reload, []);
+  const { data: teams = [] } = useApi<TeamRow[]>("/api/v1/teams");
+  const { data: invites = [] } = useApi<InviteRow[]>("/api/v1/invites");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // ?t=<id> from the sidebar opens that team directly
   useEffect(() => {
-    if (!teamParam) {
-      setSelected(null);
-      return;
-    }
-    setSelected(teams.find((t) => t.id === teamParam) ?? null);
-  }, [teamParam, teams]);
+    setSelectedId(teamParam);
+  }, [teamParam]);
+
+  // derived from the query cache so refetched rows keep the open team fresh,
+  // and a deleted team drops back to the list
+  const selected = selectedId ? teams.find((t) => t.id === selectedId) ?? null : null;
 
   const createTeam = async () => {
     const name = await dialog.prompt({ title: "New team", placeholder: "Team name", submitLabel: "Create" });
     if (!name?.trim()) return;
     try {
       await api("/api/v1/teams", { method: "POST", body: { name: name.trim() } });
-      reload();
       emitSidebar();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not create team", { kind: "error" });
@@ -112,7 +102,6 @@ function TeamsPageInner() {
   const answerInvite = async (id: string, action: "accept" | "decline") => {
     try {
       await api(`/api/v1/invites/${id}`, { method: "POST", body: { action } });
-      reload();
       emitSidebar();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not update invite", { kind: "error" });
@@ -120,9 +109,7 @@ function TeamsPageInner() {
   };
 
   if (selected) {
-    return (
-      <TeamDetail team={selected} onBack={() => setSelected(null)} onChanged={reload} />
-    );
+    return <TeamDetail team={selected} onBack={() => setSelectedId(null)} />;
   }
 
   return (
@@ -180,7 +167,7 @@ function TeamsPageInner() {
             <button
               key={t.id}
               className="ledger-row group flex h-16 w-full cursor-pointer items-center gap-4 px-4 text-left transition-colors duration-[120ms] ease-out hover:bg-soft"
-              onClick={() => setSelected(t)}
+              onClick={() => setSelectedId(t.id)}
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint font-display text-base font-light text-ink">
                 {t.name.charAt(0).toUpperCase()}
@@ -205,42 +192,21 @@ function TeamsPageInner() {
   );
 }
 
-function TeamDetail({
-  team,
-  onBack,
-  onChanged,
-}: {
-  team: TeamRow;
-  onBack: () => void;
-  onChanged: () => void;
-}) {
+function TeamDetail({ team, onBack }: { team: TeamRow; onBack: () => void }) {
   const { data: session } = useSession();
-  const [members, setMembers] = useState<MembersData | null>(null);
-  const [prompts, setPrompts] = useState<TeamPrompt[]>([]);
-  const [usage, setUsage] = useState<TeamUsageRow[]>([]);
+  const isOwner = team.role === "owner";
+  const { data: members = null } = useApi<MembersData>(`/api/v1/teams/${team.id}/members`);
+  const { data: prompts = [] } = useApi<TeamPrompt[]>(`/api/v1/teams/${team.id}/prompts`);
+  const { data: usage = [], error: usageError } = useApi<TeamUsageRow[]>(
+    `/api/v1/teams/${team.id}/usage`,
+    { enabled: isOwner },
+  );
+  // 402 = analytics is behind the Pro plan on this deployment
+  const usageGated = usageError instanceof Error && usageError.message.includes("Pro plan");
   const [inviteEmail, setInviteEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
-  const [usageGated, setUsageGated] = useState(false);
-  const isOwner = team.role === "owner";
-
-  const reloadDetail = () => {
-    void api<MembersData>(`/api/v1/teams/${team.id}/members`).then(setMembers);
-    void api<TeamPrompt[]>(`/api/v1/teams/${team.id}/prompts`).then(setPrompts);
-    if (team.role === "owner")
-      void api<TeamUsageRow[]>(`/api/v1/teams/${team.id}/usage`)
-        .then((rows) => {
-          setUsage(rows);
-          setUsageGated(false);
-        })
-        .catch((e: unknown) => {
-          // 402 = analytics is behind the Pro plan on this deployment
-          if (e instanceof Error && e.message.includes("Pro plan")) setUsageGated(true);
-        });
-  };
-
-  useEffect(reloadDetail, [team.id]);
 
   const invite = async () => {
     if (!inviteEmail.trim()) return;
@@ -252,7 +218,6 @@ function TeamDetail({
       });
       setMessage("Invite sent — they'll see it on their Teams page.");
       setInviteEmail("");
-      reloadDetail();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Invite failed");
     }
@@ -271,11 +236,8 @@ function TeamDetail({
     setConfirmingRemove(null);
     if (userId === session?.user.id) {
       emitSidebar(); // I left the team — the sidebar's Teams tree must drop it
-      onChanged();
       onBack();
-      return;
     }
-    reloadDetail();
   };
 
   const deleteTeam = async () => {
@@ -288,7 +250,6 @@ function TeamDetail({
       return;
     }
     emitSidebar();
-    onChanged();
     onBack();
   };
 

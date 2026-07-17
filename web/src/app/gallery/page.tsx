@@ -4,10 +4,12 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Copy } from "lucide-react";
 import type { Facet } from "shared";
 import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { useSession } from "@/lib/auth-client";
 import { PageVeil } from "@/components/PageVeil";
 import { Sidebar } from "@/components/Sidebar";
@@ -39,50 +41,52 @@ type Sort = "copied" | "new";
 export default function GalleryPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [prompts, setPrompts] = useState<GalleryPrompt[]>([]);
-  const [recipes, setRecipes] = useState<GalleryRecipe[]>([]);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [sort, setSort] = useState<Sort>("copied");
   const [facetSel, setFacetSel] = useState<Facet[]>([]);
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [ownedSourceIds, setOwnedSourceIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (query) params.set("q", query);
-      if (showRecipes) {
-        params.set("type", "threads");
-        void api<GalleryRecipe[]>(`/api/v1/gallery?${params}`)
-          .then(setRecipes)
-          .finally(() => setLoading(false));
-      } else {
-        params.set("sort", sort);
-        if (bookmarkedOnly) params.set("bookmarked", "1");
-        void api<GalleryPrompt[]>(`/api/v1/gallery?${params}`)
-          .then(setPrompts)
-          .finally(() => setLoading(false));
-      }
-    }, 250);
+    const t = setTimeout(() => setDebouncedQuery(query), 250);
     return () => clearTimeout(t);
-  }, [query, sort, bookmarkedOnly, showRecipes]);
+  }, [query]);
+
+  // the filter state IS the cache key: previously-seen filter combos render
+  // instantly from cache, new combos show the skeletons once
+  const galleryPath = useMemo(() => {
+    const params = new URLSearchParams();
+    if (debouncedQuery) params.set("q", debouncedQuery);
+    if (showRecipes) params.set("type", "threads");
+    else {
+      params.set("sort", sort);
+      if (bookmarkedOnly) params.set("bookmarked", "1");
+    }
+    return `/api/v1/gallery?${params}`;
+  }, [debouncedQuery, showRecipes, sort, bookmarkedOnly]);
+
+  const { data: galleryData, isLoading: loading } = useApi<
+    GalleryPrompt[] | GalleryRecipe[]
+  >(galleryPath);
+  const prompts = (showRecipes ? [] : (galleryData as GalleryPrompt[] | undefined)) ?? [];
+  const recipes = (showRecipes ? (galleryData as GalleryRecipe[] | undefined) : undefined) ?? [];
 
   // which gallery prompts are already in my diary (by sourceId)
-  useEffect(() => {
-    if (!session) return;
-    void api<{ sourceId: string | null }[]>("/api/v1/prompts")
-      .then((mine) =>
-        setOwnedSourceIds(
-          new Set(mine.map((p) => p.sourceId).filter((s): s is string => !!s)),
-        ),
-      )
-      .catch(() => {});
-  }, [session]);
+  const { data: minePrompts } = useApi<{ sourceId: string | null }[]>(
+    "/api/v1/prompts",
+    { enabled: !!session },
+  );
+  const ownedSourceIds = useMemo(
+    () =>
+      new Set(
+        (minePrompts ?? []).map((p) => p.sourceId).filter((s): s is string => !!s),
+      ),
+    [minePrompts],
+  );
 
   // computed style facets — heuristics over the text, never stored
   const facetsById = useMemo(
@@ -111,9 +115,11 @@ export default function GalleryPage() {
       return;
     }
     // optimistic — the icon must not lag the click
-    setPrompts((prev) =>
-      prev.map((x) => (x.id === p.id ? { ...x, bookmarked: !p.bookmarked } : x)),
-    );
+    const flip = (bookmarked: boolean) =>
+      queryClient.setQueryData<GalleryPrompt[]>([galleryPath], (prev) =>
+        prev?.map((x) => (x.id === p.id ? { ...x, bookmarked } : x)),
+      );
+    flip(!p.bookmarked);
     try {
       if (p.bookmarked) {
         await api(`/api/v1/gallery/bookmarks?promptId=${p.id}`, { method: "DELETE" });
@@ -121,9 +127,7 @@ export default function GalleryPage() {
         await api("/api/v1/gallery/bookmarks", { method: "POST", body: { promptId: p.id } });
       }
     } catch {
-      setPrompts((prev) =>
-        prev.map((x) => (x.id === p.id ? { ...x, bookmarked: p.bookmarked } : x)),
-      );
+      flip(p.bookmarked);
       toast("Bookmark failed", { kind: "error" });
     }
   };
@@ -150,7 +154,9 @@ export default function GalleryPage() {
         return;
       }
     }
-    setOwnedSourceIds((prev) => new Set(prev).add(p.id));
+    // ownedSourceIds derives from /api/v1/prompts — refresh covers both the
+    // fresh-add and the already-owned (409) paths
+    void queryClient.invalidateQueries();
   };
 
   return (

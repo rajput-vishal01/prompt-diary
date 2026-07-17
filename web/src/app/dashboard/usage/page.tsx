@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/lib/client-api";
+import { useMemo } from "react";
+import { useApi } from "@/lib/query";
 
 interface UsageRow {
   day: string;
@@ -19,15 +19,7 @@ const formatTokens = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
 
 export default function UsagePage() {
-  const [rows, setRows] = useState<UsageRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    void api<UsageRow[]>(`/api/v1/usage?days=${DAYS_SHOWN}`)
-      .then(setRows)
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { data: rows = [], isLoading } = useApi<UsageRow[]>(`/api/v1/usage?days=${DAYS_SHOWN}`);
 
   const { days, sites, maxDay, total } = useMemo(() => {
     const siteSet = [...new Set(rows.map((r) => r.site))].sort();

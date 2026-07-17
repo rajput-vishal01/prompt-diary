@@ -1,9 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { relativeTime } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { Menu, MenuItem } from "@/components/ui/Menu";
@@ -43,23 +45,8 @@ function ProjectsPageInner() {
   const selected = searchParams.get("p"); // project filter lives in the URL
   const setSelected = (id: string | null) =>
     router.push(id ? `/dashboard/projects?p=${id}` : "/dashboard/projects");
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [threads, setThreads] = useState<ThreadRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const reload = useCallback(() => {
-    void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
-    void api<ThreadRow[]>("/api/v1/threads")
-      .then(setThreads)
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    reload();
-    window.addEventListener(FOLDERS_CHANGED_EVENT, reload);
-    return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, reload);
-  }, [reload]);
+  const { data: projects = [] } = useApi<ProjectRow[]>("/api/v1/projects");
+  const { data: threads = [], isLoading } = useApi<ThreadRow[]>("/api/v1/threads");
 
   const fail = (e: unknown, fallback: string) =>
     toast(e instanceof Error ? e.message : fallback, { kind: "error" });
@@ -69,7 +56,6 @@ function ProjectsPageInner() {
     if (!name?.trim()) return;
     try {
       await api("/api/v1/projects", { method: "POST", body: { name: name.trim() } });
-      reload();
       emitChanged();
     } catch (e) {
       fail(e, "Could not create project");
@@ -81,7 +67,6 @@ function ProjectsPageInner() {
     if (!name?.trim() || name.trim() === p.name) return;
     try {
       await api(`/api/v1/projects/${p.id}`, { method: "PATCH", body: { name: name.trim() } });
-      reload();
       emitChanged();
     } catch (e) {
       fail(e, "Rename failed");
@@ -93,7 +78,6 @@ function ProjectsPageInner() {
     try {
       await api(`/api/v1/projects/${p.id}`, { method: "DELETE" });
       if (selected === p.id) setSelected(null);
-      reload();
       emitChanged();
     } catch (e) {
       fail(e, "Could not delete project");
@@ -106,7 +90,6 @@ function ProjectsPageInner() {
     try {
       await api(`/api/v1/threads/${t.id}`, { method: "DELETE" });
       toast("Thread deleted");
-      reload();
       emitChanged();
     } catch (e) {
       fail(e, "Could not delete thread");
@@ -118,7 +101,6 @@ function ProjectsPageInner() {
     if (!title?.trim() || title.trim() === t.title) return;
     try {
       await api(`/api/v1/threads/${t.id}`, { method: "PATCH", body: { title: title.trim() } });
-      reload();
       emitChanged();
     } catch (e) {
       fail(e, "Rename failed");
@@ -134,6 +116,17 @@ function ProjectsPageInner() {
     });
     toast("Thread created — add steps from your prompts");
     router.push(`/dashboard/t/${t.id}`);
+  };
+
+  // hover = intent: warm the thread route + payload before the click
+  const queryClient = useQueryClient();
+  const prefetchThread = (id: string) => {
+    router.prefetch(`/dashboard/t/${id}`);
+    void queryClient.prefetchQuery({
+      queryKey: [`/api/v1/threads/${id}`],
+      queryFn: () => api(`/api/v1/threads/${id}`),
+      staleTime: 30_000,
+    });
   };
 
   // looping is the thread-level style facet: computed, never stored —
@@ -255,6 +248,7 @@ function ProjectsPageInner() {
                 key={t.id}
                 className="group flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
                 onClick={() => router.push(`/dashboard/t/${t.id}`)}
+                onMouseEnter={() => prefetchThread(t.id)}
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">

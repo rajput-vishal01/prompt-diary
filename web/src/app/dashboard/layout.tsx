@@ -1,43 +1,36 @@
-"use client";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { auth } from "@/lib/auth";
+import { prefetchApi } from "@/lib/server-prefetch";
+import { DashboardShell } from "@/components/DashboardShell";
 
-import { Suspense, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth-client";
-import { Sidebar } from "@/components/Sidebar";
-import { CommandPalette } from "@/components/CommandPalette";
-import { BrandLoading } from "@/components/StatusScreen";
-
-export default function DashboardLayout({
+// Server-side session gate: the check runs during SSR (cookieCache makes it
+// ~free), so a dead session redirects before any HTML ships and a live one
+// renders content on first paint — the old client-side gate blocked EVERY
+// hard load behind a BrandLoading screen while useSession round-tripped.
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, isPending } = useSession();
-  const router = useRouter();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/login");
 
-  useEffect(() => {
-    if (!isPending && !session) router.replace("/login");
-  }, [isPending, session, router]);
-
-  // this session check gates EVERY hard load of the dashboard — it must show
-  // the designed loading surface, not bare text (which used to sit on screen
-  // masking loading.tsx for the whole check)
-  if (isPending || !session) return <BrandLoading />;
+  // warm the shared queries during SSR: the sidebar AND the list pages
+  // (My Prompts, Projects, Teams) all read from these five, so a hard load
+  // paints the whole dashboard with data — zero skeletons
+  const state = await prefetchApi([
+    "/api/v1/prompts",
+    "/api/v1/folders",
+    "/api/v1/projects",
+    "/api/v1/threads",
+    "/api/v1/teams",
+  ]);
 
   return (
-    // h-screen + overflow-hidden: the app chrome never scrolls; pages scroll
-    // their own content (the prompt list scrolls, not the whole dashboard)
-    <div className="flex h-screen overflow-hidden">
-      <Suspense>
-        <Sidebar />
-      </Suspense>
-      {/* content sits in a comfortable centered column, not edge-to-edge */}
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto h-full max-w-[1040px] px-6 py-6 text-[15px] md:px-12 md:py-8">
-          {children}
-        </div>
-      </main>
-      <CommandPalette />
-    </div>
+    <HydrationBoundary state={state}>
+      <DashboardShell>{children}</DashboardShell>
+    </HydrationBoundary>
   );
 }

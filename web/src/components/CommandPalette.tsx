@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Folder, Prompt } from "shared";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { GlassSurface } from "@/components/bits";
 import { toast } from "@/components/Toast";
@@ -27,8 +28,8 @@ export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const { data: prompts = [] } = useApi<Prompt[]>("/api/v1/prompts", { enabled: open });
+  const { data: folders = [] } = useApi<Folder[]>("/api/v1/folders", { enabled: open });
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,8 +50,6 @@ export function CommandPalette() {
     setQuery("");
     setSel(0);
     setTimeout(() => inputRef.current?.focus(), 10);
-    void api<Prompt[]>("/api/v1/prompts").then(setPrompts).catch(() => {});
-    void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
   }, [open]);
 
   const items = useMemo<Item[]>(() => {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Folder as FolderIcon, FolderKanban, Star, Users } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import { FACETS, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { signOut, useSession } from "@/lib/auth-client";
 import { toast } from "@/components/Toast";
 import { Tip } from "@/components/ui/Tooltip";
@@ -48,11 +50,12 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [threads, setThreads] = useState<ThreadRow[]>([]);
-  const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const enabled = !!session;
+  const { data: folders = [] } = useApi<Folder[]>("/api/v1/folders", { enabled });
+  const { data: projects = [] } = useApi<ProjectRow[]>("/api/v1/projects", { enabled });
+  const { data: threads = [] } = useApi<ThreadRow[]>("/api/v1/threads", { enabled });
+  const { data: teams = [] } = useApi<TeamRow[]>("/api/v1/teams", { enabled });
+  const { data: prompts = [] } = useApi<Prompt[]>("/api/v1/prompts", { enabled });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [width, setWidth] = useState(WIDTH_DEFAULT);
   const resizing = useRef(false);
@@ -62,23 +65,14 @@ export function Sidebar() {
     if (saved >= WIDTH_MIN && saved <= WIDTH_MAX) setWidth(saved);
   }, []);
 
-  const reload = useCallback(() => {
-    void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
-    void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
-    void api<ThreadRow[]>("/api/v1/threads").then(setThreads).catch(() => {});
-    void api<TeamRow[]>("/api/v1/teams").then(setTeams).catch(() => {});
-    void api<Prompt[]>("/api/v1/prompts").then(setPrompts).catch(() => {});
-  }, []);
-
+  // legacy cross-component refresh event — mutations through api() already
+  // invalidate every query, this catches emitters outside that path
+  const queryClient = useQueryClient();
   useEffect(() => {
-    if (session) reload();
-  }, [session, reload]);
-
-  useEffect(() => {
-    const onChanged = () => reload();
+    const onChanged = () => void queryClient.invalidateQueries();
     window.addEventListener(FOLDERS_CHANGED_EVENT, onChanged);
     return () => window.removeEventListener(FOLDERS_CHANGED_EVENT, onChanged);
-  }, [reload]);
+  }, [queryClient]);
 
   // right-edge drag resize
   const startResize = (e: React.PointerEvent) => {
@@ -298,22 +292,19 @@ export function Sidebar() {
   };
 
   const persistOrder = (kind: "folders" | "projects") => (ids: string[]) => {
-    // optimistic local order, then persist each row's index; on any failure
-    // re-fetch the authoritative order rather than leaving a silent divergence
-    const prevFolders = folders;
-    const prevProjects = projects;
-    if (kind === "folders") {
-      const byId = new Map(folders.map((f) => [f.id, f]));
-      setFolders(ids.map((i) => byId.get(i)!).filter(Boolean));
-    } else {
-      const byId = new Map(projects.map((p) => [p.id, p]));
-      setProjects(ids.map((i) => byId.get(i)!).filter(Boolean));
-    }
+    // optimistic order in the query cache; the PATCHes' auto-invalidation
+    // then refetches the authoritative order, and failure rolls back
+    const key = [`/api/v1/${kind}`];
+    const prev = queryClient.getQueryData(key);
+    queryClient.setQueryData(key, (rows: { id: string }[] | undefined) => {
+      if (!rows) return rows;
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      return ids.map((i) => byId.get(i)!).filter(Boolean);
+    });
     void Promise.all(
       ids.map((id, i) => api(`/api/v1/${kind}/${id}`, { method: "PATCH", body: { sortOrder: i } })),
     ).catch(() => {
-      if (kind === "folders") setFolders(prevFolders);
-      else setProjects(prevProjects);
+      queryClient.setQueryData(key, prev);
       toast("Could not save the new order", { kind: "error" });
     });
   };

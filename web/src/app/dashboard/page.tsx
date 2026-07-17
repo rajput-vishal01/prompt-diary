@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { Check, Copy, Globe, Lock, MoreHorizontal, Users } from "lucide-react";
 import type { Folder, Prompt } from "shared";
 import { FACETS, VISIBILITIES, promptFacets } from "shared";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { SOURCE_DOTS, relativeTime, sourceOf } from "@/lib/sources";
 import { toast } from "@/components/Toast";
 import { Select } from "@/components/ui/Select";
@@ -45,9 +47,9 @@ function PromptsPageInner() {
   const pinnedTab = searchParams.get("tab") === "pinned";
   const activeTag = searchParams.get("tag"); // set from the sidebar Tags section
 
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const queryClient = useQueryClient();
+  const { data: prompts = [], isLoading } = useApi<Prompt[]>("/api/v1/prompts");
+  const { data: folders = [] } = useApi<Folder[]>("/api/v1/folders");
   const [query, setQuery] = useState("");
   const [visFilter, setVisFilter] = useState("");
   const [view, setView] = useState<"list" | "cards">("list");
@@ -55,18 +57,8 @@ function PromptsPageInner() {
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const reload = useCallback(() => {
-    void api<Prompt[]>("/api/v1/prompts")
-      .then(setPrompts)
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-    void api<Folder[]>("/api/v1/folders").then(setFolders).catch(() => {});
-  }, []);
-
   useEffect(() => {
     if (localStorage.getItem("pd-view") === "cards") setView("cards");
-    reload();
-    window.addEventListener(FOLDERS_CHANGED_EVENT, reload);
     // "/" focuses search from anywhere on the page
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "/" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
@@ -75,11 +67,8 @@ function PromptsPageInner() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener(FOLDERS_CHANGED_EVENT, reload);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [reload]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useGSAP(
     () => {
@@ -133,8 +122,8 @@ function PromptsPageInner() {
     void navigator.clipboard.writeText(p.body);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 1200);
-    setPrompts((prev) =>
-      prev.map((x) => (x.id === p.id ? { ...x, useCount: x.useCount + 1 } : x)),
+    queryClient.setQueryData<Prompt[]>(["/api/v1/prompts"], (prev) =>
+      prev?.map((x) => (x.id === p.id ? { ...x, useCount: x.useCount + 1 } : x)),
     );
     void api(`/api/v1/prompts/${p.id}`, {
       method: "PATCH",
@@ -154,30 +143,37 @@ function PromptsPageInner() {
       },
     });
     toast("Duplicated");
-    reload();
-    emitChanged();
   };
 
   const moveToFolder = async (p: Prompt, folderId: string | null) => {
     await api(`/api/v1/prompts/${p.id}`, { method: "PATCH", body: { folderId } });
     toast(folderId ? "Moved" : "Removed from folder");
-    reload();
   };
 
   const remove = async (p: Prompt) => {
+    // optimistic: the row vanishes now; DELETE's auto-invalidation confirms
+    queryClient.setQueryData<Prompt[]>(["/api/v1/prompts"], (prev) =>
+      prev?.filter((x) => x.id !== p.id),
+    );
     await api(`/api/v1/prompts/${p.id}`, { method: "DELETE" });
-    reload();
-    emitChanged();
     toast(`Deleted "${p.title.slice(0, 40)}"`, {
       action: {
         label: "Undo",
         onClick: () => {
-          void api(`/api/v1/prompts/${p.id}/restore`, { method: "POST" }).then(() => {
-            reload();
-            emitChanged();
-          });
+          void api(`/api/v1/prompts/${p.id}/restore`, { method: "POST" });
         },
       },
+    });
+  };
+
+  // hover = intent: warm the route chunk and the prompt payload so the
+  // editor opens with everything already in the cache
+  const prefetchPrompt = (id: string) => {
+    router.prefetch(`/dashboard/p/${id}`);
+    void queryClient.prefetchQuery({
+      queryKey: [`/api/v1/prompts/${id}`],
+      queryFn: () => api<Prompt>(`/api/v1/prompts/${id}`),
+      staleTime: 30_000,
     });
   };
 
@@ -210,7 +206,7 @@ function PromptsPageInner() {
     const key = cluster[0].sourceConvo;
     const prev = JSON.parse(localStorage.getItem("pd-dismissed-convos") ?? "[]") as string[];
     localStorage.setItem("pd-dismissed-convos", JSON.stringify([...prev, key]));
-    void reload();
+    void queryClient.invalidateQueries();
   };
 
   const chainCluster = async () => {
@@ -420,6 +416,7 @@ function PromptsPageInner() {
               key={p.id}
               className="ledger-row group relative flex h-16 w-full cursor-pointer items-center gap-4 px-4 transition-colors duration-[120ms] ease-out hover:bg-soft"
               onClick={() => router.push(`/dashboard/p/${p.id}`)}
+              onMouseEnter={() => prefetchPrompt(p.id)}
             >
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
@@ -465,6 +462,7 @@ function PromptsPageInner() {
                 key={p.id}
                 className="ledger-row group relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-line bg-raised p-6 transition-[box-shadow,border-color] duration-150 ease-out hover:border-line-strong hover:shadow-soft"
                 onClick={() => router.push(`/dashboard/p/${p.id}`)}
+              onMouseEnter={() => prefetchPrompt(p.id)}
               >
                 <span className="flex items-center gap-1.5 pr-8">
                   {p.pinned && <span className="text-xs text-brass">★</span>}

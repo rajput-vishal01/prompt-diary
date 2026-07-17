@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, ImagePlus, Link2, X } from "lucide-react";
 import type { Prompt } from "shared";
 import { api } from "@/lib/client-api";
+import { useApi } from "@/lib/query";
 import { SOURCE_DOTS, sourceOf as siteOf } from "@/lib/sources";
 import { uploadImage } from "@/lib/upload";
 import { toast } from "@/components/Toast";
@@ -36,9 +37,12 @@ interface ProjectRow {
 export default function ThreadPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  // thread stays useState + reload: it's a locally-edited draft (title,
+  // selects, final output mutate it via setThread before each save), and a
+  // useApi background refetch would clobber in-progress edits
   const [thread, setThread] = useState<ThreadDetail | null>(null);
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [allPrompts, setAllPrompts] = useState<Prompt[]>([]);
+  const { data: projects = [] } = useApi<ProjectRow[]>("/api/v1/projects");
+  const { data: allPrompts = [] } = useApi<Prompt[]>("/api/v1/prompts");
   const [addQuery, setAddQuery] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [uploading, setUploading] = useState(false);
@@ -56,8 +60,6 @@ export default function ThreadPage() {
 
   useEffect(() => {
     reload();
-    void api<ProjectRow[]>("/api/v1/projects").then(setProjects).catch(() => {});
-    void api<Prompt[]>("/api/v1/prompts").then(setAllPrompts).catch(() => {});
   }, [reload]);
 
   const patch = async (body: Record<string, unknown>) => {
